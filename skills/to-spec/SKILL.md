@@ -18,7 +18,7 @@ Check with the user that these seams match their expectations.
 
 3. Write the spec using the template below. Confirm the finished spec with the user — this is the chain's first human gate — then publish it to the project issue tracker.
 
-4. The chain then continues without further user calls: invoke the `to-tickets` skill to decompose the spec into work tickets, which in turn invokes `implement-spec` to emit the pstack execution plan. The next human gate is the plan confirmation, whose approval starts execution. When the user wanted only the spec (no further chain), stop after publishing and say so.
+4. The chain then continues without further user calls: the multi-phase-plan playbook (`skills/poteto-mode/playbooks/multi-phase-plan.md`) decomposes the spec into units and emits the pstack execution plan. The next human gate is the plan confirmation, whose approval starts execution. When the user wanted only the spec (no further chain), stop after publishing and say so.
 
 <spec-template>
 

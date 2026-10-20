@@ -2,6 +2,8 @@
 
 **You own the exit condition. Define done, then drive to it without stopping.**
 
+**gfunc-skills (this machine).** The wake mechanism is the harness's scheduled-prompt mechanism: CronCreate in Kimi Code, `/loop` in Cursor and Claude Code, a timed shell wait elsewhere.
+
 1. State the exit condition as a checkable predicate before the first iteration (tests green, repro fixed, all N PRs merged, pixel-diff zero).
 2. Pick the wake mechanism using your harness's `/loop` command (built into Cursor and Claude Code, not a pstack skill. Without one, see **Harness** in SKILL.md). An event to watch (CI, a merge, a ref advancing) gets a watcher subagent that wakes you on the event, with a long time-based heartbeat as fallback. No event gets a fixed-interval heartbeat sized to when the result is worth re-checking. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section.
 3. Each iteration makes the smallest change the evidence justifies, verifies it against the predicate, commits if it advanced, discards changes that didn't help. Belt-and-suspenders that "might help" gets reverted, not left to ride.

@@ -33,6 +33,8 @@ When a worker must start from a non-default pushed branch, pass `cloud_base_bran
 
 **Other harnesses.** These parameters belong to Cursor's `Task` tool, and `environment: "cloud"` runs a Cursor cloud agent. In another harness, use its subagent tool: `Agent` in Claude Code (`subagent_type: general-purpose`), `task` in OpenCode (`subagent_type: general`), `spawn_agent` in Codex. Workers run locally there, so give each one its own worktree or output path. Keep the brief and the model. Drop parameters your tool doesn't have. If your harness has no subagent tool, as in Pi without an extension, run the workers yourself, one after another.
 
+**gfunc-skills (this machine).** Workers are local subagents (`Agent` in Kimi Code, `run_in_background: true`), each in its own worktree; drop `environment` and `subagent_type`. The worker model comes from the `swarm workers` line in `~/.agents/pstack-models.md`, installed from this stack's default at `skills/poteto-mode/references/pstack-models.md` (`magpie/bi-dev/group/auto-glm-5-3-flash` when the file is absent).
+
 Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence. A worker that can prove a defect reports `ISSUES` and lists every issue it can prove, not only the first.
 
 If a worker drops out, proceed with N-1 and note it.
