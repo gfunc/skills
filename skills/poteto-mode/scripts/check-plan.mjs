@@ -5,6 +5,8 @@ import process from "node:process";
 const RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
 const LANES = /Ten lanes on `[^`<>]+` at the PR head/;
+const SURFACES = ["ui", "cli", "library", "backend"];
+const LANE_ARTIFACT = { ui: { re: /Save `[^`]+`/, name: "screenshot" }, cli: { re: /Log `[^`]+`/, name: "log" } };
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -77,7 +79,8 @@ for (let i = start; i < raw.length; i++) {
 		.replace(/\]\([^)]*\)/g, "]");
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
-	if (/: \S/.test(prose)) fail(n, "mid-sentence colon");
+	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text);
+	if (/: \S/.test(prose) && !isSurfaceLine) fail(n, "mid-sentence colon");
 }
 
 const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
@@ -142,6 +145,14 @@ for (const pr of prSections) {
 	const counts = {};
 	for (const h of heads) counts[h.name] = boxes(h.lines).length;
 
+	let surface = "ui";
+	const surfaceLine = pr.body.find((l) => !l.code && /^Surface:/.test(l.text.trim()));
+	if (surfaceLine) {
+		const value = surfaceLine.text.trim().replace(/^Surface:\s*/, "");
+		if (!SURFACES.includes(value)) fail(surfaceLine.n, `${pr.title}: unknown Surface "${value}" (expected ${SURFACES.join("|")})`);
+		else surface = value;
+	}
+
 	const depends = block("Depends on.");
 	if (depends && depends.rest === "") fail(depends.n, `${pr.title}: Depends on names nothing`);
 	for (const name of ["Files.", "Build.", "You see.", "Verify, unit.", "Merge."]) {
@@ -155,14 +166,19 @@ for (const pr of prSections) {
 
 	const live = block("Verify, live.");
 	if (live) {
-		if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Ten lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
-		const lanes = boxes(live.lines).map((b) => ({ ...b, m: b.text.match(/^Lane (\d+)\. /) }));
-		const numbers = lanes.filter((b) => b.m).map((b) => Number(b.m[1])).sort((a, b) => a - b);
-		if (numbers.join(",") !== "1,2,3,4,5,6,7,8,9,10") fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected 1 to 10`);
-		for (const lane of lanes) {
-			if (!lane.m) fail(lane.n, `${pr.title}: live box is not a lane`);
-			else if (!/Save `[^`]+`/.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no screenshot`);
-			else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
+		const artifact = LANE_ARTIFACT[surface];
+		if (artifact) {
+			if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Ten lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
+			const lanes = boxes(live.lines).map((b) => ({ ...b, m: b.text.match(/^Lane (\d+)\. /) }));
+			const numbers = lanes.filter((b) => b.m).map((b) => Number(b.m[1])).sort((a, b) => a - b);
+			if (numbers.join(",") !== "1,2,3,4,5,6,7,8,9,10") fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected 1 to 10`);
+			for (const lane of lanes) {
+				if (!lane.m) fail(lane.n, `${pr.title}: live box is not a lane`);
+				else if (!artifact.re.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no ${artifact.name}`);
+				else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
+			}
+		} else if (boxes(live.lines).length === 0) {
+			fail(live.n, `${pr.title}: Verify, live has no box`);
 		}
 	}
 
@@ -174,6 +190,9 @@ for (const pr of prSections) {
 
 	const gate = block("Review gate.");
 	if (gate) {
+		if (!LANE_ARTIFACT[surface] && !gate.rest.startsWith("None.")) {
+			fail(gate.n, `${pr.title}: Review gate must be "None. <PR id> is not review-gated." for ${surface} surfaces`);
+		}
 		const gateBoxes = boxes(gate.lines);
 		if (gate.rest.startsWith("None.")) {
 			if (gateBoxes.length) fail(gate.n, `${pr.title}: Review gate says None but has boxes`);

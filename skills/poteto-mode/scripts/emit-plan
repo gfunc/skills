@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+
+const USAGE = `Usage: node emit-plan --feature <slug> --title "<Program>" --surface ui|cli|library|backend --pr <id> [--playbook autopilot-stack] [--out <path>] [--models <path>] [--force]`;
+
+const SURFACES = ["ui", "cli", "library", "backend"];
+const DEFAULT_MODEL = "auto-glm-5-3-flash";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const skillDir = path.dirname(scriptDir);
+const repoRoot = path.dirname(path.dirname(skillDir));
+const skeletonPath = path.join(skillDir, "references", "plan-skeleton.md");
+const registerPath = path.join(repoRoot, "references", "standing-orders.md");
+
+const args = process.argv.slice(2);
+const flags = { playbook: "autopilot-stack", force: false };
+for (let i = 0; i < args.length; i++) {
+	const arg = args[i];
+	if (!arg.startsWith("--")) {
+		console.error(`emit-plan: unexpected argument "${arg}"\n${USAGE}`);
+		process.exit(2);
+	}
+	const name = arg.slice(2);
+	if (name === "force") {
+		flags.force = true;
+		continue;
+	}
+	const value = args[++i];
+	if (value === undefined || value.startsWith("--")) {
+		console.error(`emit-plan: --${name} needs a value\n${USAGE}`);
+		process.exit(2);
+	}
+	flags[name] = value;
+}
+
+for (const name of ["feature", "title", "surface", "pr"]) {
+	if (!flags[name]) {
+		console.error(`emit-plan: missing --${name}\n${USAGE}`);
+		process.exit(2);
+	}
+}
+if (!SURFACES.includes(flags.surface)) {
+	console.error(`emit-plan: --surface must be one of ${SURFACES.join("|")}, got "${flags.surface}"\n${USAGE}`);
+	process.exit(2);
+}
+
+const modelsPath = flags.models
+	? flags.models.replace(/^~(?=$|\/)/, os.homedir())
+	: path.join(os.homedir(), ".agents", "pstack-models.md");
+let model = "";
+try {
+	const line = fs
+		.readFileSync(modelsPath, "utf8")
+		.split(/\r?\n/)
+		.find((l) => /^\s*swarm workers\b/.test(l));
+	if (line) model = line.replace(/^\s*swarm workers[:\s]*/i, "").trim();
+} catch {
+	// missing models file falls through to the default model
+}
+if (!model) model = DEFAULT_MODEL;
+
+const register = fs.readFileSync(registerPath, "utf8").trimEnd();
+
+let plan = fs.readFileSync(skeletonPath, "utf8");
+plan = plan.replace("# <Program> plan", `# ${flags.title} plan`);
+plan = plan.replaceAll("<execution playbook>", flags.playbook);
+plan = plan.replaceAll("<swarm workers model>", model);
+plan = plan.replace("Surface: ui", `Surface: ${flags.surface}`);
+plan = plan.replace(
+	/^## <Task as a verb phrase> \(<PR id>\)$/m,
+	`### Standing orders\n\n${register}\n\n## <Task as a verb phrase> (${flags.pr})`,
+);
+
+const out = flags.out
+	? path.resolve(process.cwd(), flags.out)
+	: path.resolve(process.cwd(), ".scratch", flags.feature, "plan.md");
+if (fs.existsSync(out) && !flags.force) {
+	console.error(`emit-plan: ${out} already exists; pass --force to overwrite`);
+	process.exit(1);
+}
+fs.mkdirSync(path.dirname(out), { recursive: true });
+fs.writeFileSync(out, plan);
+console.log(out);
