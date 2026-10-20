@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# sync-upstream: report drift between pstack-origin paths vendored here and the mirror.
+#
+# Usage: scripts/sync-upstream [mirror-dir]   (default: ~/projects/pstack)
+#
+# Reads vendor-manifest.txt: the BASE line (mirror SHA the vendor came from) and
+# one repo-relative path per line. For each path reports:
+#   upstream: mirror history BASE..HEAD touched the path
+#   local:    the vendored copy differs from mirror@BASE
+# Paths showing both need a human three-way merge. This is a report, not a gate.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MIRROR="${1:-$HOME/projects/pstack}"
+MANIFEST="$ROOT/vendor-manifest.txt"
+
+BASE="$(grep -m1 '^BASE ' "$MANIFEST" | awk '{print $2}')"
+if [ -z "$BASE" ]; then
+  echo "no BASE line in $MANIFEST" >&2
+  exit 2
+fi
+
+if ! git -C "$MIRROR" cat-file -e "$BASE^{commit}" 2>/dev/null; then
+  echo "mirror at $MIRROR does not have base commit $BASE — fetch it first" >&2
+  exit 2
+fi
+
+printf '%-55s %-9s %-6s %s\n' PATH UPSTREAM LOCAL ACTION
+printf '%-55s %-9s %-6s %s\n' '-----' '--------' '-----' '------'
+
+needs_merge=0
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+while IFS= read -r line; do
+  case "$line" in ''|'#'*|'BASE '*) continue ;; esac
+  path="${line%/}"
+
+  if git -C "$MIRROR" diff --quiet "$BASE" HEAD -- "$path" 2>/dev/null; then
+    upstream=clean
+  else
+    upstream=changed
+  fi
+
+  if [ ! -e "$ROOT/$path" ]; then
+    printf '%-55s %-9s %-6s %s\n' "$path" "$upstream" MISSING 'restore or drop from manifest'
+    needs_merge=1
+    continue
+  fi
+
+  rm -rf "$tmp/x"
+  mkdir -p "$tmp/x"
+  git -C "$MIRROR" archive "$BASE" "$path" | tar -x -C "$tmp/x"
+  if diff -r -q "$tmp/x/$path" "$ROOT/$path" >/dev/null 2>&1; then
+    local=clean
+  else
+    local=mod
+  fi
+
+  action=ok
+  if [ "$upstream" = changed ] && [ "$local" = mod ]; then
+    action='3-WAY MERGE'
+    needs_merge=1
+  elif [ "$upstream" = changed ]; then
+    action='fast-forward copy from mirror'
+  elif [ "$local" = mod ]; then
+    action='local modification (intended)'
+  fi
+  printf '%-55s %-9s %-6s %s\n' "$path" "$upstream" "$local" "$action"
+done < "$MANIFEST"
+
+echo
+if [ "$needs_merge" -eq 0 ]; then
+  echo "No path needs a three-way merge."
+else
+  echo "Resolve the 3-WAY MERGE rows: mirror@$BASE is the base, ours is the vendored path, theirs is mirror@HEAD."
+fi

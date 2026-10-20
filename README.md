@@ -1,50 +1,56 @@
-# skills
+# gfunc-skills
 
-Companion pack to [pstack](https://github.com/backnotprop/pstack) (the standalone mirror of cursor/plugins/pstack). Two front doors, one executor:
+gfunc's own agent stack: [pstack](https://github.com/backnotprop/pstack) vendored and modified, with the wayfinder planning chain integrated. Two front doors, one executor:
 
-- `/poteto-mode` (pstack) — the automatic entry. Give it a goal and a check; it routes to a playbook and runs.
-- `/wayfinder` (this pack) — the HITL entry. Grills a loose idea into a map, a spec, and tickets.
+- `/poteto-mode` — the automatic entry. Give it a goal and a check; it routes to a playbook and runs. Map-sized loose ideas route to wayfinder from here.
+- `/wayfinder` — the HITL entry. Grills a loose idea into a map of decision tickets, resolved one per session. Also invocable standalone.
 
-Behind both doors sits one executor: pstack's autopilot-stack. This pack holds the planning chain and the bridge that feeds it.
+Behind both doors sits one executor: pstack's autopilot-stack.
 
-The chain: `/wayfinder` (HITL discussion) → `/to-spec` (synthesis; you confirm the spec) → `/to-tickets` (automatic decomposition into work tickets) → `/implement-spec` (automatic bridge; emits the pstack plan) → you confirm the plan → pstack executes. Spec confirmation and plan confirmation are the only two human gates.
+The chain: `/wayfinder` (HITL discussion) → `/to-spec` (synthesis; you confirm the spec) → the multi-phase-plan playbook (automatic: decomposes the spec into units, stamps the plan from the skeleton, lints it with `check-plan.mjs`) → you confirm the plan → pstack executes. Spec confirmation and plan confirmation are the only two human gates. A tracker-visible work-ticket set is an optional artifact, written on request.
 
 ## Layout
 
-- `skills/wayfinder` — HITL spec discussion and documentation, ported from the mattpocock pack, name kept.
-- `skills/to-spec` — conversation to spec; its ending drives the automatic chain.
-- `skills/to-tickets` — spec to work tickets (pure decomposition). _Pending: ticket 11._
-- `skills/implement-spec` — the spec-to-plan bridge: consumes a spec with its tickets or a spec alone, emits the pstack-shaped plan lint-clean against `check-plan.mjs`, stops at the plan-confirmation gate. _Pending: ticket 12._
+One flat `skills/` root — every skill a peer:
+
+- pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror and modified in place.
+- `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
+- `skills/grilling`, `skills/domain-modeling`, `skills/research`, `skills/prototype` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
-- `references/plan-skeleton.md` + `scripts/emit-plan` — the plan emitter the bridge owns. _Pending: ticket 12._
-- `GLOSSARY.md` — the dual vocabulary: planning terms, pstack execution terms, and the seam between them.
+- `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs mirror@base→HEAD per path and reports what needs a three-way merge.
+- `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
+
+`/to-tickets` and `/implement-spec` are retired doors: decomposition lives in the multi-phase-plan playbook, and the plan emitter lives inside poteto-mode.
 
 ## Configuration
 
 No setup skill; everything auto-detects with defaults. Two optional config files:
 
 - `<repo>/docs/issue-tracker.md` — a consuming repo commits a copy of the relevant `references/trackers/*.md` (edited to taste) to say which tracker it uses. Absent it, skills default to local-markdown in `.scratch/`.
-- `~/.agents/pstack-models.md` — the role→model table (feature, refactoring, bug-fix, hardest tasks, judgment and prose, swarm workers, audit and second opinion). The pack ships a default table; edit freely, and any plan can override per-role lines at authoring time.
+- `~/.agents/pstack-models.md` — the role→model table (feature, refactoring, bug-fix, hardest tasks, judgment and prose, swarm workers, audit and second opinion). The stack ships a default table; edit freely, and any plan can override per-role lines at authoring time.
 
 ## Store convention
 
-`.scratch/` in a consuming repo is the artifact root for all pack and pstack activity there: planning artifacts (spec, work tickets) and execution state (plan, decision trail, agent registry, logs, lane worktrees) live side by side under `.scratch/<feature-slug>/`. Keep `.scratch/` gitignored. This is the local stand-in for Cursor's injected per-agent store.
+`.scratch/` in a consuming repo is the artifact root for all stack activity there: planning artifacts (spec, optional work tickets) and execution state (plan, decision trail, agent registry, logs, lane worktrees) live side by side under `.scratch/<feature-slug>/`. Keep `.scratch/` gitignored. This is the local stand-in for Cursor's injected per-agent store.
+
+## Syncing upstream
+
+`~/projects/pstack` stays a pure mirror of upstream pstack. When it fetches new upstream, run `scripts/sync-upstream` here: it reports per vendored path whether upstream changed, whether we modified it, and which rows need a human three-way merge. Local modifications are intended — they are what makes this stack ours — but they stay visible per path through the manifest and git history.
 
 ## Dependencies
 
-- pstack itself (the executor and its playbooks).
-- The discussion skills `grilling`, `domain-modeling`, `research`, and `prototype`, which wayfinder invokes.
-- `node`, for pstack's `check-plan.mjs` plan linter.
+- `node`, for `check-plan.mjs` (the plan linter) and `emit-plan`.
+- A forge CLI for execution: `gh` (GitHub) or `glab` (GitLab remotes).
+- Playwright, for UI-surface live lanes.
 
 ## Stances
 
-- The pstack mirror stays a pure mirror. Nothing here modifies it; sync conflicts stay impossible by construction.
-- Ported skills keep their upstream names and supersede the mattpocock-installed copies at install time.
-- Harness-neutral, mirror-style: each skill carries a Harness section (local worktrees for cloud agents, Playwright for control-ui, the tick driver your harness's scheduler provides).
+- The pstack mirror stays pure; the vendored copy here is modified — that divergence is deliberate and manifest-tracked.
+- Ported and absorbed skills keep their upstream names and supersede the mattpocock-installed copies in `~/.agents/skills` at install time.
 - No triage labels, no setup skill. Type markers route ticket resolution; the plan file plus the operator's plan confirmation is the handoff to execution.
 
 ## Status
 
-In progress. wayfinder and to-spec are ported; to-tickets and implement-spec are pending. Install (replacing the mattpocock copies in `~/.agents/skills`) waits until the full chain is ported — a ported to-spec chaining into an unported to-tickets would mix old and new semantics. The wayfinder map driving this work lives at `.scratch/pstack-planning/map.md` (gitignored scratch state).
+In progress. The wayfinder map driving this work lives at `.scratch/pstack-planning/map.md` (gitignored scratch state). Install into `~/.agents/skills` waits until the emitter upgrade (ticket 12) and the localization pass (ticket 14) land.
 
 Derived in part from MIT-licensed work by Matt Pocock (the skills pack) and Lauren Tan (pstack). See LICENSE.

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gfunc-skills",
+  "version": "0.1.0",
+  "description": "gfunc's own agent stack: pstack vendored and modified, with the wayfinder planning chain integrated. Two front doors (/poteto-mode automatic, /wayfinder HITL), one executor (autopilot-stack).",
+  "author": {
+    "name": "gfunc"
+  },
+  "license": "MIT",
+  "keywords": [
+    "gfunc-skills",
+    "pstack",
+    "poteto-mode",
+    "wayfinder",
+    "workflow",
+    "agent-style",
+    "subagents"
+  ]
+}
