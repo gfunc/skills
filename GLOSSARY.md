@@ -60,6 +60,9 @@ The computed set of PRs in a stack that are clear to merge now; regenerated afte
 **Standing orders**:
 The numbered constraint register — model policy, verification bar, forbidden paths, escalation — pasted verbatim into every plan, spawn, and resume.
 
+**Store**:
+The repo-local artifact root for all pack and pstack activity in one repository: its `.scratch/` directory, with each plan run under `.scratch/<feature-slug>/`. The local stand-in for Cursor's injected per-agent store.
+
 **Operator**:
 The human the program serves: lands PRs, answers escalations, holds stand-down authority.
 _Avoid_: user
