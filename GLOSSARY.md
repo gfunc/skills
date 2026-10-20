@@ -78,3 +78,10 @@ Where the two vocabularies meet.
 - A **decision ticket** has no execution counterpart; it is resolved before any plan exists.
 - **Ticket frontier** and **merge frontier** share a word and nothing else: the first is planning's list of takeable decisions, the second is execution's computed set of mergeable PRs. Stack artifacts always use the qualified forms.
 - **Standing orders** and **operator** name the same concept on both sides; the stack keeps its own standing-orders register and pastes it into every plan it emits.
+### Distribution
+
+**Harness**:
+One agent runtime the pack targets: kimi-code, Claude Code, Codex, pi-coding-agent, or Cursor.
+
+**Port**:
+The per-harness equivalent of a harness-specific mechanism (a role→model table, a trail-audit reader). A mechanism is kimi-native until its ports exist.
