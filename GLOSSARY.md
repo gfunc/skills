@@ -1,6 +1,6 @@
-# Companion pack for pstack
+# gfunc-skills
 
-The planning chain (wayfinder → to-spec → to-tickets) that hands execution to pstack. This glossary fixes the pack's planning vocabulary, the pstack execution vocabulary the pack speaks unchanged at the seam, and the translation between the two.
+The operator's own stack: pstack vendored and modified, with the wayfinder → to-spec planning chain integrated and execution through poteto-mode's autopilot-stack. This glossary fixes the planning vocabulary, the execution vocabulary, and the seam where they meet.
 
 ## Language
 
@@ -15,14 +15,14 @@ A ticket whose resolution is a decision; wayfinder's unit of planning, closed by
 _Avoid_: task
 
 **Work ticket**:
-A ticket whose resolution is a finished slice of the build; to-tickets' output and the plan emitter's input.
+A ticket whose resolution is a finished slice of the build; an optional intermediate artifact between spec and plan, written on request.
 _Avoid_: task, story
 
 **Ticket frontier**:
 The open, unblocked, unclaimed tickets of a map — the decisions takeable right now. Never shortened to "frontier" (see Seam).
 
 **Surface**:
-A work ticket's declared execution surface (ui, cli, library, backend); it keys the lane profile the emitted plan section carries.
+A unit's execution surface (ui, cli, library, backend), inferred at plan-authoring time; it keys the lane profile the plan's PR section carries.
 
 ### Execution
 
@@ -61,7 +61,10 @@ The computed set of PRs in a stack that are clear to merge now; regenerated afte
 The numbered constraint register — model policy, verification bar, forbidden paths, escalation — pasted verbatim into every plan, spawn, and resume.
 
 **Store**:
-The repo-local artifact root for all pack and pstack activity in one repository: its `.scratch/` directory, with each plan run under `.scratch/<feature-slug>/`. The local stand-in for Cursor's injected per-agent store.
+The repo-local artifact root for all stack activity in one repository: its `.scratch/` directory, with each plan run under `.scratch/<feature-slug>/`. The local stand-in for Cursor's injected per-agent store.
+
+**Vendor manifest**:
+The list of upstream-origin (pstack) paths in this repo and the base SHA they came from; the sync script diffs mirror@old→new per path and reports drift for human resolution.
 
 **Operator**:
 The human the program serves: lands PRs, answers escalations, holds stand-down authority.
@@ -71,7 +74,7 @@ _Avoid_: user
 
 Where the two vocabularies meet.
 
-- A **work ticket** becomes a **unit** when the emitter writes it into a plan; a feature's ticket set becomes one **PR**.
+- A spec's decomposition becomes the plan's **units** at authoring time; when **work tickets** exist (written on request), each becomes a unit. A feature's ticket set becomes one **PR**.
 - A **decision ticket** has no execution counterpart; it is resolved before any plan exists.
-- **Ticket frontier** and **merge frontier** share a word and nothing else: the first is planning's list of takeable decisions, the second is execution's computed set of mergeable PRs. Pack artifacts always use the qualified forms.
-- **Standing orders** and **operator** name the same concept on both sides; the pack keeps its own standing-orders register and pastes it into every plan it emits.
+- **Ticket frontier** and **merge frontier** share a word and nothing else: the first is planning's list of takeable decisions, the second is execution's computed set of mergeable PRs. Stack artifacts always use the qualified forms.
+- **Standing orders** and **operator** name the same concept on both sides; the stack keeps its own standing-orders register and pastes it into every plan it emits.
