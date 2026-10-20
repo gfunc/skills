@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
-The issue tracker is resolved per repo: a repo may commit `docs/issue-tracker.md` saying which tracker it uses. Absent that file, use this pack's default, `references/trackers/local-markdown.md` (the GitHub and GitLab variants live beside it). This pack has no triage labels; the plan file plus the operator's plan confirmation is the handoff to execution.
+The issue tracker is resolved per repo: a repo may commit `docs/issue-tracker.md` saying which tracker it uses. Absent that file, use this stack's default, `references/trackers/local-markdown.md` (the GitHub and GitLab variants live beside it). That path is relative to the stack root, two directories up from this skill file, so when running from anywhere else resolve the stack root from this file's location first. This stack has no triage labels; the plan file plus the operator's plan confirmation is the handoff to execution.
 
 ## Process
 
@@ -18,7 +18,7 @@ Check with the user that these seams match their expectations.
 
 3. Write the spec using the template below. Confirm the finished spec with the user — this is the chain's first human gate — then publish it to the project issue tracker.
 
-4. The chain then continues without further user calls: the multi-phase-plan playbook (`skills/poteto-mode/playbooks/multi-phase-plan.md`) decomposes the spec into units and emits the pstack execution plan. The next human gate is the plan confirmation, whose approval starts execution. When the user wanted only the spec (no further chain), stop after publishing and say so.
+4. The chain then continues without further user calls: the multi-phase-plan playbook (`skills/poteto-mode/playbooks/multi-phase-plan.md`, relative to the stack root, two directories up from this skill file) decomposes the spec into units and emits the pstack execution plan. The next human gate is the plan confirmation, whose approval starts execution. When the user wanted only the spec (no further chain), stop after publishing and say so.
 
 <spec-template>
 

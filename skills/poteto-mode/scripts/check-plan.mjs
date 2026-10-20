@@ -79,7 +79,7 @@ for (let i = start; i < raw.length; i++) {
 		.replace(/\]\([^)]*\)/g, "]");
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
-	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text);
+	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text.trim());
 	if (/: \S/.test(prose) && !isSurfaceLine) fail(n, "mid-sentence colon");
 }
 
@@ -146,10 +146,11 @@ for (const pr of prSections) {
 	for (const h of heads) counts[h.name] = boxes(h.lines).length;
 
 	let surface = "ui";
-	const surfaceLine = pr.body.find((l) => !l.code && /^Surface:/.test(l.text.trim()));
-	if (surfaceLine) {
-		const value = surfaceLine.text.trim().replace(/^Surface:\s*/, "");
-		if (!SURFACES.includes(value)) fail(surfaceLine.n, `${pr.title}: unknown Surface "${value}" (expected ${SURFACES.join("|")})`);
+	const surfaceLines = pr.body.filter((l) => !l.code && /^Surface:/.test(l.text.trim()));
+	if (surfaceLines.length > 1) fail(surfaceLines[1].n, `${pr.title}: more than one Surface line`);
+	if (surfaceLines.length) {
+		const value = surfaceLines[0].text.trim().replace(/^Surface:\s*/, "");
+		if (!SURFACES.includes(value)) fail(surfaceLines[0].n, `${pr.title}: unknown Surface "${value}" (expected ${SURFACES.join("|")})`);
 		else surface = value;
 	}
 

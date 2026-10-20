@@ -22,7 +22,7 @@ The map is a single issue on this repo's issue tracker, labelled `wayfinder:map`
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place, its ticket, so the map never restates it, only gists it and links.
 
-**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** A repo may commit `docs/issue-tracker.md` saying which tracker it uses; consult that doc's "Wayfinding operations" section for how _this_ repo expresses them. Absent that file, use this pack's default, `references/trackers/local-markdown.md` (the GitHub and GitLab variants live beside it).
+**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** A repo may commit `docs/issue-tracker.md` saying which tracker it uses; consult that doc's "Wayfinding operations" section for how _this_ repo expresses them. Absent that file, use this stack's default, `references/trackers/local-markdown.md` (the GitHub and GitLab variants live beside it). That path is relative to the stack root, two directories up from this skill file, so resolve the stack root from this file's location when running elsewhere.
 
 ### The map body
 

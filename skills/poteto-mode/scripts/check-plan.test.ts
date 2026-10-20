@@ -149,3 +149,17 @@ test("accepts extra H3s after the required five in the Program checklist", () =>
 	);
 	runPlanText(plan, 0);
 });
+
+test("rejects more than one Surface line in a PR section", () => {
+	const plan = validPlan.replace(
+		"## PR 1\n**Depends on.**",
+		"## PR 1\nSurface: ui\nSurface: cli\n**Depends on.**",
+	);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("more than one Surface line"));
+});
+
+test("accepts an indented Surface line without a colon flag", () => {
+	const plan = validPlan.replace("## PR 1\n**Depends on.**", "## PR 1\n  Surface: ui\n**Depends on.**");
+	runPlanText(plan, 0);
+});

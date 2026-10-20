@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const USAGE = `Usage: node emit-plan --feature <slug> --title "<Program>" --surface ui|cli|library|backend --pr <id> [--playbook autopilot-stack] [--out <path>] [--models <path>] [--force]`;
 
 const SURFACES = ["ui", "cli", "library", "backend"];
-const DEFAULT_MODEL = "auto-glm-5-3-flash";
+const DEFAULT_MODEL = "magpie/bi-dev/group/auto-glm-5-3-flash";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.dirname(scriptDir);
@@ -66,14 +66,29 @@ if (!model) model = DEFAULT_MODEL;
 const register = fs.readFileSync(registerPath, "utf8").trimEnd();
 
 let plan = fs.readFileSync(skeletonPath, "utf8");
-plan = plan.replace("# <Program> plan", `# ${flags.title} plan`);
-plan = plan.replaceAll("<execution playbook>", flags.playbook);
-plan = plan.replaceAll("<swarm workers model>", model);
-plan = plan.replace("Surface: ui", `Surface: ${flags.surface}`);
-plan = plan.replace(
-	/^## <Task as a verb phrase> \(<PR id>\)$/m,
-	`### Standing orders\n\n${register}\n\n## <Task as a verb phrase> (${flags.pr})`,
+
+const drift = (marker) => {
+	console.error(`emit-plan: skeleton is missing the ${marker} marker; re-sync ${path.relative(repoRoot, skeletonPath)}`);
+	process.exit(1);
+};
+const countMatches = (source, pattern) => {
+	if (typeof pattern === "string") return source.split(pattern).length - 1;
+	const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
+	return (source.match(new RegExp(pattern.source, flags)) ?? []).length;
+};
+const replaceRequired = (marker, source, pattern, replacement) => {
+	if (countMatches(source, pattern) === 0) drift(marker);
+	return typeof pattern === "string" ? source.replaceAll(pattern, replacement) : source.replace(pattern, replacement);
+};
+
+plan = replaceRequired("program title", plan, "# <Program> plan", () => `# ${flags.title} plan`);
+plan = replaceRequired("execution playbook", plan, "<execution playbook>", () => flags.playbook);
+plan = replaceRequired("swarm workers model", plan, "<swarm workers model>", () => model);
+plan = replaceRequired("Surface line", plan, "Surface: ui", () => `Surface: ${flags.surface}`);
+plan = replaceRequired("PR heading (standing-orders insertion point)", plan, /^## <Task as a verb phrase> \(<PR id>\)$/m, (m) =>
+	m.replace("(<PR id>)", `(${flags.pr})`).replace(/^## /, `### Standing orders\n\n${register}\n\n## `),
 );
+if (!plan.includes("### Standing orders")) drift("standing-orders insertion point");
 
 const out = flags.out
 	? path.resolve(process.cwd(), flags.out)

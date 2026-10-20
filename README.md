@@ -24,10 +24,10 @@ One flat `skills/` root — every skill a peer:
 
 ## Configuration
 
-No setup skill; everything auto-detects with defaults. Two optional config files:
+No stack-authored setup skill; everything auto-detects with defaults. The vendored `skills/setup-pstack` remains available for pstack-style installs. Two optional config files:
 
 - `<repo>/docs/issue-tracker.md` — a consuming repo commits a copy of the relevant `references/trackers/*.md` (edited to taste) to say which tracker it uses. Absent it, skills default to local-markdown in `.scratch/`.
-- `~/.agents/pstack-models.md` — the role→model table (feature, refactoring, bug-fix, hardest tasks, judgment and prose, swarm workers, audit and second opinion). The stack ships a default table; edit freely, and any plan can override per-role lines at authoring time.
+- `~/.agents/pstack-models.md` — the role→model table (feature, refactoring, bug-fix, hardest tasks, judgment and prose, swarm workers, audit and second opinion). The stack ships the default at `skills/poteto-mode/references/pstack-models.md`; install it at `~/.agents/pstack-models.md` (copy or symlink), then edit freely. Any plan can override per-role lines at authoring time.
 
 ## Store convention
 
@@ -47,10 +47,10 @@ No setup skill; everything auto-detects with defaults. Two optional config files
 
 - The pstack mirror stays pure; the vendored copy here is modified — that divergence is deliberate and manifest-tracked.
 - Ported and absorbed skills keep their upstream names and supersede the mattpocock-installed copies in `~/.agents/skills` at install time.
-- No triage labels, no setup skill. Type markers route ticket resolution; the plan file plus the operator's plan confirmation is the handoff to execution.
+- No triage labels, no stack-authored setup skill. Type markers route ticket resolution; the plan file plus the operator's plan confirmation is the handoff to execution.
 
 ## Status
 
-In progress. The wayfinder map driving this work lives at `.scratch/pstack-planning/map.md` (gitignored scratch state). Install into `~/.agents/skills` waits until the emitter upgrade (ticket 12) and the localization pass (ticket 14) land.
+The wayfinder map driving this work is done. Ticket 12 (the emit-plan upgrade) and ticket 14 (the localization pass) have landed. Install into `~/.agents/skills` is held by the operator.
 
 Derived in part from MIT-licensed work by Matt Pocock (the skills pack) and Lauren Tan (pstack). See LICENSE.
