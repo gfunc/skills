@@ -33,15 +33,19 @@ harness_load() {
   local ver out
   ver="$(kimi --version 2>&1 | head -1)"
   out="$OUT/kimi-preseed-check.txt"
-  if KIMI_CODE_HOME="$KIMI_CODE_HOME" python3 - "$KIMI_CODE_HOME" "$KIMI_MANAGED_REL" >"$out" 2>&1 <<'PY'
+  if KIMI_CODE_HOME="$KIMI_CODE_HOME" python3 - "$KIMI_CODE_HOME" "$KIMI_MANAGED_REL" "$PACK" >"$out" 2>&1 <<'PY'
 import json, os, sys
-kh, rel = sys.argv[1], sys.argv[2]
+kh, rel, pack = sys.argv[1], sys.argv[2], sys.argv[3]
 reg = json.load(open(os.path.join(kh, "plugins/installed.json")))
 entry = next((p for p in reg.get("plugins", []) if p.get("id") == "gfunc-skills"), None)
 assert entry and entry.get("enabled") is True, "gfunc-skills missing or disabled in installed.json"
 root = entry["root"]
 assert os.path.isfile(os.path.join(root, "kimi.plugin.json")), "managed copy missing kimi.plugin.json"
+want = sorted(d for d in os.listdir(os.path.join(pack, "skills")) if os.path.isfile(os.path.join(pack, "skills", d, "SKILL.md")))
+got = sorted(d for d in os.listdir(os.path.join(root, "skills")) if os.path.isfile(os.path.join(root, "skills", d, "SKILL.md")))
+assert got == want, "managed copy skills differ from pack: missing=%s extra=%s" % (sorted(set(want) - set(got)), sorted(set(got) - set(want)))
 print("installed.json: gfunc-skills enabled, root=" + root)
+print("skills (%d): %s" % (len(got), ", ".join(got)))
 PY
   then
     :
@@ -49,13 +53,15 @@ PY
     fail load "pre-seed registry/managed copy invalid: $(tail -1 "$out")"
     return
   fi
+  local nskills
+  nskills="$(grep -o '^skills ([0-9]*)' "$out" || true)"
   out="$OUT/kimi-doctor.txt"
   kimi doctor >"$out" 2>&1 || true
   if ! grep -q "OK config.toml" "$out" 2>/dev/null; then
     fail load "kimi doctor did not validate config.toml: $(tail -1 "$out")"
     return
   fi
-  ok load "cli=$ver; pre-seed registry + managed copy valid; doctor OK config.toml"
+  ok load "cli=$ver; pre-seed registry + managed copy valid ($nskills); doctor OK config.toml"
 }
 
 harness_smoke() {
