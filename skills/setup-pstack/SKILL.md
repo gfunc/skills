@@ -74,9 +74,11 @@ interrogate reviewers: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 
 Ask which harness this install targets, defaulting to `kimi`. Offer `kimi`, `claude`, `codex`, `pi`, and `cursor`; prefer your structured-question tool over free text. Then copy the chosen profile from the pack root's `references/harnesses/<harness>.md` to `references/harness.md`, overwriting any existing copy so re-runs stay idempotent. The pack root is two directories up from this skill file (`setup-pstack/` to `skills/` to the root); resolve it from this file's location, not the caller's working directory. The poteto-mode playbooks and the swarm skill read `references/harness.md` for the harness's subagents, models, transcripts, scheduler, forge, UI driver, and store, so a missing or stale profile is the first thing to check when a run misbehaves. `references/harness.md` is gitignored; the source profiles under `references/harnesses/` ship with the pack.
 
+On `codex`, also install the subagent TOMLs: copy the pack root's `codex-agents/*.toml` into `$CODEX_HOME/agents/` (create the directory, overwrite for idempotency). Codex does not plugin-package subagents, so without this step the pack's named agents are absent there.
+
 ### 7. Confirm
 
-Tell the user which files were written: the settings file and the harness profile at `references/harness.md`. In Cursor, the rule applies to new sessions. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates both.
+Tell the user which files were written: the settings file and the harness profile at `references/harness.md` (and, on codex, the subagent TOMLs under `$CODEX_HOME/agents/`). In Cursor, the rule applies to new sessions. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates both.
 
 ### 8. Offer a verification skill (optional)
 

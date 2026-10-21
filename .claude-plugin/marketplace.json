@@ -1,0 +1,22 @@
+{
+  "name": "gfunc",
+  "owner": {
+    "name": "gfunc"
+  },
+  "description": "gfunc's agent stack as an installable Claude Code plugin. Personal-first: this local marketplace exists so a plain git clone can install with `claude plugin marketplace add <path>` + `claude plugin install gfunc-skills@gfunc`.",
+  "plugins": [
+    {
+      "name": "gfunc-skills",
+      "source": "./",
+      "description": "pstack vendored and modified, with the wayfinder planning chain integrated. Two front doors (/poteto-mode automatic, /wayfinder HITL), one executor (autopilot-stack).",
+      "category": "engineering",
+      "keywords": [
+        "gfunc-skills",
+        "pstack",
+        "poteto-mode",
+        "wayfinder",
+        "workflow"
+      ]
+    }
+  ]
+}
