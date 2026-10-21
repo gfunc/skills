@@ -4,6 +4,7 @@
 # Intended local modifications (kept deliberately diverged from the mirror;
 # sync-upstream reports these as "local modification (intended)"):
 #   skills/poteto-mode/  skills/swarm/  skills/show-me-your-work/  skills/setup-pstack/
+#   agents/  .cursor-plugin/
 BASE 6f131f137de64fdaf928278c0fd9ecec520ccbee
 skills/architect/
 skills/arena/
