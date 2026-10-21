@@ -8,11 +8,11 @@ The `Task` tool spawns subagents. `subagent_type: generalPurpose` selects the ge
 
 ## Models
 
-Per-role slugs in `~/.cursor/rules/pstack-models.mdc`, written by /setup-pstack (skill defaults `grok-4.7-xhigh-fast` for code, `claude-opus-5-5-xhigh` for prose and judgment); `inherit-parent` / `auto` run the role on the parent chat model (omit the Task `model`). Cursor puts the reasoning level and speed in the slug itself (`-xhigh`, `-fast`). Pending ticket 09 for anything beyond the skill defaults.
+Per-role slugs in `~/.cursor/rules/pstack-models.mdc`, written by /setup-pstack (skill defaults `grok-4.7-xhigh-fast` for code, `claude-opus-5-5-xhigh` for prose and judgment). Both cloud and local agents take the model through the Task `model` parameter or the agent file's frontmatter `model:` (Cursor docs + 2026 forum reports); `subagent_type` only names the agent — it does not route models. Cursor puts the reasoning level and speed in the slug itself (`-xhigh`, `-fast`), so the table needs no separate effort field. `auto` routes through Cursor Router (Teams-and-up plans); `inherit` nominally runs the parent chat model but is forum-verified buggy (a Grok parent came back GPT-5.5 Medium, forum.cursor.com 2026-07) — the pack pins an explicit slug per role and treats `inherit` as a fallback, not a port of kimi's `primary`. Models outside Cursor's catalog need a custom API key in settings, then the same slug shape works per role.
 
 ## Transcripts
 
-`~/.cursor/projects/<path-slug>/agent-transcripts/` per worktree-audit.sh, where `<path-slug>` is the workspace path with the leading slash dropped and each `/` turned into `-`; the system prompt names the active workspace's `agent-transcripts/` directory. Read only the active workspace's sessions, never other projects'.
+`~/.cursor/projects/<path-slug>/agent-transcripts/<session-id>/<session-id>.jsonl` — one JSON object per line carrying that session's messages and tool calls, nested in a per-session `<session-id>/` subdirectory. Layout corroborated by Cursor forum reports and third-party transcript tools (2026); this machine has no `~/.cursor`, so it is web-verified, not locally verified. `<path-slug>` derives from the workspace path (pack convention, per worktree-audit.sh: drop the leading slash, turn each `/` into `-`); the system prompt names the active workspace's `agent-transcripts/` directory — read only that one, never other projects'. Cloud and local agent runs land in the same per-project tree; the dashboard and Origin stay the liveness surface for cloud agents, but this jsonl is the audit trail. Gotchas: transcript lines carry messages and tool calls but no token usage (`usageData` stays empty per Cursor forum, 2026-10), so cost audits need the dashboard; the Agents-sidebar list lives in globalStorage state, not this directory — an empty sidebar does not mean missing transcripts; the headless `cursor-agent` CLI writes under the same `~/.cursor` tree, separate from the IDE's `state.vscdb`.
 
 ## Scheduler
 
@@ -33,4 +33,4 @@ playwright-cli (skills/playwright-cli).
 ## Capabilities
 
 - HAS: everything the playbooks name natively — cloud agents (`environment: "cloud"`), the dashboard and Origin, `/loop`, the cursor-team-kit skills (`deslop`, `control-ui`, `control-cli`), `AskQuestion`, `/visualize`, and the `.cursor-plugin/` manifest.
-- LACKS: nothing material for this pack; it is the reference harness the Cursor-era body prose targets. (The bun-based `scripts/orch` and `scripts/watch-pr` still need bun, an OS/runtime gap rather than a harness one.)
+- LACKS: nothing material for this pack; it is the reference harness the Cursor-era body prose targets. (The bun-based `scripts/orch` and `scripts/watch-pr` still need bun, an OS/runtime gap rather than a harness one.) The agent-transcripts layout above is web-verified only — no `~/.cursor` exists on the authoring machine; confirm it against a real install before scripting an audit (ticket 09).

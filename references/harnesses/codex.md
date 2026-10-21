@@ -8,11 +8,23 @@ Custom agents are standalone TOML files, one agent per file, at `$CODEX_HOME/age
 
 ## Models
 
-Pending ticket 09. Known mechanism: per-agent `model` and `model_reasoning_effort` in the TOML, `[agents]` table defaults, and stock slugs from `codex debug models` (`gpt-6.1-sol` and siblings; the local magpie catalog overrides them — never commit that config).
+The port of the kimi role table lands as one TOML file per role in `$CODEX_HOME/agents/` (the ticket-07 install step): each role binds two fields, `model` + `model_reasoning_effort`. Stock 0.163.0 slugs, from `codex debug models` against an empty `CODEX_HOME` (availability depends on account): `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`. Proposed defaults, edit freely:
+
+```text
+# proposed defaults, edit freely. Per-role TOML fields: model + model_reasoning_effort.
+feature, refactoring: model = "gpt-6.1-sol", model_reasoning_effort = "medium"
+bug-fix: model = "gpt-6.1-sol", model_reasoning_effort = "medium"
+hardest tasks: omit model (spawn falls through [agents] defaults to the parent's — the port of kimi's `primary`)
+judgment and prose: model = "gpt-6.1-sol", model_reasoning_effort = "high"
+swarm workers: model = "gpt-6-luna", model_reasoning_effort = "low"
+audit and second opinion: model = "gpt-6-sol", model_reasoning_effort = "high"   # deliberately not the implementation slug
+```
+
+Local magpie note: this machine's codex is magpie-configured (`model_provider = "magpie"`, `model = "bi-dev/group/auto-kimi-k3"` in `~/.codex/config.toml`), so magpie aliases resolve locally against `~/.codex/magpie-models.json` (29 `bi-dev/...` slugs: `bi-dev/kimi-code-cn/k3-256k`, `bi-dev/uco/gpt-6.1-sol`, …) and real local sessions record the resolved id (e.g. `bi-dev/kimi-code-cn/k3`) — never commit that config. Set `model_reasoning_effort` explicitly when the chosen model does not support the inherited effort (docs).
 
 ## Transcripts
 
-`$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<timestamp>-<uuid>.jsonl` — append-only envelope `{timestamp, ordinal, type, payload}`; audit `response_item` records (messages, `function_call` / `function_call_output`) and `event_msg` (turn boundaries, token counts). Sessions are not grouped by project, so filter rollouts by the `cwd` in `session_meta` / `turn_context`. `state_5.sqlite` `threads.rollout_path` maps a session id to its file; `thread_history_*.sqlite` is a paged projection, not the source of truth. `codex exec --json` is the stable headless event stream for new captures.
+`$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<timestamp>-<uuid>.jsonl` — append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the payload ids are the correlation keys. Record vocabulary (observed 0.163.0): `session_meta` (session id, cwd, CLI version, provider, git metadata — one per file), `turn_context` (turn id, `model`, reasoning effort, approval/sandbox policy), `world_state` (the loaded `AGENTS.md` text — reconstruct which instructions were active), `response_item` (the conversation: `message`, `reasoning`, `function_call` / `function_call_output` — pair a call with its output by position/`call_id` and count tool calls by `function_call.name`), `event_msg` (turn boundaries `task_started`/`task_complete`, per-item `item_completed`, `token_count`), and `token_usage_record`. Sessions are not grouped by project, so filter rollouts by the `cwd` in `session_meta` — or resolve a session id to its file through `state_5.sqlite` `threads.rollout_path` (columns also carry cwd, model, `reasoning_effort`). `thread_history_*.sqlite` is a paged projection with rollout byte offsets, not the source of truth. Subagent trails: hook input exposes `agent_transcript_path` alongside `transcript_path`, but no local rollout with subagent activity exists to confirm the on-disk layout — verify in the rig before auditing one. `codex exec --json` is the stable headless event stream for new captures (`item.*` events); `codex exec --ephemeral` writes no rollout. The hook-facing transcript format is explicitly not stable — version-tolerant parsers, same rule as Claude.
 
 ## Scheduler
 

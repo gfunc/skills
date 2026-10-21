@@ -8,7 +8,19 @@ None built in. The first-party route is the shipped `subagent` example extension
 
 ## Models
 
-Pending ticket 09. Known mechanism: the agent `model:` string passes straight to the child CLI's `--model` (exact ID, `provider/id`, fuzzy match, optional `:<thinking>` suffix); the registry is built-ins plus `models.json` custom providers, enumerated by `pi --list-models`. `models-store.json` is a provider-catalog cache, not the registry.
+Expressed as capability tiers, not ids — pi is provider-agnostic and the registry is per-machine: built-ins plus `models.json` custom providers, enumerated by `pi --list-models` (on this host that prints "No models available" — no provider key configured; `models-store.json` is a provider-catalog cache, not the registry). Bind exact ids at setup time: run `pi --list-models` on the target machine and replace each tier with a chosen id (`provider/id`, optional `:<thinking>` suffix — the agent frontmatter `model:` passes straight to the child CLI's `--model`). Proposed defaults, edit freely:
+
+```text
+# proposed defaults, edit freely. Capability tiers — bind exact ids from `pi --list-models` at setup time.
+feature, refactoring: standard
+bug-fix: standard
+hardest tasks: frontier
+judgment and prose: frontier
+swarm workers: fast          # many parallel children; cheap and quick beats smart
+audit and second opinion: frontier   # pick a different provider than the implementation tier's
+```
+
+To inherit the dispatcher's model for a role, omit `model:` from that agent file — the child then runs the session's active model and thinking level.
 
 ## Transcripts
 
