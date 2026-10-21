@@ -1,6 +1,9 @@
 # Vendor manifest: paths in this repo that originate from pstack.
 # Mirror: ~/projects/pstack (upstream cursor/plugins, pstack subtree).
 # scripts/sync-upstream reads this file: first BASE line, then one path per line.
+# Intended local modifications (kept deliberately diverged from the mirror;
+# sync-upstream reports these as "local modification (intended)"):
+#   skills/poteto-mode/  skills/swarm/  skills/show-me-your-work/  skills/setup-pstack/
 BASE 6f131f137de64fdaf928278c0fd9ecec520ccbee
 skills/architect/
 skills/arena/

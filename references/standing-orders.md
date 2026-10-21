@@ -18,7 +18,7 @@
 18. Never touch the pstack mirror repo.
 19. Never commit `.scratch`.
 20. Run subagent commands in the foreground with a timeout; no detached fire-and-forget.
-21. Prove new or changed tests can fail — run them against the pre-change code or a known-bad state (negative control).
+21. Prove new or changed tests can fail. Run them against the pre-change code or a known-bad state (negative control).
 22. Briefs point at files and paths; never inline bulk content (sparse context pointers).
 23. Reach the human only for irreversible actions, genuine product or preference calls no experiment settles, a standing order contradicting observed reality, missing credentials or permissions, a dependency cycle, a required re-slice, or a dead end that survived a replan.
 24. Never reach the human for retries, CI flake triage, frontier nudges, format fixes, in-scope refusals, or "should I keep going".

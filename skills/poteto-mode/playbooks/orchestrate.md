@@ -4,7 +4,7 @@
 
 Ceremony must scale with the program. On cheap near-identical units, collapse it as each section directs.
 
-**gfunc-skills (this machine).** Workers and verifiers are local subagents, each in its own worktree or branch; `environment: "cloud"` and the Cursor dashboard do not exist here, so liveness probes read the ledger, `units.tsv`, the forge CLI (`gh`, or `glab` on GitLab remotes), and pushed branches. The store is the target repo's `.scratch/<feature-slug>/`; borrow `units.tsv`, `ledger.tsv`, and `frontier.json` from the layout below only when the run actually has multiple PRs. Transcripts live at `~/.kimi-code/sessions/<workspace>/session_*/agents/*/wire.jsonl`. `bun scripts/orch/orch.ts` is intentionally unused (no bun); keep the plain TSV and JSON by hand. Control is Playwright via `skills/playwright-cli` for UI surfaces, tmux or a PTY for CLIs.
+**Harness profile.** Localize per the active profile at `references/harness.md` (installed by /setup-pstack from `references/harnesses/`); it is the authority for subagents, models, transcripts, scheduler, forge, UI driver, and store.
 
 Three rules carry the rest.
 

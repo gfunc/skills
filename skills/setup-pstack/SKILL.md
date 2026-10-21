@@ -1,6 +1,6 @@
 ---
 name: setup-pstack
-description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and writes an always-applied rule that overrides the skill defaults. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
+description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and writes an always-applied rule that overrides the skill defaults. Also installs the active harness profile (references/harness.md) the stack reads for subagents, transcripts, scheduler, forge, and store. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
 ---
 
 # Setup pstack
@@ -70,10 +70,14 @@ architect runners: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 interrogate reviewers: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 ```
 
-### 6. Confirm
+### 6. Install the harness profile
 
-Tell the user which file was written. In Cursor, the rule applies to new sessions. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates it.
+Ask which harness this install targets, defaulting to `kimi`. Offer `kimi`, `claude`, `codex`, `pi`, and `cursor`; prefer your structured-question tool over free text. Then copy the chosen profile from the pack root's `references/harnesses/<harness>.md` to `references/harness.md`, overwriting any existing copy so re-runs stay idempotent. The pack root is two directories up from this skill file (`setup-pstack/` to `skills/` to the root); resolve it from this file's location, not the caller's working directory. The poteto-mode playbooks and the swarm skill read `references/harness.md` for the harness's subagents, models, transcripts, scheduler, forge, UI driver, and store, so a missing or stale profile is the first thing to check when a run misbehaves. `references/harness.md` is gitignored; the source profiles under `references/harnesses/` ship with the pack.
 
-### 7. Offer a verification skill (optional)
+### 7. Confirm
+
+Tell the user which files were written: the settings file and the harness profile at `references/harness.md`. In Cursor, the rule applies to new sessions. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates both.
+
+### 8. Offer a verification skill (optional)
 
 Check whether the project has a way to drive the real app for proof (a `verify-*` skill, or an existing harness). If not, offer once: "want a project-local verification skill, so agents can drive the app the way a user does and prove changes work? I can generate one with /create-verification-skill." On yes, invoke `/create-verification-skill` (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
