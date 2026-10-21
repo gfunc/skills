@@ -1,0 +1,13 @@
+# gfunc-rig-kimi: kimi-code layer. Pin per research 12 S1.5 (npm pin; the
+# install.sh route is latest-only and must not be used for a reproducible rig).
+FROM gfunc-rig-base:latest
+
+ARG KIMI_VERSION=2.2.0
+RUN npm install -g --no-fund --no-audit "@moonshot-ai/kimi-code@${KIMI_VERSION}" \
+ && kimi --version
+
+ENV KIMI_DISABLE_TELEMETRY=1
+
+COPY rig /opt/rig/rig
+COPY mock-llm /opt/rig/mock-llm
+ENTRYPOINT ["/opt/rig/rig/validate.sh"]

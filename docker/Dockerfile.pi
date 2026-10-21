@@ -1,0 +1,11 @@
+# gfunc-rig-pi: pi-coding-agent layer. Pin per research 12 S4.5; the shipped
+# containerization doc uses the same node:24-bookworm-slim base.
+FROM gfunc-rig-base:latest
+
+ARG PI_VERSION=1.3.0
+RUN npm install -g --no-fund --no-audit "@earendil-works/pi-coding-agent@${PI_VERSION}" \
+ && pi --version
+
+COPY rig /opt/rig/rig
+COPY mock-llm /opt/rig/mock-llm
+ENTRYPOINT ["/opt/rig/rig/validate.sh"]

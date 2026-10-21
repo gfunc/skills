@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# validate-harnesses: build and run the Docker validation rig, one container
+# per harness (claude, codex, pi, kimi).
+#
+# Usage: scripts/validate-harnesses [--harness <name>]... [--rebuild]
+#
+# Each container clones the pack from a read-only bind mount of this repo (the
+# GitHub remote was never pushed; the working tree itself is never installed
+# from), runs scripts/install --harness <name>, then the rig's load/smoke/
+# transcript stages. The host is untouched: no live config dir (~/.kimi-code,
+# ~/.claude, ~/.codex, ~/.pi) is ever mounted; every container gets a fresh
+# HOME.
+#
+# Output contract on stdout (one line per stage; scripts/install's own lines
+# pass through unchanged):
+#   INSTALL <h> <stage> OK | FAIL <h> <stage> <reason>
+#   OK <h> <stage> <detail> | SKIPPED <h> <stage> <reason> | FAIL <h> <stage> <reason>
+# Any FAIL -> the summary names it and the exit is non-zero.
+#
+# Credentials pass through at `docker run` time only, never baked into images:
+#   ANTHROPIC_API_KEY        claude smoke (real model call)
+#   OPENAI_API_KEY/CODEX_API_KEY  codex smoke (real model call)
+#   MOCK_API_KEY/MOCK_BASE_URL/MOCK_PORT  mock override for the pi/kimi smoke
+# Without keys: the claude/codex smoke stage prints SKIPPED with the reason
+# and the zero-credential oracle runs instead (claude plugin details / codex
+# debug prompt-input); pi/kimi smokes stay green via the in-container mock.
+#
+# Negative control: RIG_BREAK=<harness>:<install|load|smoke|transcript>
+# deliberately corrupts one stage so failures can be proven to name the
+# harness and the stage.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DOCKER_DIR="$ROOT/docker"
+OUTDIR="$ROOT/.scratch/validate-harnesses"
+ALL_HARNESSES=(claude codex pi kimi)
+
+HARNESSES=()
+REBUILD=0
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: scripts/validate-harnesses [--harness <claude|codex|pi|kimi>]... [--rebuild]
+
+Builds the rig images (shared node LTS base + one pinned layer per harness)
+and runs one container per harness. Stage lines on stdout follow the
+INSTALL|OK|SKIPPED|FAIL <harness> <stage> contract; any FAIL -> non-zero exit.
+
+Credentials are env passthrough only: ANTHROPIC_API_KEY, OPENAI_API_KEY,
+CODEX_API_KEY, MOCK_API_KEY, MOCK_BASE_URL. RIG_BREAK=<h>:<stage> corrupts
+one stage on purpose (negative control).
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --harness)
+      [ $# -ge 2 ] || { echo "validate-harnesses: --harness needs a value" >&2; usage; exit 2; }
+      case "$2" in
+        claude|codex|pi|kimi) HARNESSES+=("$2") ;;
+        *) echo "validate-harnesses: unknown harness $2" >&2; usage; exit 2 ;;
+      esac
+      shift 2
+      ;;
+    --rebuild)
+      REBUILD=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "validate-harnesses: unknown argument $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+[ "${#HARNESSES[@]}" -gt 0 ] || HARNESSES=("${ALL_HARNESSES[@]}")
+
+# --- build ------------------------------------------------------------------
+build_args=()
+[ "$REBUILD" -eq 1 ] && build_args=(--no-cache)
+
+echo "== build: base =="
+docker build "${build_args[@]}" -t gfunc-rig-base:latest -f "$DOCKER_DIR/Dockerfile.base" "$DOCKER_DIR"
+
+for h in "${HARNESSES[@]}"; do
+  echo "== build: $h =="
+  docker build "${build_args[@]}" -t "gfunc-rig-$h:latest" -f "$DOCKER_DIR/Dockerfile.$h" "$DOCKER_DIR"
+done
+
+# --- run --------------------------------------------------------------------
+mkdir -p "$OUTDIR"
+
+OVERALL=0
+for h in "${HARNESSES[@]}"; do
+  mkdir -p "$OUTDIR/$h"
+  # Pass credentials through only when set on the host; the list below is the
+  # complete set of env vars the rig reads (nothing else leaves the host).
+  envargs=()
+  for v in ANTHROPIC_API_KEY OPENAI_API_KEY CODEX_API_KEY MOCK_API_KEY MOCK_BASE_URL MOCK_PORT RIG_BREAK; do
+    [ -z "${!v:-}" ] || envargs+=(-e "$v")
+  done
+  echo "== run: $h =="
+  set +e
+  docker run --rm \
+    "${envargs[@]}" \
+    -v "$ROOT:/src:ro" \
+    -v "$DOCKER_DIR/rig:/opt/rig/rig:ro" \
+    -v "$OUTDIR/$h:/out" \
+    "gfunc-rig-$h:latest" "$h" >"$OUTDIR/$h.log" 2>&1
+  rc=$?
+  set -e
+  cat "$OUTDIR/$h.log"
+  if [ "$rc" -ne 0 ]; then
+    echo "(container $h exited $rc)"
+    OVERALL=1
+  fi
+  echo
+done
+
+# --- summary ------------------------------------------------------------------
+echo "== summary =="
+for h in "${HARNESSES[@]}"; do
+  grep -hE '^(INSTALL|OK|SKIPPED|FAIL|ABORT|RIG_BREAK)' "$OUTDIR/$h.log" 2>/dev/null \
+    | sed "s/^/[$h] /" || true
+done
+echo
+
+if [ "$OVERALL" -eq 0 ]; then
+  echo "PASS: ${#HARNESSES[@]} harness(es) green"
+else
+  echo "FAIL: one or more harnesses failed (logs in $OUTDIR)"
+fi
+exit "$OVERALL"

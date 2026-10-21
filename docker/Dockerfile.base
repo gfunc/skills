@@ -1,0 +1,9 @@
+# gfunc-rig-base: shared base image for the gfunc-skills Docker validation rig.
+# One base (node LTS, per research 12 S7 "one base image with per-harness
+# layers"); each Dockerfile.<harness> adds exactly one CLI at a pinned npm
+# version on top of this.
+FROM node:24-bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git python3 curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*

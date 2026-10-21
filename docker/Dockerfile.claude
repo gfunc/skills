@@ -1,0 +1,14 @@
+# gfunc-rig-claude: Claude Code layer. Pin per research 12 S2.5.
+FROM gfunc-rig-base:latest
+
+ARG CLAUDE_CODE_VERSION=2.1.296
+RUN npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+ && claude --version
+
+# Research 12 S2.5: keep the CLI pinned inside the image.
+ENV DISABLE_AUTOUPDATER=1 \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+COPY rig /opt/rig/rig
+COPY mock-llm /opt/rig/mock-llm
+ENTRYPOINT ["/opt/rig/rig/validate.sh"]

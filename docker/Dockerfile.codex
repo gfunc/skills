@@ -1,0 +1,10 @@
+# gfunc-rig-codex: Codex CLI layer. Pin per research 12 S3.5.
+FROM gfunc-rig-base:latest
+
+ARG CODEX_VERSION=0.163.0
+RUN npm install -g --no-fund --no-audit "@openai/codex@${CODEX_VERSION}" \
+ && codex --version
+
+COPY rig /opt/rig/rig
+COPY mock-llm /opt/rig/mock-llm
+ENTRYPOINT ["/opt/rig/rig/validate.sh"]
