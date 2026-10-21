@@ -8,9 +8,10 @@ description: Configure which models pstack uses per role and at what reasoning b
 Write pstack's model settings, one model per role:
 
 - **Cursor:** `~/.cursor/rules/pstack-models.mdc`, an always-applied rule.
-- **Every other harness** (Claude Code, Codex, Pi, OpenCode, and others): `~/.agents/pstack-models.md`. These harnesses don't load Cursor rules, so pstack skills read this file when they pick a model.
+- **Claude Code:** `~/.claude/rules/pstack-models.md`. Claude Code loads every file in `~/.claude/rules/` into each new session.
+- **Every other harness** (Codex, Pi, OpenCode, and others): `~/.agents/pstack-models.md`. These harnesses don't load it on their own, so pstack skills read this file when they pick a model.
 
-"The settings file" below means the file for your harness. When reading, check both paths and use the one that exists.
+"The settings file" below means the file for your harness. In Claude Code, if that file is missing, read `~/.agents/pstack-models.md` instead, where older versions of this skill wrote it.
 
 ## Steps
 
@@ -41,7 +42,7 @@ Every real slug written must be in the detected set. `inherit-parent` and `auto`
 
 ### 5. Write the rule
 
-Write the settings file with a `# budget` line with the chosen label and its target effort, and one line per role, using the same labels poteto-mode uses. In Cursor, include the frontmatter below with `alwaysApply: true`. In other harnesses, write `~/.agents/pstack-models.md` without the frontmatter (start at the first `#` line). Overwrite the whole file so re-runs stay idempotent. Shape:
+Write the settings file with a `# budget` line with the chosen label and its target effort, and one line per role, using the same labels poteto-mode uses. In Cursor, include the frontmatter below with `alwaysApply: true`. In other harnesses, write the settings file without the frontmatter (start at the first `#` line). Overwrite the whole file so re-runs stay idempotent. Shape:
 
 ```
 ---
@@ -86,8 +87,12 @@ The poteto-mode playbooks and the swarm skill read `references/harness.md` for t
 
 ### 7. Confirm
 
-Tell the user which files were written: the settings file, plus what the install step reported — the harness profile at `references/harness.md`, and on `codex` also the subagent TOMLs under `$CODEX_HOME/agents/`. On harnesses with a native plugin install (kimi, claude, codex, pi) the plugin itself was installed too; the script's stage lines are the record. In Cursor, the rule applies to new sessions and there is no plugin install — the script prints the per-session `--plugin-dir` guidance instead. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates both.
+Tell the user which files were written: the settings file, plus what the install step reported — the harness profile at `references/harness.md`, and on `codex` also the subagent TOMLs under `$CODEX_HOME/agents/`. On harnesses with a native plugin install (kimi, claude, codex, pi) the plugin itself was installed too; the script's stage lines are the record. In Cursor and Claude Code, the settings file loads into new sessions automatically; in Cursor there is no plugin install — the script prints the per-session `--plugin-dir` guidance instead. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates both.
 
 ### 8. Offer a verification skill (optional)
 
 Check whether the project has a way to drive the real app for proof (a `verify-*` skill, or an existing harness). If not, offer once: "want a project-local verification skill, so agents can drive the app the way a user does and prove changes work? I can generate one with /create-verification-skill." On yes, invoke `/create-verification-skill` (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
+
+### 9. Offer a formal verification skill (optional)
+
+Check whether the project already has a formal verification skill (a project skill that runs a model checker, a proof, or another verifier against the code). If not, offer once: "want a formal verification skill, so agents can prove a key property of your code holds in every case in scope, not only the cases tests reach? I can generate one with /create-formal-verification-skill." On yes, invoke `/create-formal-verification-skill` (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.

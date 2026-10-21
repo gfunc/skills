@@ -5,7 +5,7 @@
 # sync-upstream reports these as "local modification (intended)"):
 #   skills/poteto-mode/  skills/swarm/  skills/show-me-your-work/  skills/setup-pstack/
 #   agents/  .cursor-plugin/
-BASE 6f131f137de64fdaf928278c0fd9ecec520ccbee
+BASE e44668c2aad92eacf4e84df47984121fefb11b82
 skills/architect/
 skills/arena/
 skills/automate-me/
@@ -13,12 +13,14 @@ skills/benchmark-checklist/
 skills/blast-radius/
 skills/bro/
 skills/correct/
+skills/create-formal-verification-skill/
 skills/create-verification-skill/
 skills/figure-it-out/
 skills/how/
 skills/in-your-own-words/
 skills/interrogate/
 skills/ketchup/
+skills/maintain-formal-verification-skill/
 skills/maintain-verification-skill/
 skills/make-bot-ui/
 skills/no-comments/

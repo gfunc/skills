@@ -12,13 +12,14 @@ harness_prepare() {
 }
 
 harness_load() {
-  local ver out
+  local ver out want
   ver="$(claude --version 2>&1 | head -1)"
+  want="$(ls -d "$PACK"/skills/*/ | wc -l | tr -d ' ')"
   out="$OUT/claude-plugin-details.txt"
   claude plugin details gfunc-skills@gfunc >"$out" 2>&1 || true
-  if assert_grep load "plugin details" "$out" "Skills (61)" \
+  if assert_grep load "plugin details" "$out" "Skills ($want)" \
      && assert_grep load "plugin details" "$out" "Agents (2)"; then
-    ok load "cli=$ver; plugin details inventories Skills (61), Agents (2)"
+    ok load "cli=$ver; plugin details inventories Skills ($want), Agents (2)"
   fi
 }
 
@@ -37,11 +38,13 @@ harness_smoke() {
     return
   fi
   skip smoke "ANTHROPIC_API_KEY not set; zero-credential oracle instead of a model call"
+  local want
+  want="$(ls -d "$PACK"/skills/*/ | wc -l | tr -d ' ')"
   out="$OUT/smoke-oracle.txt"
   claude plugin details gfunc-skills@gfunc >"$out" 2>&1 || true
-  if assert_grep smoke-oracle "oracle" "$out" "Skills (61)" \
+  if assert_grep smoke-oracle "oracle" "$out" "Skills ($want)" \
      && assert_grep smoke-oracle "oracle" "$out" "Agents (2)"; then
-    ok smoke-oracle "plugin details inventories Skills (61), Agents (2) without credentials"
+    ok smoke-oracle "plugin details inventories Skills ($want), Agents (2) without credentials"
   fi
   # Structural run (research 12 S2.2): system/init is emitted before the auth
   # failure, so one no-key -p run both proves the plugin loads in-session and
