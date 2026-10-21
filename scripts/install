@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+# install: idempotent per-harness installer for the gfunc-skills pack.
+#
+# Usage: scripts/install --harness <kimi|claude|codex|pi|cursor> [--pack-root <path>]
+#
+# Runs the mechanical install for one harness, end to end, with no agent
+# running (CI, docker build, fresh machine). Stages per harness:
+#   plugin  native install where one exists; kimi's pre-seed of
+#           $KIMI_CODE_HOME/plugins/managed/gfunc-skills/ + installed.json;
+#           cursor prints its --plugin-dir guidance (no install CLI exists)
+#   agents  codex only: codex-agents/*.toml -> $CODEX_HOME/agents/
+#   profile references/harnesses/<h>.md -> references/harness.md (pack root)
+#
+# One line per stage on stdout:
+#   INSTALL <harness> <stage> OK
+#   FAIL <harness> <stage> <reason>
+# Any FAIL -> non-zero exit. Re-runs are safe and land on the same state.
+#
+# Config roots come from the caller's environment (defaults in parentheses);
+# point them at scratch roots for tests, never at live config dirs:
+#   kimi    KIMI_CODE_HOME        (~/.kimi-code)
+#   codex   CODEX_HOME            (~/.codex; created if missing)
+#   pi      PI_CODING_AGENT_DIR   (~/.pi/agent)
+#   claude  HOME / CLAUDE_CONFIG_DIR  (~/.claude; pass-through, not set here)
+#   cursor  no config writes at all (guidance only)
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PACK_ROOT="$ROOT"
+HARNESS=""
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: scripts/install --harness <kimi|claude|codex|pi|cursor> [--pack-root <path>]
+
+Idempotent per-harness installer for the gfunc-skills pack. One line per
+stage on stdout: "INSTALL <harness> <stage> OK" or
+"FAIL <harness> <stage> <reason>"; exit non-zero on any FAIL.
+
+Config roots come from the caller's environment (defaults in parentheses):
+  kimi    KIMI_CODE_HOME      (~/.kimi-code)
+  codex   CODEX_HOME          (~/.codex)
+  pi      PI_CODING_AGENT_DIR (~/.pi/agent)
+  claude  HOME / CLAUDE_CONFIG_DIR (~/.claude)
+  cursor  no non-interactive install exists; prints --plugin-dir guidance
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --harness)
+      [ $# -ge 2 ] || { echo "install: --harness needs a value" >&2; usage; exit 2; }
+      HARNESS="$2"
+      shift 2
+      ;;
+    --pack-root)
+      [ $# -ge 2 ] || { echo "install: --pack-root needs a value" >&2; usage; exit 2; }
+      [ -d "$2" ] || { echo "install: --pack-root $2 is not a directory" >&2; exit 2; }
+      PACK_ROOT="$(cd "$2" && pwd)"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "install: unknown argument $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+case "$HARNESS" in
+  kimi|claude|codex|pi|cursor) ;;
+  *)
+    [ -n "$HARNESS" ] && echo "install: unknown harness $HARNESS" >&2
+    usage
+    exit 2
+    ;;
+esac
+
+[ -d "$PACK_ROOT" ] || { echo "install: pack root $PACK_ROOT not found" >&2; exit 2; }
+
+FAILED=0
+
+# run_stage <stage> <show-output:0|1> <command...>
+# Prints exactly one contract line. <show-output> replays the command's
+# stdout before the OK line (used for the cursor guidance).
+run_stage() {
+  local stage="$1" show="$2"
+  shift 2
+  local out rc
+  out="$("$@")" && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    if [ "$show" = "1" ] && [ -n "$out" ]; then
+      printf '%s\n' "$out"
+    fi
+    echo "INSTALL $HARNESS $stage OK"
+  else
+    local reason
+    reason="$(printf '%s\n' "$out" | awk 'NF { line=$0 } END { print line }')"
+    [ -n "$reason" ] || reason="exit $rc"
+    echo "FAIL $HARNESS $stage $reason"
+    FAILED=1
+  fi
+}
+
+# kimi has no plugin install CLI: pre-seed the managed copy + registry.
+# Mechanics per research 12 §1.1: the copy must contain a valid
+# kimi.plugin.json; installed.json is the loader's registry.
+kimi_plugin() {
+  local kh="${KIMI_CODE_HOME:-$HOME/.kimi-code}"
+  local managed="$kh/plugins/managed/gfunc-skills"
+  local registry="$kh/plugins/installed.json"
+  mkdir -p "$kh/plugins"
+  rm -rf "$managed"
+  mkdir -p "$managed"
+  (
+    cd "$PACK_ROOT"
+    tar cf - --exclude=.git --exclude=.scratch --exclude=node_modules .
+  ) | ( cd "$managed" && tar xf - )
+  [ -f "$managed/kimi.plugin.json" ] || {
+    echo "managed copy missing kimi.plugin.json"
+    return 1
+  }
+  python3 - "$registry" "$managed" <<'PY'
+import datetime, json, os, sys
+
+registry, managed = sys.argv[1], sys.argv[2]
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+data = {"version": 1, "plugins": []}
+if os.path.exists(registry):
+    with open(registry) as f:
+        data = json.load(f)
+plugins = data.setdefault("plugins", [])
+entry = next((p for p in plugins if p.get("id") == "gfunc-skills"), None)
+if entry is None:
+    plugins.append({
+        "id": "gfunc-skills",
+        "root": managed,
+        "source": "local-path",
+        "enabled": True,
+        "installedAt": now,
+        "updatedAt": now,
+    })
+else:
+    # Re-run on an unchanged install: leave the registry byte-identical.
+    if entry.get("root") == managed and entry.get("enabled") is True:
+        sys.exit(0)
+    entry.update({"root": managed, "source": "local-path", "enabled": True, "updatedAt": now})
+    entry.setdefault("installedAt", now)
+data["version"] = 1
+with open(registry, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+}
+
+# Native local-marketplace install (research 12 §2.1). Config root relocation
+# is the caller's job (HOME / CLAUDE_CONFIG_DIR); nothing is set here.
+# Re-runs exit 0 natively ("already on disk" / "already installed"); an
+# "already" match is also accepted as OK if a future version errors instead.
+claude_plugin() {
+  local out rc
+  out="$(claude plugin marketplace add "$PACK_ROOT" --json 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
+  fi
+  out="$(claude plugin install gfunc-skills@gfunc -y --json 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
+  fi
+}
+
+# Native local-marketplace install (research 12 §3.1). $CODEX_HOME must exist
+# before the first codex command. Local marketplaces can't `upgrade`; a
+# re-run of marketplace add + plugin add is the refresh path (it re-copies
+# the versioned cache, .git included — fine per research 12 §3.3).
+codex_plugin() {
+  local ch="${CODEX_HOME:-$HOME/.codex}"
+  mkdir -p "$ch"
+  local out rc
+  out="$(codex plugin marketplace add "$PACK_ROOT" --json 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
+  fi
+  out="$(codex plugin add gfunc-skills@gfunc --json 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
+  fi
+}
+
+# Codex does not plugin-package subagents: copy the TOMLs into $CODEX_HOME.
+codex_agents() {
+  local ch="${CODEX_HOME:-$HOME/.codex}"
+  mkdir -p "$ch/agents"
+  cp -f "$PACK_ROOT"/codex-agents/*.toml "$ch/agents/"
+}
+
+# Native path install (research 12 §4.1); loaded in place, not copied.
+pi_plugin() {
+  local out rc
+  out="$(pi install "$PACK_ROOT" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
+  fi
+}
+
+# No non-interactive plugin install exists (research 12 §5.1, Cursor staff
+# reply 2026-07-19): print the guidance; do not touch ~/.cursor.
+cursor_plugin() {
+  cat <<EOF
+cursor: no non-interactive plugin install exists — nothing was installed.
+  Per session:  agent -p --plugin-dir $PACK_ROOT --output-format json ...
+  Containers:   pin the CLI tarball
+                https://downloads.cursor.com/lab/2026.10.19-6bbf2c4/<os>/<arch>/agent-cli-package.tar.gz
+                and pass --disable-auto-update.
+  (agent plugin marketplace add only registers a marketplace; it does not
+  install a plugin.)
+EOF
+}
+
+profile_stage() {
+  cp -f "$PACK_ROOT/references/harnesses/$HARNESS.md" "$PACK_ROOT/references/harness.md"
+}
+
+case "$HARNESS" in
+  kimi)
+    run_stage plugin 0 kimi_plugin
+    run_stage profile 0 profile_stage
+    ;;
+  claude)
+    run_stage plugin 0 claude_plugin
+    run_stage profile 0 profile_stage
+    ;;
+  codex)
+    run_stage plugin 0 codex_plugin
+    run_stage agents 0 codex_agents
+    run_stage profile 0 profile_stage
+    ;;
+  pi)
+    run_stage plugin 0 pi_plugin
+    run_stage profile 0 profile_stage
+    ;;
+  cursor)
+    run_stage plugin 1 cursor_plugin
+    run_stage profile 0 profile_stage
+    ;;
+esac
+
+if [ "$FAILED" -ne 0 ]; then
+  exit 1
+fi
