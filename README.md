@@ -31,7 +31,7 @@ No stack-authored setup skill; everything auto-detects with defaults. The vendor
 
 ## Store convention
 
-`.scratch/` in a consuming repo is the artifact root for all stack activity there: planning artifacts (spec, optional work tickets) and execution state (plan, decision trail, agent registry, logs, lane worktrees) live side by side under `.scratch/<feature-slug>/`. Keep `.scratch/` gitignored. This is the local stand-in for Cursor's injected per-agent store.
+`.scratch/` in a consuming repo is the artifact root for all stack activity there: planning artifacts (spec, optional work tickets), execution state (plan, decision trail, agent registry, logs, lane worktrees), and scratch outputs (arena and eval candidates, throwaway prototypes, screenshots, resume notes) live side by side under `.scratch/<feature-slug>/`. Keep `.scratch/` gitignored. This is the local stand-in for Cursor's injected per-agent store.
 
 ## Syncing upstream
 

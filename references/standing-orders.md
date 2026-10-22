@@ -2,7 +2,7 @@
 2. CI green is an input to a verdict, not a verdict.
 3. Inconclusive is not a pass.
 4. Playwright is the control skill.
-5. Save screenshots to `/tmp/swarm-<pr>/worker-<n>/`.
+5. Save screenshots to `.scratch/<feature-slug>/shots/<pr>/worker-<n>/`.
 6. Evidence is exit codes and output tails, never a self-report.
 7. No rebase, no merge, no retarget, no force-push, no out-of-scope fixes.
 8. One writer per branch.
