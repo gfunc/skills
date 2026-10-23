@@ -102,7 +102,7 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 ## Harness
 
-This skill is harness-neutral. "Call the Skill tool" means your harness's skill-invocation mechanism; subagents are your harness's subagent tool, run locally in their own worktrees where cloud agents don't exist. Tracker operations come from the tracker doc, not this file. The research-branch push (Chart the map, step 5) is best-effort: where the account cannot push, keep the branch local and note it in the ticket.
+This skill is harness-neutral apart from spawning. "Call the Skill tool" means your harness's skill-invocation mechanism; subagents are your harness's subagent tool, run locally in their own worktrees where cloud agents don't exist. Before spawning, read the active profile's Subagents section; the adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`, and a missing or mismatched profile stops that spawn. Tracker operations come from the tracker doc, not this file. The research-branch push (Chart the map, step 5) is best-effort: where the account cannot push, keep the branch local and note it in the ticket.
 
 ## Invocation
 

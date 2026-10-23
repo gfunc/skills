@@ -4,18 +4,24 @@
 # operated in it. Emits a table sorted by size with a suggested bucket. Never
 # deletes anything; deletion stays a human-gated step in the playbook.
 #
-# Usage: worktree-audit.sh [-b|--base <ref>] [repo-path]
+# Usage: worktree-audit.sh [-b|--base <ref>] [--transcripts <dir>]... [repo-path]
 #   repo-path defaults to the current repo.
 #   -b sets the ref the MERGED column checks against (e.g. origin/integration).
 #   Without it the base is origin/HEAD, then origin/main, then origin/master.
 #   origin/HEAD is the remote's default branch, not necessarily the branch PRs
 #   merge into; pass -b when they differ.
+#   --transcripts takes a workspace-scoped session directory to scan for the
+#   newest chat that touched a worktree. Repeat it for several roots. The caller
+#   reads the active harness profile's Transcripts section and passes the root;
+#   this script does no harness detection. Without it, LAST_CHAT stays "-".
 set -u
 
 base=""
+transcript_dirs=()
 while [ $# -gt 0 ]; do
 	case "$1" in
 	-b|--base) [ $# -ge 2 ] || { echo "error: $1 needs a ref" >&2; exit 2; }; base="$2"; shift 2 ;;
+	--transcripts) [ $# -ge 2 ] || { echo "error: $1 needs a directory" >&2; exit 2; }; transcript_dirs+=("$2"); shift 2 ;;
 	-h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
 	-*) echo "error: unknown option: $1" >&2; exit 2 ;;
 	*) break ;;
@@ -61,17 +67,18 @@ elif raw=$(gh pr list --author "@me" --state all --limit 1000 \
 fi
 [ -s "$prs" ] || echo "[]" > "$prs"
 
-# Chat transcript dirs for a path, per harness: Cursor, Claude Code, Pi.
-# Codex and OpenCode don't group sessions by project, so they aren't searched.
-slash_slug() { printf '%s' "$1" | sed 's#^/##; s#/#-#g'; }
-claude_slug() { printf '%s' "$1" | sed 's#[^A-Za-z0-9]#-#g'; }
-transcript_dirs() {
-	for d in "$HOME/.cursor/projects/$(slash_slug "$1")/agent-transcripts" \
-		"$HOME/.claude/projects/$(claude_slug "$1")" \
-		"$HOME/.pi/agent/sessions/--$(slash_slug "$1")--"; do
-		[ -d "$d" ] && printf '%s\n' "$d"
+# Transcript roots come from --transcripts, typically the workspace-scoped
+# directory the active profile's Transcripts section names. No harness detection.
+if [ "${#transcript_dirs[@]}" -eq 0 ]; then
+	echo "warn: no --transcripts given; LAST_CHAT scan skipped" >&2
+else
+	existing=()
+	for d in "${transcript_dirs[@]}"; do
+		[ -d "$d" ] && existing+=("$d") || echo "warn: transcript dir not found: $d" >&2
 	done
-}
+	transcript_dirs=("${existing[@]}")
+	[ "${#transcript_dirs[@]}" -gt 0 ] || echo "warn: no readable transcript dirs; LAST_CHAT scan skipped" >&2
+fi
 now=$(date +%s)
 
 echo "# base: $base"
@@ -110,10 +117,9 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 
 	# Most recent chat whose transcript operated in this worktree. Match path
 	# followed by "/" or a quote so glint-482 does not match glint-482-r37.
-	# Search the main repo's transcript dirs and the worktree's own.
 	last="-"; last_ts=0
-	dirs=$( { transcript_dirs "$main_wt"; transcript_dirs "$wt"; } | sort -u)
-	if [ -n "$dirs" ]; then
+	if [ "${#transcript_dirs[@]}" -gt 0 ]; then
+		dirs=$(printf '%s\n' "${transcript_dirs[@]}" | sort -u)
 		f=$(printf '%s\n' "$dirs" | tr '\n' '\0' | xargs -0 rg -l -e "${wt}/" -e "${wt}\"" 2>/dev/null \
 			| xargs stat -f '%m %N' 2>/dev/null | sort -rn | head -1)
 		if [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
