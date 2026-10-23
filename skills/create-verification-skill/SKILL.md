@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # Create a verification skill
 
-Every serious project needs a scripted way to drive the real app and prove behavior: launch it, exercise a feature the way a user would, and capture evidence. This skill generates that as a project-local skill (`<skills>/verify-<app>/`) tailored to the repo. `<skills>` is your harness's project skill folder: `.cursor/skills/` in Cursor, `.claude/skills/` in Claude Code, `.pi/skills/` in Pi, `.agents/skills/` in Codex, OpenCode, and others. If the repo already keeps skills in one of these, use that one. You write the generator's output for the next agent, not for a human: it will be read cold, mid-task, by an agent that has never seen the app.
+**Harness profile.** Before harness-dependent work, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Harness-neutral work may continue.
+
+Every serious project needs a scripted way to drive the real app and prove behavior: launch it, exercise a feature the way a user would, and capture evidence. This skill generates that as a project-local skill (`<skills>/verify-<app>/`) tailored to the repo. `<skills>` is the project skill folder the active profile's Capabilities section describes; read that section before choosing it. If the repo already keeps skills in that folder, use it. You write the generator's output for the next agent, not for a human: it will be read cold, mid-task, by an agent that has never seen the app.
 
 ## 1. Interview the repo, not the user
 

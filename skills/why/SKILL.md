@@ -8,9 +8,11 @@ disable-model-invocation: true
 
 Investigate the motivation and intent behind code. The companion `how` skill answers what the code does and how it works. `why` answers what forces led to its shape.
 
-Each spawn below names a role line in the pstack settings file (`~/.cursor/rules/pstack-models.mdc` in Cursor, `~/.claude/rules/pstack-models.md` in Claude Code, `~/.agents/pstack-models.md` in other harnesses) and a default. Set `model` to that line's value, or to the default if the file or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If your subagent tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message or your harness's model list. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+**Harness profile.** Before spawning, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Harness-neutral work may continue. Pass the active `harness=` and `profile=` paths in every investigator and synthesizer prompt.
 
-Every spawn is `generalPurpose` with `readonly: false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, which disables the MCP-backed investigators and the synthesizer's citation spot-checks. Investigators still shouldn't write anything.
+Each spawn below names a role line in `~/.agents/pstack-models.md` and a default. Read the profile's Models section for the native binding, availability gate, subagent mechanism, and inheritance token. Set `model` to that line's value, or to the default if the file or the line is missing. Leave `model` unset when the value is `auto`, `inherit-parent`, or the profile's inheritance token. If the chosen value is not established as available, use the nearest listed family default and say so; with no listed alternative, stop that spawn and say why. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the profile.
+
+Every spawn uses the profile's Subagents section in a mode that keeps MCP access. **Do not use a read-only mode that strips MCP.** It disables the MCP-backed investigators and the synthesizer's citation spot-checks. Investigators still shouldn't write anything.
 
 ## Operating Posture
 
@@ -32,7 +34,7 @@ Before spawning investigators, build the seed context inline: file paths and lin
 
 ### Discovery
 
-Before spawning investigators, list the MCP servers connected to your harness. Use the available-tools map when present. In Cursor, you can also inspect the `mcps/` directory it exposes for enabled MCP servers. In other harnesses, MCP tools usually appear in your tool list with the server name in the tool name (for example `mcp__<server>__<tool>` in Claude Code).
+Before spawning investigators, list the MCP servers connected to your harness. Use the available-tools map when present. The profile's Capabilities section names the harness's discovery surface. MCP tools usually appear in your tool list with the server name in the tool name (for example `mcp__<server>__<tool>`).
 
 Map each available MCP to one evidence category:
 
@@ -53,7 +55,7 @@ Each investigator's prompt is `references/investigator-prompt.md` filled in, plu
 - `references/sources/incident-postmortem.md` **if the target code looks defensive** (null checks, retry logic, timeout handling, rate limiting, feature flags, egress guards, OOM handlers)
 - the code anchor and the user's original question
 
-**Other harnesses.** The spawns in this skill use Cursor's `Task` tool. In another harness, use its subagent tool: `Agent` in Claude Code (`subagent_type: general-purpose`), `task` in OpenCode (`subagent_type: general`), `spawn_agent` in Codex. Keep the prompt and the model. Drop parameters your tool doesn't have. If your harness has no subagent tool, as in Pi without an extension, run each investigator yourself, one after another.
+Where the profile supports no parallel spawn, run the investigators sequentially and disclose the reduced independence in the reply and trail. Where it supports no spawn, run each investigator yourself in sequence and disclose the same.
 
 ### Investigator roster, one per available evidence category
 

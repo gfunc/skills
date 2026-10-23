@@ -12,31 +12,17 @@ Invoke when the user says "reflect" or "/reflect". Skip when the conversation is
 
 ## 1. Locate the active transcript
 
-Before fanning out, find this conversation's transcript in the active workspace's session directory. Do not glob across every project's directory. That crosses workspace boundaries and reads private chats from unrelated projects.
+Before fanning out, find this conversation's transcript in the active workspace's session directory. Read the active profile's Transcripts section for the root, layout, and relocation variable; read the profile before this search. Do not glob across every project's directory. That crosses workspace boundaries and reads private chats from unrelated projects.
 
-Where the transcript lives depends on your harness:
-
-- **Cursor:** the `agent-transcripts/` directory the system prompt names.
-
-  ```bash
-  ls -t <agent-transcripts>/*.jsonl <agent-transcripts>/*/*.jsonl <agent-transcripts>/*/subagents/*.jsonl 2>/dev/null | head -10
-  ```
-
-  That covers the legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`) layouts. For each candidate, read the first JSONL line. Take the file whose `message.content[0].text` contains the conversation's opening user prompt.
-- **Claude Code:** `~/.claude/projects/<slug>/<session-id>.jsonl`, where `<slug>` is the workspace path with every character that isn't a letter or digit turned into "-".
-- **Pi:** `~/.pi/agent/sessions/--<slug>--/*.jsonl`, where `<slug>` is the workspace path with the leading slash dropped and each "/" turned into "-".
-- **Codex:** `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. Keep only files whose first line has `payload.cwd` equal to the workspace path.
-- **Other harnesses:** check the harness's session directory for this workspace.
-
-Outside Cursor, take the newest candidates first and confirm one by finding the conversation's opening user prompt in its first user message. If none matches, pass a tight digest of the session instead.
+Take the newest candidates first and confirm one by finding the conversation's opening user prompt in its first user message. If none matches, pass a tight digest of the session instead.
 
 ## 2. Spawn three reviewers in parallel
 
-One message, three `Task` calls, `subagent_type: generalPurpose`, agent mode (`readonly: false`). Reviewers need MCP access to look up the tickets, chat threads, and observability traces the transcript references, and readonly strips MCPs.
+One message, three spawns using the profile's Subagents section. Reviewers need MCP access to look up the tickets, chat threads, and observability traces the transcript references, so a read-only mode that strips MCPs is wrong here.
 
-**Other harnesses.** The spawns in this skill use Cursor's `Task` tool. In another harness, use its subagent tool: `Agent` in Claude Code (`subagent_type: general-purpose`), `task` in OpenCode (`subagent_type: general`), `spawn_agent` in Codex. Keep the prompt and the model. Drop parameters your tool doesn't have. If your harness has no subagent tool, as in Pi without an extension, run each role yourself, one after another.
+**Harness profile.** Before spawning, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected spawn and say why. Pass the active `harness=` and `profile=` paths in every reviewer prompt so each child can read the profile itself. Use the spawn tool and arguments the profile's Subagents section names, and keep the prompt and model. Where the profile supports no parallel spawn, run the reviewers sequentially and disclose the reduced independence in the reply and trail. Where it supports no spawn, run each role yourself in sequence and disclose the same.
 
-Each reviewer and the synthesizer name a role line in the pstack settings file (`~/.cursor/rules/pstack-models.mdc` in Cursor, `~/.claude/rules/pstack-models.md` in Claude Code, `~/.agents/pstack-models.md` in other harnesses) and a default. Set `model` to that line's value, or to the default if the file or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If your subagent tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message or your harness's model list. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Each reviewer and the synthesizer name a role line in `~/.agents/pstack-models.md` and a default. Read the profile's Models section for the native binding, availability gate, subagent mechanism, and inheritance token. Set `model` to that line's value, or to the default if the file or the line is missing. Leave `model` unset when the value is `auto`, `inherit-parent`, or the profile's inheritance token. If the chosen value is not established as available, use the nearest listed family default and say so; with no listed alternative, stop that spawn and say why. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the profile.
 
 | Lens | Role line | Default `model` | Prompt template |
 |---|---|---|---|
@@ -44,11 +30,11 @@ Each reviewer and the synthesizer name a role line in the pstack settings file (
 | Tooling | `reflect tooling` | `grok-4.7-xhigh-fast` | `references/tooling-reviewer.md` |
 | Divergent | `reflect judgment, divergent, synthesizer` | `claude-opus-5-5-xhigh` | `references/divergent-reviewer.md` |
 
-Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in the `Task` response body.
+Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in the spawn response body.
 
 ## 3. Synthesize
 
-One `Task` call, `subagent_type: generalPurpose`, `model` from the `reflect judgment, divergent, synthesizer` line (default `claude-opus-5-5-xhigh`), agent mode (`readonly: false`). It spot-verifies citations through MCP, and readonly strips MCPs. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. It returns an Accepted / Rejected / Backlog list.
+One synthesizer spawn using the profile's Subagents section, `model` from the `reflect judgment, divergent, synthesizer` line (default `claude-opus-5-5-xhigh`), in a mode that keeps MCP access. It spot-verifies citations through MCP, so a read-only mode that strips MCPs is wrong here. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. Pass the active `harness=` and `profile=` paths too. It returns an Accepted / Rejected / Backlog list.
 
 ## 4. Structural enforcement check
 

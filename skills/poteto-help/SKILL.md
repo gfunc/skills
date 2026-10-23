@@ -24,7 +24,7 @@ Infer the need from the message and the conversation. A named situation, such as
 
 Check the state that changes the answer, and mention it only when it does:
 
-- No pstack settings file (`~/.cursor/rules/pstack-models.mdc` in Cursor, `~/.claude/rules/pstack-models.md` in Claude Code, `~/.agents/pstack-models.md` in other harnesses) means `/setup-pstack` hasn't run for this user, so every role uses its default model.
+- No `~/.agents/pstack-models.md` (the universal operator file; the active profile's Models section names the harness's native binding) means `/setup-pstack` hasn't run for this user, so every role uses its default model.
 - No `verify-*` skill or other app harness in the project means agents have no scripted way to drive the app. Mention `/create-verification-skill` when the question is about proving a change works.
 - No formal verification skill in the project means no property is checked past what tests reach. Mention `/create-formal-verification-skill` when the question is about a race, an invariant, or another case tests rarely hit. When one exists and the code it covers changed after the commit it records as last in sync, mention `/maintain-formal-verification-skill` if the question touches that code.
 
@@ -43,9 +43,9 @@ Installing changes nothing until the user invokes a skill. Only `/setup-pstack` 
 
 If cost is the worry, say where the tokens go and how to spend fewer. pstack spends extra tokens on subagents and review panels. Rerun `/setup-pstack` and pick a smaller budget or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which saves tokens when the chat runs on Auto or a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save `/poteto-mode` for work that needs rigor.
 
-pstack is built for Cursor, and it also installs in Claude Code with `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. There, each command takes a `pstack:` prefix, such as `/pstack:poteto-mode`. The [Claude Code adapter](../../docs/harness/claude-code.md) maps the Cursor names, and a step that needs a Cursor-only feature, such as Bugbot or Automations, is skipped with a one-line note.
+pstack is built for Cursor, and it also installs in Claude Code with `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. There, each command takes a `pstack:` prefix, such as `/pstack:poteto-mode`. A step that needs a Cursor-only feature, such as Bugbot or Automations, is skipped with a one-line note.
 
-This mirror's skills also work in other harnesses (Claude Code, Codex, Pi, OpenCode, and others) through `npx skills add backnotprop/pstack`. The Harness section of [`poteto-mode`](../poteto-mode/SKILL.md) maps Cursor's subagent, question, transcript, and settings paths to the harness's own. Custom Modes are a Cursor feature.
+This mirror's skills also work in the other supported harnesses (Claude Code, Codex, Pi, OpenCode, and others) through `npx skills add backnotprop/pstack`. The Harness section of [`poteto-mode`](../poteto-mode/SKILL.md) requires the active harness profile delivered by the adapter line or clone resolver; the profile owns the harness's subagent, question, transcript, settings, and skill-location mechanics. Custom Modes are a Cursor feature.
 
 ## Start a task with `/poteto-mode`
 
@@ -57,7 +57,7 @@ Whether `/poteto-mode` stays on depends on how the user starts it:
 - Option+Enter on Mac or Alt+Enter on Windows, or Use as Mode from the skill entry, makes it a Custom Mode. It stays in context every turn until the user exits the mode, and it stays out of casual turns.
 - Cursor's docs list Custom Modes in the Agents Window and the CLI. Elsewhere, start each new task with `/poteto-mode`.
 
-Link [Cursor's skills docs](https://cursor.com/docs/skills) when this comes up. Mid-chat, "new task" makes the mode match a fresh playbook. `/poteto-mode` already uses `poteto-agent` for the subagents its playbook steps spawn. To get the same style from a subagent of your own, spawn it with `subagent_type: "poteto-agent"`.
+Link [Cursor's skills docs](https://cursor.com/docs/skills) when this comes up. Mid-chat, "new task" makes the mode match a fresh playbook. `/poteto-mode` already uses `poteto-agent` for the subagents its playbook steps spawn. To get the same style from a subagent of your own, spawn it as the pack's `poteto-agent` where the harness registers that agent.
 
 ## Pick a skill
 
