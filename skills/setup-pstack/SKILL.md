@@ -1,17 +1,17 @@
 ---
 name: setup-pstack
-description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and writes an always-applied rule that overrides the skill defaults. Also installs the active harness profile (references/harness.md) the stack reads for subagents, transcripts, scheduler, forge, and store. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
+description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and writes a settings file that overrides the skill defaults, and installs the pack's native plugin for this harness. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
 ---
 
 # Setup pstack
 
 Write pstack's model settings, one model per role:
 
-- **Cursor:** `~/.cursor/rules/pstack-models.mdc`, an always-applied rule.
+- **Cursor:** `~/.agents/pstack-models.md`, the portable settings file pstack skills read. Cursor does not auto-load `~/.cursor/rules/pstack-models.mdc`: User Rules are managed in Cursor Settings, and project rules live in `.cursor/rules/*.mdc`. To have Cursor apply the lines natively, also add `.cursor/rules/pstack-models.mdc` to the project (with the frontmatter below) or paste the same lines into User Rules.
 - **Claude Code:** `~/.claude/rules/pstack-models.md`. Claude Code loads every file in `~/.claude/rules/` into each new session.
 - **Every other harness** (Codex, Pi, OpenCode, and others): `~/.agents/pstack-models.md`. These harnesses don't load it on their own, so pstack skills read this file when they pick a model.
 
-"The settings file" below means the file for your harness. In Claude Code, if that file is missing, read `~/.agents/pstack-models.md` instead, where older versions of this skill wrote it.
+"The settings file" below means the file for your harness. In Cursor that is the portable `~/.agents/pstack-models.md`; an optional project rule is a native delivery copy, not a second source of truth. In Claude Code, if that file is missing, read `~/.agents/pstack-models.md` instead, where older versions of this skill wrote it.
 
 ## Steps
 
@@ -42,7 +42,7 @@ Every real slug written must be in the detected set. `inherit-parent` and `auto`
 
 ### 5. Write the rule
 
-Write the settings file with a `# budget` line with the chosen label and its target effort, and one line per role, using the same labels poteto-mode uses. In Cursor, include the frontmatter below with `alwaysApply: true`. In other harnesses, write the settings file without the frontmatter (start at the first `#` line). Overwrite the whole file so re-runs stay idempotent. Shape:
+Write the settings file with a `# budget` line with the chosen label and its target effort, and one line per role, using the same labels poteto-mode uses. Write it without frontmatter (start at the first `#` line). In Cursor, if you also write the optional `.cursor/rules/pstack-models.mdc` delivery copy, that copy alone includes the frontmatter below with `alwaysApply: true`. Overwrite the whole file so re-runs stay idempotent. Shape (frontmatter belongs only in the Cursor delivery copy):
 
 ```
 ---
@@ -71,23 +71,27 @@ architect runners: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 interrogate reviewers: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 ```
 
-### 6. Install the harness profile and plugin
+### 6. Install the plugin for this harness
 
-Ask which harness this install targets, defaulting to `kimi`. Offer `kimi`, `claude`, `codex`, `pi`, and `cursor`; prefer your structured-question tool over free text. Then run the pack's installer from the pack root — it is the single source of truth for the install mechanics (native plugin install, kimi's managed-copy pre-seed, codex's subagent TOMLs, and the profile copy):
+This step installs the pack's native plugin; it does not select a profile. Every profile under `references/harnesses/` ships with the pack, and the active harness's adapter — or `scripts/resolve-harness` on a plain clone — names the right one at runtime.
+
+Use the harness that is running this session: the adapter line in context names it. With no adapter line (a plain clone), `scripts/resolve-harness` prints the selection (explicit input first, then a warned marker fallback). Ask the user only when neither is available, and treat the answer as the install target, not a profile choice.
+
+Run the pack's installer from the pack root — it is the single source of truth for the install mechanics (native plugin install, kimi's managed-copy pre-seed, codex's subagent TOMLs):
 
 ```sh
-<pack-root>/scripts/install --harness <choice>
+<pack-root>/scripts/install --harness <active-harness>
 ```
 
 The pack root is two directories up from this skill file (`setup-pstack/` to `skills/` to the root); resolve it from this file's location, not the caller's working directory. The script prints one `INSTALL <harness> <stage> OK` line per stage and exits non-zero on any `FAIL`; if any stage fails, surface the failure to the user instead of falling back to manual copies.
 
-If the script is missing or not executable in the current environment, fall back to the manual copies: copy the chosen profile from the pack root's `references/harnesses/<harness>.md` to `references/harness.md`, overwriting any existing copy so re-runs stay idempotent. On `codex`, also copy the pack root's `codex-agents/*.toml` into `$CODEX_HOME/agents/` (create the directory, overwrite for idempotency). Codex does not plugin-package subagents, so without this step the pack's named agents are absent there.
+If the script is missing or not executable, report that the installer is unavailable; do not hand-copy profiles. On `codex`, also copy the pack root's `codex-agents/*.toml` into `$CODEX_HOME/agents/` (create the directory, overwrite for idempotency). Codex does not plugin-package subagents, so without this step the pack's named agents are absent there.
 
-The poteto-mode playbooks and the swarm skill read `references/harness.md` for the harness's subagents, models, transcripts, scheduler, forge, UI driver, and store, so a missing or stale profile is the first thing to check when a run misbehaves. `references/harness.md` is gitignored; the source profiles under `references/harnesses/` ship with the pack.
+The profiles ship complete, including in copied installations (Kimi's managed copy and Codex's plugin cache). The adapter line or resolver gives the absolute path to read; a missing or unreadable profile stops that harness-dependent action. There is no shared `references/harness.md`.
 
 ### 7. Confirm
 
-Tell the user which files were written: the settings file, plus what the install step reported — the harness profile at `references/harness.md`, and on `codex` also the subagent TOMLs under `$CODEX_HOME/agents/`. On harnesses with a native plugin install (kimi, claude, codex, pi) the plugin itself was installed too; the script's stage lines are the record. In Cursor and Claude Code, the settings file loads into new sessions automatically; in Cursor there is no plugin install — the script prints the per-session `--plugin-dir` guidance instead. In other harnesses, pstack skills read `~/.agents/pstack-models.md` when they pick a model. Re-running this skill updates both.
+Tell the user which files were written: the settings file, plus what the install step reported — the plugin stages, and on `codex` also the subagent TOMLs under `$CODEX_HOME/agents/`. On harnesses with a native plugin install (kimi, claude, codex, pi) the plugin itself was installed too; the script's stage lines are the record. Claude Code loads `~/.claude/rules/pstack-models.md` into new sessions automatically; Cursor does not auto-load a user-level rule file, so pstack skills read `~/.agents/pstack-models.md` (or the optional project rule). In Cursor there is no plugin install — the script prints the per-session `--plugin-dir` guidance instead. Re-running this skill updates both.
 
 ### 8. Offer a verification skill (optional)
 
