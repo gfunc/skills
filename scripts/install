@@ -9,7 +9,10 @@
 #           $KIMI_CODE_HOME/plugins/managed/gfunc-skills/ + installed.json;
 #           cursor prints its --plugin-dir guidance (no install CLI exists)
 #   agents  codex only: codex-agents/*.toml -> $CODEX_HOME/agents/
-#   profile references/harnesses/<h>.md -> references/harness.md (pack root)
+#
+# Every stage writes no selection state. Copied installs (kimi managed copy,
+# codex plugin cache) are checked to contain all references/harnesses/*.md
+# profiles and scripts/resolve-harness before the plugin stage reports OK.
 #
 # One line per stage on stdout:
 #   INSTALL <harness> <stage> OK
@@ -107,9 +110,24 @@ run_stage() {
   fi
 }
 
+# verify_copy_root <root>: a copied installation must carry every harness
+# profile and the resolver, never a pointer back to the authoring checkout.
+verify_copy_root() {
+  local root="$1" missing="" h
+  for h in kimi claude codex pi cursor; do
+    [ -f "$root/references/harnesses/$h.md" ] \
+      || missing="$missing references/harnesses/$h.md"
+  done
+  [ -x "$root/scripts/resolve-harness" ] \
+    || missing="$missing scripts/resolve-harness"
+  [ -z "$missing" ] || { echo "copied root $root missing:$missing"; return 1; }
+}
+
 # kimi has no plugin install CLI: pre-seed the managed copy + registry.
 # Mechanics per research 12 §1.1: the copy must contain a valid
-# kimi.plugin.json; installed.json is the loader's registry.
+# kimi.plugin.json; installed.json is the loader's registry. A stale
+# references/harness.md is excluded: selection is per entry path, not a
+# pack-local file.
 kimi_plugin() {
   local kh="${KIMI_CODE_HOME:-$HOME/.kimi-code}"
   local managed="$kh/plugins/managed/gfunc-skills"
@@ -119,12 +137,14 @@ kimi_plugin() {
   mkdir -p "$managed"
   (
     cd "$PACK_ROOT"
-    tar cf - --exclude=.git --exclude=.scratch --exclude=node_modules .
+    tar cf - --exclude=.git --exclude=.scratch --exclude=node_modules \
+      --exclude='./references/harness.md' .
   ) | ( cd "$managed" && tar xf - )
   [ -f "$managed/kimi.plugin.json" ] || {
     echo "managed copy missing kimi.plugin.json"
     return 1
   }
+  verify_copy_root "$managed" || return 1
   python3 - "$registry" "$managed" <<'PY'
 import datetime, json, os, sys
 
@@ -178,11 +198,13 @@ claude_plugin() {
 # Native local-marketplace install (research 12 §3.1). $CODEX_HOME must exist
 # before the first codex command. Local marketplaces can't `upgrade`; a
 # re-run of marketplace add + plugin add is the refresh path (it re-copies
-# the versioned cache, .git included — fine per research 12 §3.3).
+# the versioned cache, .git included — fine per research 12 §3.3). The cache
+# copy is verified to carry every profile and the resolver: an installed root
+# must not depend on the authoring checkout.
 codex_plugin() {
   local ch="${CODEX_HOME:-$HOME/.codex}"
   mkdir -p "$ch"
-  local out rc
+  local out rc installed
   out="$(codex plugin marketplace add "$PACK_ROOT" --json 2>&1)" && rc=0 || rc=$?
   if [ "$rc" -ne 0 ]; then
     grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
@@ -191,6 +213,20 @@ codex_plugin() {
   if [ "$rc" -ne 0 ]; then
     grep -qi 'already' <<<"$out" || { printf '%s\n' "$out"; return 1; }
   fi
+  installed="$(printf '%s\n' "$out" | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+start = raw.find("{")
+if start < 0:
+    sys.exit(1)
+obj, _ = json.JSONDecoder().raw_decode(raw[start:])
+print(obj["installedPath"])
+' 2>/dev/null)" || {
+    printf '%s\n' "$out"
+    echo "codex plugin add did not report installedPath"
+    return 1
+  }
+  verify_copy_root "$installed" || return 1
 }
 
 # Codex does not plugin-package subagents: copy the TOMLs into $CODEX_HOME.
@@ -223,31 +259,22 @@ cursor: no non-interactive plugin install exists — nothing was installed.
 EOF
 }
 
-profile_stage() {
-  cp -f "$PACK_ROOT/references/harnesses/$HARNESS.md" "$PACK_ROOT/references/harness.md"
-}
-
 case "$HARNESS" in
   kimi)
     run_stage plugin 0 kimi_plugin
-    run_stage profile 0 profile_stage
     ;;
   claude)
     run_stage plugin 0 claude_plugin
-    run_stage profile 0 profile_stage
     ;;
   codex)
     run_stage plugin 0 codex_plugin
     run_stage agents 0 codex_agents
-    run_stage profile 0 profile_stage
     ;;
   pi)
     run_stage plugin 0 pi_plugin
-    run_stage profile 0 profile_stage
     ;;
   cursor)
     run_stage plugin 1 cursor_plugin
-    run_stage profile 0 profile_stage
     ;;
 esac
 
