@@ -1,4 +1,4 @@
-# gfunc-rig-codex: Codex CLI layer. Pin per research 12 S3.5.
+# gfunc-rig-codex: Codex CLI layer. Pinned to the migration floor.
 FROM gfunc-rig-base:latest
 
 ARG CODEX_VERSION=0.163.0
