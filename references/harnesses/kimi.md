@@ -1,36 +1,55 @@
 # Harness: kimi
 
-Kimi Code CLI, the harness this pack is authored and verified on: local subagents, CronCreate scheduled prompts, wire.jsonl trails.
+Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl trails.
 
 ## Subagents
 
-The `Agent` tool (`AgentSwarm` for waves) spawns local subagents; pass `run_in_background: true` for parallel workers the parent drains. `AgentSwarm` runs one prompt template over N items at one model for all — heterogeneous briefs fit the `{{item}}` placeholder, but a model race needs separate `Agent` calls. In swarm mode (`/swarm on`, or `/swarm <task>` for one turn) `AgentSwarm` is auto-approved; outside it, manual permission mode asks. Give each spawn its own git worktree, and drop Cursor-only parameters (`environment`, `subagent_type`). Model selection is the `model:` parameter on the `Agent` tool, resolved against the `[secondary_model]` pool in `~/.kimi-code/config.toml`: a `models` table mapping existing `[models]` aliases to role hints, a `default_model`, `force = true` to pin every subagent, or the reserved `primary` (the caller's model and effort). Agent files are Markdown (`name`, `description`, `tools` frontmatter) with no per-agent model field, so each agent prompt names its recommended pool alias. Fallback: with no pool configured, subagents inherit the caller's model and `model:` is not offered.
+- **Spawn tool and arguments:** `Agent` spawns one child with `description`, `prompt`, `subagent_type`, `model`, and `run_in_background: true`. `AgentSwarm` runs one prompt template over an item list at one model; the `{{item}}` placeholder varies each brief. In swarm mode (`/swarm on`, or `/swarm <task>` for one turn) `AgentSwarm` is auto-approved; outside it, manual permission mode asks. Cursor-only parameters (`environment`, `cloud_base_branch`) are rejected.
+- **Parallel spawn:** yes. Background `Agent` calls run concurrently; `AgentSwarm` fans one template out over its item list. Heterogeneous briefs need separate `Agent` calls.
+- **Fresh child inherits parent context:** no. A child starts from its spawn prompt; the parent passes the profile path, role-prompt path, and inputs explicitly. Agent definitions are Markdown frontmatter (`name`, `description`, `whenToUse`, `override`, `tools`, `disallowedTools`, `subagents`) and cannot set a model.
 
 ## Models
 
-Pointer. The kimi role→model table stays in place at `skills/poteto-mode/references/pstack-models.md` (magpie aliases such as `magpie/bi-dev/group/auto-glm-5-3-flash`, `primary` for the hardest tasks); /setup-pstack installs the operator's copy at `~/.agents/pstack-models.md`, and emit-plan reads the shipped default. Do not move the table.
+- **Main-model configuration:** `~/.kimi-code/config.toml` — top-level `default_model`, `[models."<alias>"]` entries, and provider auth; `-m` or `/model` selects per session; `/provider` imports a provider catalog into `[models]`.
+- **Availability gate:** an alias is usable only when it exists in `[models]` and its provider authenticates. Every `[secondary_model]` alias must resolve to a `[models]` entry.
+- **Subagent model mechanism:** the `model` parameter on `Agent`/`AgentSwarm`, offered only when `[secondary_model]` is configured. The pool is a `models` table of aliases, an optional `default_model`, and `force = true`, which pins every spawn and removes the parameter. Agent files cannot set a model; a Claude-style `model:` frontmatter field is ignored. The pre-0.42.0 experimental secondary-model flag no longer exists — the configured pool is the only gate.
+- **Per-spawn model parameter:** yes, while a pool is configured; without one, subagents inherit the caller's model and the parameter is not offered.
+- **Inheritance token:** `primary` — the caller's model and effort. Omitting the parameter inherits the caller's model.
+- **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.kimi-code/config.toml` (`default_model`, `[secondary_model]`); project `local.toml` carries no model keys.
 
 ## Transcripts
 
-`~/.kimi-code/sessions/wd_<slug>_<hash>/session_*/agents/*/wire.jsonl` — append-only JSONL, protocol 1.5, first line `metadata`, one trail per agent (`agents/main/`, older sessions `agents/agent-<n>/`). Correlate across trails by `turnId`, `toolCallId`, `subagentId`, `taskId`; `subagent.spawned` records the model and effort chosen per spawn, which is what a role→model audit checks. `~/.kimi-code/session_index.jsonl` maps session to directory.
+- **Transcript root:** `~/.kimi-code/sessions/wd_<slug>_<hash>/session_*/agents/*/wire.jsonl` — one trail per agent (`agents/main/`, older sessions `agents/agent-<n>/`). `~/.kimi-code/session_index.jsonl` maps a session to its directory.
+- **Relocation variable:** `KIMI_CODE_HOME` relocates the config and session root (default `~/.kimi-code`).
+
+Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails by `turnId`, `toolCallId`, `subagentId`, and `taskId`; `subagent.spawned` records the model and effort chosen per spawn.
 
 ## Scheduler
 
-CronCreate, the harness's scheduled-prompt mechanism: a timed job that injects a stored prompt. Arm the `/loop 1h` audit tick as an hourly CronCreate job holding the verbatim tick prompt at Arm the program; delete it at Close the program. Jobs persist under the session directory's `cron/`.
+- **Scheduler:** CronCreate — a timed job that injects a stored prompt. Jobs persist under the session directory's `cron/`.
 
 ## Forge
 
-gh default; glab when the remote is GitLab.
+- **Forge CLI:** `gh` by default; `glab` when the remote is GitLab.
 
-## UI driver
+## UI Driver
 
-playwright-cli (skills/playwright-cli).
+- **UI driver:** `playwright-cli` (`skills/playwright-cli`).
 
 ## Store
 
-`.scratch/<feature-slug>/` in the target repo.
+- **Store path:** `.scratch/<feature-slug>/` in the target repo.
+
+## Optional Runtimes
+
+- **Optional runtimes:** bun (the `poteto-mode` skill's bundled `scripts/orch` bookkeeping; `scripts/watch-pr` is intentionally unused), Playwright (`skills/playwright-cli`), tmux or a PTY for driving CLIs, and any MCP server a workflow names.
+
+None is required by the pack. A missing runtime stops only the step or lane that needs it, with the reason disclosed; harness-neutral work continues. The installer warns when a known optional runtime is absent.
 
 ## Capabilities
 
-- HAS: local subagents with background runs and a per-spawn model parameter; `AgentSwarm` template fan-out with auto-approval under swarm mode; tower mode (`/tower on`) — harness-native multi-agent missions with per-mission worktrees, a roster, and a review-gated merge protocol; CronCreate scheduled prompts; the reference trail format (wire.jsonl) every other harness maps to; a plugin manifest (`kimi.plugin.json`) that carries skills, agents, hooks, and commands.
-- LACKS: the bun runtime (`scripts/orch` and `scripts/watch-pr` are intentionally unused; poll the forge CLI instead); per-agent `model:` frontmatter (the model choice lives in `[secondary_model]`, not the agent file); `deslop` and the cursor-team-kit control skills (reread the diff and cut AI slop yourself, drive UI with playwright-cli and CLIs with tmux or a PTY); a built-in PR tool (every PR operation goes through the forge CLI).
+- **Active harness:** `kimi`
+- **Version floor:** Kimi Code 2.3.0; older installs reinstall. 2.3.0 requires qualified plugin skill names; the 2.2 bare-skill-name behavior is dropped.
+- **Structured question:** `AskUserQuestion`; with no such tool, ask in chat with numbered options.
+- **HAS:** local subagents with background runs and a per-spawn model parameter when a pool is configured; `AgentSwarm` template fan-out with swarm-mode auto-approval; tower mode (`/tower on`); CronCreate; the wire.jsonl trail format; a plugin manifest (`kimi.plugin.json`) carrying skills, agents, hooks, and commands.
+- **LACKS:** per-agent `model:` frontmatter; `deslop` and the cursor-team-kit control skills; a built-in PR tool.
