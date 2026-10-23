@@ -1,4 +1,4 @@
-# Codex subagent port of agents/comment-sicko.md. Installed to $CODEX_HOME/agents/ by /setup-pstack.
+# Codex subagent port of agents/comment-sicko.md. Installed to $CODEX_HOME/agents/ by scripts/install --harness codex.
 # Model: audit and second-opinion tier from references/harnesses/codex.md. Proposed default, edit freely.
 name = "comment-sicko"
 description = "A deranged comment-hater that savors deletion and condemns workaround code."
