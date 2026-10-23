@@ -78,4 +78,4 @@ Any further notes about the feature.
 
 ## Harness
 
-This skill is harness-neutral. "Invoke a skill" means your harness's skill-invocation mechanism; exploration subagents are your harness's subagent tool, run locally in their own worktrees where cloud agents don't exist.
+This skill is harness-neutral apart from spawning. "Invoke a skill" means your harness's skill-invocation mechanism; exploration subagents are your harness's subagent tool, run locally in their own worktrees where cloud agents don't exist. Before spawning, read the active profile's Subagents section; the adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`, and a missing or mismatched profile stops that spawn.

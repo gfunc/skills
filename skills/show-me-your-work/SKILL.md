@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Show me your work
 
+**Harness profile.** Before harness-dependent work, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Harness-neutral work may continue.
+
 Keep one canonical log.
 
 ## The format
@@ -54,7 +56,7 @@ Commit it only when the work is ambitious enough that a reviewer needs the trail
 
 ## Audit the log against the transcript
 
-At the end of the run, before handing back, check the log told the truth. Read this run's transcript from the active workspace's session directory: in Cursor, the `agent-transcripts/` directory the system prompt names. In Kimi Code, `~/.kimi-code/sessions/<workspace>/session_*/agents/*/wire.jsonl`. In Claude Code, `~/.claude/projects/<slug>/` (the workspace path with every character that isn't a letter or digit turned into "-"). In Pi, `~/.pi/agent/sessions/--<slug>--/`. In Codex, the `~/.codex/sessions/` file whose first line has `payload.cwd` equal to the workspace path. Per-harness reading mechanics — record vocabulary, correlation keys, subagent-trail locations, format-drift gotchas — live in the active harness's profile at `references/harnesses/<harness>.md`; read it before parsing a trail from a harness you have not audited. Don't glob across every project's directory. That reads unrelated private chats. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
+At the end of the run, before handing back, check the log told the truth. Read this run's transcript from the active workspace's session directory. Read the active profile's Transcripts section for the root, record vocabulary, correlation keys, subagent-trail locations, format-drift gotchas, and the relocation variable; read it before parsing a trail. Don't glob across every project's directory. That reads unrelated private chats. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
 
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
@@ -64,7 +66,7 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Cross-model review of the trail
 
-Before handing back, spawn a subagent on a different model family from the one that did the work. Self-review is not a substitute. The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Before handing back, spawn a subagent on a different model family from the one that did the work, using the tool and arguments the profile's Subagents section names. Where the profile supports no spawn, do the pass yourself in a fresh read and disclose the reduced independence in the reply and trail. The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the profile.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.
