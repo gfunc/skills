@@ -121,10 +121,7 @@ harness_negative() {
   # Poisoned other-harness profiles must not reach the active extension.
   neg="/tmp/pi-neg-poison"
   copy_pack /pack "$neg"
-  local h
-  for h in $(other_harnesses pi); do
-    printf '\nRIG_POISON_%s\n' "$h" >> "$neg/references/harnesses/$h.md"
-  done
+  poison_other_profiles "$neg" pi
   cfg="$HOME/.pi/agent-neg-poison"
   pi_neg_config "$cfg"
   out="$OUT/pi-neg-poison-context"

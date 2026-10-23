@@ -51,5 +51,6 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Active harness:** `kimi`
 - **Version floor:** Kimi Code 2.3.0; older installs reinstall. 2.3.0 requires qualified plugin skill names; the 2.2 bare-skill-name behavior is dropped.
 - **Structured question:** `AskUserQuestion`; with no such tool, ask in chat with numbered options.
+- **Skill folders:** project `.kimi-code/skills/` and `.agents/skills/`; user `$KIMI_CODE_HOME/skills/` (default `~/.kimi-code/skills/`) and `~/.agents/skills/`.
 - **HAS:** local subagents with background runs and a per-spawn model parameter when a pool is configured; `AgentSwarm` template fan-out with swarm-mode auto-approval; tower mode (`/tower on`); CronCreate; the wire.jsonl trail format; a plugin manifest (`kimi.plugin.json`) carrying skills, agents, hooks, and commands.
 - **LACKS:** per-agent `model:` frontmatter; `deslop` and the cursor-team-kit control skills; a built-in PR tool.

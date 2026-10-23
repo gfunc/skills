@@ -8,9 +8,6 @@
 # sessionStart.skill overlay is gone; nothing here edits the installed
 # manifest to make the proof pass.
 
-SMOKE_PHRASE="ask how a top expert would approach this task"
-KIMI_MANAGED_REL="plugins/managed/gfunc-skills"
-
 harness_prepare() {
   export KIMI_CODE_HOME="$HOME/.kimi-code"
   mkdir -p "$KIMI_CODE_HOME"
@@ -200,10 +197,7 @@ PY
   # active context.
   neg="/tmp/kimi-neg-poison"
   copy_pack /pack "$neg"
-  local h
-  for h in $(other_harnesses kimi); do
-    printf '\nRIG_POISON_%s\n' "$h" >> "$neg/references/harnesses/$h.md"
-  done
+  poison_other_profiles "$neg" kimi
   home="$HOME/.kimi-code-neg-poison"
   kimi_install_neg "$neg" "$home" "$OUT/kimi-neg-poison-install.txt" \
     || { fail negative "poison install failed: $(tail -1 "$OUT/kimi-neg-poison-install.txt")"; return; }

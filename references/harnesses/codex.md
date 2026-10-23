@@ -53,5 +53,6 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Active harness:** `codex`
 - **Version floor:** Codex 0.163.0; older installs reinstall.
 - **Structured question:** none documented on 0.163.0; ask in chat with numbered options.
+- **Skill folders:** project `.agents/skills/` (scanned from the working directory up to the repo root); user `~/.codex/skills/` and `~/.agents/skills/`.
 - **HAS:** a plugin system (root portable `plugin.json` with the agent-plugins `$schema`, or `.codex-plugin/plugin.json` as the compatibility fallback; skills listed as `plugin:skill`); plugin hooks via `hooks/hooks.json` with a Claude-compatible event schema; `codex exec` headless mode (`--json`, `--ephemeral`); symlinked skill folders for a skills-only install; multi-agent tools enabled by default; custom agents installed as TOMLs by the installer.
 - **LACKS:** plugin-packaged subagents (the installer copies the TOMLs instead); a built-in scheduler (external cron); project-grouped transcripts (filter rollouts by `cwd`); automatic hook trust (non-managed hooks need a per-hash `/hooks` review); a plugin-writable `AGENTS.md` channel — it is operator-owned and the installer must not write it.

@@ -26,7 +26,7 @@ Before spawning reviewers, state the intent in one clear paragraph from the user
 
 Launch all reviewers in a single message using the spawn tool and arguments the profile's Subagents section names, one per entry on the `interrogate reviewers` line in `~/.agents/pstack-models.md`, labeled Reviewer A, B, and so on to match the entry count. If the file or that line is missing, use the table defaults.
 
-**Harness profile.** Before spawning, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Pass the active `harness=` and `profile=` paths in every reviewer prompt so each child can read the profile itself.
+**Harness profile.** Read the active profile before harness-dependent work; `profile` is absolute, or relative to `profile-root` (`plugin` means the installed plugin root), and a parent passes its child the resolved absolute path; stop the affected action if the profile is unavailable. Pass the active `harness=` and absolute `profile=` paths in every reviewer prompt so each child can read the profile itself.
 
 Reviewers are read-only: they inspect the diff and report, and never edit code. Use the profile's read-only mode where it has one. Where the profile supports no parallel spawn, run the reviewers sequentially and disclose the reduced independence in the reply and trail. Where it supports no spawn, run each reviewer yourself in sequence and disclose the same.
 

@@ -3,3 +3,6 @@ node_modules/
 *.log
 .scratch/
 __pycache__/
+# Legacy artifact: nothing writes references/harness.md (the authoring checkout
+# may still carry a stale copy).
+references/harness.md

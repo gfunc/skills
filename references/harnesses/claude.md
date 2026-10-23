@@ -53,5 +53,6 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Active harness:** `claude`
 - **Version floor:** Claude Code 2.1.307; older installs reinstall.
 - **Structured question:** `AskUserQuestion`; it is absent in `-p` mode, so ask in plain text there.
-- **HAS:** a plugin system (`.claude-plugin/plugin.json`, optional `marketplace.json`, `--plugin-dir` zero-install); namespaced skills `/gfunc-skills:<skill>`; Markdown subagents with model aliases and full IDs; plugin hooks (`hooks/hooks.json`); headless `claude -p --output-format stream-json`; version-tolerant projects/JSONL audits.
+- **Skill folders:** project `.claude/skills/`; user `~/.claude/skills/`.
+- **HAS:** a plugin system (`.claude-plugin/plugin.json`, optional `marketplace.json`, `--plugin-dir` zero-install); namespaced skills `/gfunc-skills:<skill>`; Markdown subagents with model aliases and full IDs; plugin hooks (`hooks/claude-hooks.json`); headless `claude -p --output-format stream-json`; version-tolerant projects/JSONL audits.
 - **LACKS:** a stable transcript schema (write version-tolerant parsers); subagent-of-subagent spawning (deep orchestration nests at one level).

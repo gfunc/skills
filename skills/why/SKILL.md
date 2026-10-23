@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Investigate the motivation and intent behind code. The companion `how` skill answers what the code does and how it works. `why` answers what forces led to its shape.
 
-**Harness profile.** Before spawning, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Harness-neutral work may continue. Pass the active `harness=` and `profile=` paths in every investigator and synthesizer prompt.
+**Harness profile.** Read the active profile before harness-dependent work; `profile` is absolute, or relative to `profile-root` (`plugin` means the installed plugin root), and a parent passes its child the resolved absolute path; stop the affected action if the profile is unavailable. Pass the active `harness=` and absolute `profile=` paths in every investigator and synthesizer prompt.
 
 Each spawn below names a role line in `~/.agents/pstack-models.md` and a default. Read the profile's Models section for the native binding, availability gate, subagent mechanism, and inheritance token. Set `model` to that line's value, or to the default if the file or the line is missing. Leave `model` unset when the value is `auto`, `inherit-parent`, or the profile's inheritance token. If the chosen value is not established as available, use the nearest listed family default and say so; with no listed alternative, stop that spawn and say why. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the profile.
 

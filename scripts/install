@@ -88,6 +88,20 @@ esac
 
 FAILED=0
 
+# warn_optional_runtimes: the profiles name optional runtimes; a missing one
+# stops only the step or lane that needs it. Warnings go to stderr so stdout
+# stays exactly the INSTALL/FAIL stage contract.
+warn_optional_runtimes() {
+  local missing="" cmd
+  for cmd in bun playwright; do
+    command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
+  done
+  if [ -n "$missing" ]; then
+    printf 'WARN optional runtime missing:%s (install continues; only steps that need it stop)\n' \
+      "$missing" >&2
+  fi
+}
+
 # run_stage <stage> <show-output:0|1> <command...>
 # Prints exactly one contract line. <show-output> replays the command's
 # stdout before the OK line (used for the cursor guidance).
@@ -258,6 +272,8 @@ cursor: no non-interactive plugin install exists — nothing was installed.
   install a plugin.)
 EOF
 }
+
+warn_optional_runtimes
 
 case "$HARNESS" in
   kimi)
