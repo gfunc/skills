@@ -100,7 +100,7 @@ Writing the tutorial first forces the caller's view. You describe the API to a h
 
 ## Plan after the design settles
 
-pstack has no planning skill, on purpose. When you do want a written plan, ask for it once the design is settled:
+This pack includes [`/wayfinder`](../../skills/wayfinder/SKILL.md) for large unclear goals and [`/to-spec`](../../skills/to-spec/SKILL.md) for an agreed spec. When the design is settled, ask `/poteto-mode` for an execution plan:
 
 ```text
 /poteto-mode turn this design into a plan. small verifiable PRs, each with its own verification steps.

@@ -1,13 +1,13 @@
 # gfunc-skills
 
-gfunc's own agent stack: [pstack](https://github.com/backnotprop/pstack) vendored and modified, with the wayfinder planning chain integrated. Two front doors, one executor:
+gfunc's agent stack combines vendored, modified [pstack](https://github.com/backnotprop/pstack) with the Wayfinder planning chain. After workspace setup, use either task entry point:
 
-- `/poteto-mode` — the automatic entry. Give it a goal and a check; it routes to a playbook and runs. Map-sized loose ideas route to wayfinder from here.
-- `/wayfinder` — the HITL entry. Grills a loose idea into a map of decision tickets, resolved one per session. Also invocable standalone.
+- `/poteto-mode` takes a goal and a check, selects a playbook, and runs it. Large unclear goals route to Wayfinder.
+- `/wayfinder` discusses a loose idea with you and maps the decisions, resolved one per session. It also works standalone.
 
-Behind both doors sits one executor: pstack's autopilot-stack.
+Both task workflows use pstack's autopilot-stack executor.
 
-The chain: `/wayfinder` (HITL discussion) → `/to-spec` (synthesis; you confirm the spec) → the multi-phase-plan playbook (automatic: decomposes the spec into units, stamps the plan from the skeleton, lints it with `check-plan.mjs`) → you confirm the plan → pstack executes. Spec confirmation and plan confirmation are the only two human gates. A tracker-visible work-ticket set is an optional artifact, written on request.
+The planning chain starts with `/wayfinder` discussion. `/to-spec` synthesizes the agreed spec for your confirmation. The multi-phase-plan playbook then decomposes it into units, emits a plan, and checks it with `check-plan.mjs`. Confirm the execution plan before implementation. Other effects still need their workflow's scoped approvals. A tracker-visible work-ticket set is an optional artifact, written on request.
 
 ## Layout
 
@@ -19,27 +19,29 @@ One flat `skills/` root — every skill a peer:
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
 - `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs mirror@base→HEAD per path and reports what needs a three-way merge.
 - `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
-- `references/harnesses/` — one profile per supported harness, holding that harness's runtime mechanics and capability list. The active profile is named by the host's adapter or by `scripts/resolve-harness`; nothing is copied at setup time.
+- `references/harnesses/` holds one profile per supported harness. The host's adapter or `scripts/resolve-harness` names the active profile without copying it to a separate selection file.
 - `references/adapters/` — the thin per-host adapters and the clone/Codex selection contract.
 
 `/to-tickets` and `/implement-spec` are retired doors: decomposition lives in the multi-phase-plan playbook, and the plan emitter lives inside poteto-mode.
 
 ## Harnesses
 
-Five runtimes are supported, each with a profile under `references/harnesses/`: Kimi Code 2.3.0, Claude Code 2.1.307, Codex 0.163.0, Pi 1.3.0, and Cursor (pinned CLI in the rig).
+Use the [adapter contract](references/adapters/README.md) for supported hosts, native delivery, and clone selection. Each host's profile under `references/harnesses/` owns its version floor, runtime mechanics, and capability limits.
 
-- **Native plugins** carry a thin adapter that names the active profile: Kimi's manifest prompt file, Claude's startup and child hooks, Pi's package extension, Cursor's always-applied rule. Codex cannot trust an install-time hook, so it selects explicitly.
-- **A plain clone** selects per session: `scripts/resolve-harness --harness <name>` or `GFUNC_HARNESS=<name>`. Detection is a warned fallback; missing or ambiguous identity stops the affected action.
-- **Skills read the profile themselves** before harness-dependent work and pass an absolute profile path to any child agent. The full selection contract lives in `references/adapters/README.md`.
+A native adapter or an explicit clone selection supplies the active profile. Skills read that profile before harness-dependent work and pass its absolute path to children. Missing or ambiguous identity stops the affected action. Selection is per session and writes no configuration.
 
-## Configuration
+## Set up a workspace
 
-No stack-authored setup skill; everything auto-detects with defaults. The vendored `skills/setup-pstack` remains available for pstack-style installs. Two optional config files:
+Start repository onboarding with [`/setup-workspace`](skills/setup-workspace/SKILL.md). This local gfunc skill works with a loaded native plugin or a plain clone. It discovers existing configuration, previews scoped changes, and completes the phases you approve. The [setup guide](docs/guide/01-setup.md) covers invocation and permissions.
 
-- `<repo>/docs/issue-tracker.md` — a consuming repo commits a copy of the relevant `references/trackers/*.md` (edited to taste) to say which tracker it uses. Absent it, skills default to local-markdown in `.scratch/`.
-- `~/.agents/pstack-models.md` — the role→model table (feature, refactoring, bug-fix, hardest tasks, judgment and prose, swarm workers, audit and second opinion). The stack ships the default at `skills/poteto-mode/references/pstack-models.md`; install it at `~/.agents/pstack-models.md` (copy or symlink), then edit freely. Any plan can override per-role lines at authoring time.
+- Repository wiring preserves custom tracker and agent guidance. `docs/issue-tracker.md` is the canonical tracker document when configuration is needed. Without explicit configuration, local Markdown under `.scratch/` remains the default, even with a Git remote. Setup does not create empty domain documents or write to remote trackers.
+- Model preferences belong to `~/.agents/pstack-models.md`. Existing preferences stay unchanged unless you select reconfiguration. If you accept missing model setup, the workspace flow completes it through [`/setup-pstack`](skills/setup-pstack/SKILL.md) and resumes onboarding. That skill owns role defaults, budgets, and availability checks. Preferences do not provision native models.
+- Installation or update requires a separate explicit request and approval. Reuse an installed plugin or use a clone without installing. The [installer](scripts/install) owns native delivery. A Kimi replacement install refuses a source that resolves to its managed destination before deletion or copying. Use a separate source checkout for an update.
+- Verification work is optional. Setup offers generation once when a project-local verification skill is absent, even if a harness exists. It offers maintenance for a usable stale skill. Only accepted work runs the owner's required real journeys and retains evidence. Discovered tests or a harness are not verified execution.
 
-Harness selection is not configuration: a native plugin's adapter names the active profile, and a plain clone selects explicitly with `scripts/resolve-harness --harness <name>` or `GFUNC_HARNESS=<name>`. Detection is a warned fallback; nothing is written to the pack or the working tree.
+Each run reports workspace, user and harness, and verification results separately in `.scratch/setup-workspace/<run-id>/report.md`, when ignored reporting is available. Declined or blocked optional work stays visible and does not stop unrelated onboarding. Correct reruns leave maintained files unchanged.
+
+Use `/setup-pstack` directly for model preferences only. It neither installs the plugin nor offers verification work. Harness selection follows the [adapter contract](references/adapters/README.md), not another setup configuration file.
 
 ## Store convention
 
@@ -58,11 +60,12 @@ Harness selection is not configuration: a native plugin's adapter names the acti
 ## Stances
 
 - The pstack mirror stays pure; the vendored copy here is modified — that divergence is deliberate and manifest-tracked.
-- Ported and absorbed skills keep their upstream names and supersede the mattpocock-installed copies in `~/.agents/skills` at install time.
-- No triage labels, no stack-authored setup skill. Type markers route ticket resolution; the plan file plus the operator's plan confirmation is the handoff to execution.
+- Ported and absorbed skills keep their upstream names and attribution. The gfunc installer does not overwrite separately installed Matt Pocock skills.
+- No triage labels. Type markers route ticket resolution. The plan file plus the operator's plan confirmation is the handoff to execution.
+- `skills/setup-workspace/` is local gfunc work, not a pstack-origin path. The vendor manifest keeps its pstack-only scope.
 
-## Status
+## Validation limits
 
-The harness-instruction consolidation is merged to `main`: five profiles on one schema, per-host adapters, the resolver, rewired skills, installer retirement, and reconciled docs. The Docker rig passes five harnesses with twelve explicit manual gates (child-agent cells need a model; Cursor plugin delivery needs auth). Live installs into any harness's real config remain held by the operator.
+The existing [harness rig](scripts/validate-harnesses) separates automated assertions from manual gates. Model-backed child-agent behavior and authenticated Cursor delivery need their own evidence. Inventory or mock results do not establish either. Live installs into real harness configuration remain held by the operator.
 
 Derived in part from MIT-licensed work by Matt Pocock (the skills pack) and Lauren Tan (pstack). See LICENSE.

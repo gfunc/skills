@@ -90,7 +90,7 @@ continue
 keep going until done
 ```
 
-Short works because the playbook holds the structure, and a Custom Mode keeps `/poteto-mode` in context on every turn. [Set up pstack](./01-setup.md#run-your-first-task) shows how to start one. Your words carry the intent, and the skill carries the rigor.
+Short follow-ups work because the playbook holds the task's steps. Cursor's [Custom Mode](../../skills/poteto-help/SKILL.md#start-a-task-with-poteto-mode) keeps `/poteto-mode` in context on every turn. [Set up a workspace](./01-setup.md#start-a-task-separately) shows a first task prompt.
 
 ## Switch tasks with "new task"
 
