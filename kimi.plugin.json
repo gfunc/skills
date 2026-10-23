@@ -7,5 +7,6 @@
   },
   "license": "MIT",
   "skills": "./skills/",
-  "agents": "./agents/"
+  "agents": "./agents/",
+  "systemPromptPath": "./references/adapters/kimi.md"
 }

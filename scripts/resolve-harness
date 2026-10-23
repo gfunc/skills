@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# resolve-harness: print the harness contract pointer for plain-clone and
+# explicit-selection (Codex) use.
+#
+# Selection order:
+#   1. --harness <name>            (explicit; highest precedence)
+#   2. GFUNC_HARNESS=<name>        (explicit session selection)
+#   3. recognized host markers     (warned fallback)
+#
+# Ambiguous detection or no match is a non-zero failure. The script reads the
+# profile for existence and prints a pointer only; it writes no selection state
+# to the pack, the working tree, or anywhere else. It is safe on a shared or
+# read-only root.
+#
+# Exit codes: 0 ok, 2 usage, 3 no match, 4 ambiguous, 5 missing profile/template.
+
+set -u
+
+PROG=${0##*/}
+SUPPORTED="kimi claude codex pi cursor"
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: resolve-harness [--harness <kimi|claude|codex|pi|cursor>]
+
+Prints the harness contract pointer:
+
+  harness=<name>
+  profile-root=<absolute pack root>
+  profile=<absolute profile path>
+  Read the named profile before harness-dependent work.
+
+Selection: --harness wins over GFUNC_HARNESS. With neither set, recognized
+host environment markers are used as a warned fallback; ambiguity or no match
+exits non-zero rather than guessing.
+
+This script never writes selection state. It is safe in a shared or read-only
+pack root.
+EOF
+}
+
+fail() {
+  local code=$1
+  shift
+  printf '%s: error: %s\n' "$PROG" "$*" >&2
+  exit "$code"
+}
+
+warn() {
+  printf '%s: warning: %s\n' "$PROG" "$*" >&2
+}
+
+is_supported() {
+  case " $SUPPORTED " in
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+explicit=""
+source=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --harness)
+      [ $# -ge 2 ] || fail 2 "--harness needs a value (one of: $SUPPORTED)"
+      explicit=$2
+      source="--harness"
+      shift 2
+      ;;
+    --harness=*)
+      explicit=${1#*=}
+      source="--harness"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      fail 2 "unknown argument: $1 (try --help)"
+      ;;
+  esac
+done
+[ $# -eq 0 ] || fail 2 "unexpected argument: $1"
+
+# The pack root is the directory above this script. Resolve symlinks so a
+# linked entry point still anchors to the real installed root.
+src=${BASH_SOURCE[0]}
+while [ -h "$src" ]; do
+  dir=$(cd -P "$(dirname "$src")" >/dev/null 2>&1 && pwd) || break
+  src=$(readlink "$src")
+  case $src in
+    /*) ;;
+    *) src=$dir/$src ;;
+  esac
+done
+SCRIPT_DIR=$(cd -P "$(dirname "$src")" >/dev/null 2>&1 && pwd) \
+  || fail 5 "cannot resolve the script directory"
+PACK_ROOT=$(cd -P "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd) \
+  || fail 5 "cannot resolve the pack root"
+
+if [ -n "${GFUNC_HARNESS:-}" ]; then
+  if [ "$source" = "--harness" ] && [ "$GFUNC_HARNESS" != "$explicit" ]; then
+    warn "--harness '$explicit' overrides GFUNC_HARNESS='$GFUNC_HARNESS'"
+  elif [ -z "$source" ]; then
+    explicit=$GFUNC_HARNESS
+    source="GFUNC_HARNESS"
+  fi
+fi
+
+if [ -n "$explicit" ]; then
+  is_supported "$explicit" \
+    || fail 2 "unsupported harness '$explicit' (supported: $SUPPORTED)"
+fi
+
+if [ -z "$explicit" ]; then
+  # Recognized host-owned markers only. A file or manifest existing is not an
+  # active-host marker; CLAUDE_PLUGIN_ROOT is not one either (Codex exports it).
+  matches=""
+  checked=""
+  add_match() {
+    matches="$matches $1:$2"
+    case " $checked " in
+      *" $2 "*) ;;
+      *) checked="$checked $2" ;;
+    esac
+  }
+  [ -n "${CLAUDECODE:-}" ] && add_match claude CLAUDECODE
+  [ -n "${CODEX_THREAD_ID:-}" ] && add_match codex CODEX_THREAD_ID
+  [ -n "${CODEX_SESSION_ID:-}" ] && add_match codex CODEX_SESSION_ID
+  [ -n "${CODEX_SANDBOX:-}" ] && add_match codex CODEX_SANDBOX
+  [ -n "${CODEX_SANDBOX_NETWORK_DISABLED:-}" ] && add_match codex CODEX_SANDBOX_NETWORK_DISABLED
+  [ -n "${PI_SESSION_FILE:-}" ] && add_match pi PI_SESSION_FILE
+  [ -n "${CURSOR_AGENT:-}" ] && add_match cursor CURSOR_AGENT
+  [ -n "${CURSOR_PLUGIN_ROOT:-}" ] && add_match cursor CURSOR_PLUGIN_ROOT
+  # Kimi sets no host-specific variable in an ordinary shell. KIMI_PLUGIN_ROOT
+  # is documented for plugin hook processes only; clone use stays explicit.
+  [ -n "${KIMI_PLUGIN_ROOT:-}" ] && add_match kimi KIMI_PLUGIN_ROOT
+
+  uniq=""
+  detail=""
+  for m in ${matches:-}; do
+    h=${m%%:*}
+    v=${m#*:}
+    detail="$detail $h ($v),"
+    case " $uniq " in
+      *" $h "*) ;;
+      *) uniq="$uniq $h" ;;
+    esac
+  done
+  uniq=${uniq# }
+  detail=${detail%,}
+  checked=${checked# }
+
+  if [ -z "$uniq" ]; then
+    fail 3 "no harness selected and no recognized host marker found (checked: ${checked:-none}). Pass --harness <kimi|claude|codex|pi|cursor> or set GFUNC_HARNESS."
+  fi
+  if [ "${uniq#* }" != "$uniq" ]; then
+    fail 4 "ambiguous harness detection:$detail. Pass --harness <kimi|claude|codex|pi|cursor> or set GFUNC_HARNESS."
+  fi
+  explicit=$uniq
+  warn "no explicit harness; detected '$explicit' from$detail. Pass --harness or set GFUNC_HARNESS to select explicitly."
+fi
+
+profile_rel="references/harnesses/$explicit.md"
+profile="$PACK_ROOT/$profile_rel"
+template="$PACK_ROOT/references/adapters/pointer.txt"
+
+[ -r "$template" ] \
+  || fail 5 "pointer template not found: $template. The pack is incomplete; stop harness-dependent actions."
+[ -r "$profile" ] \
+  || fail 5 "profile not found for '$explicit': $profile (profile-root=$PACK_ROOT). Stop harness-dependent actions; select another harness only if that host is actually active."
+
+line=$(cat "$template") \
+  || fail 5 "cannot read pointer template: $template"
+line=${line//'{{HARNESS}}'/$explicit}
+line=${line//'{{PROFILE_ROOT}}'/$PACK_ROOT}
+line=${line//'{{PROFILE}}'/$profile}
+
+printf '%s\n' "$line"

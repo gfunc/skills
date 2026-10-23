@@ -1,0 +1,14 @@
+---
+description: Active harness contract for gfunc-skills; read the named profile before harness-dependent work
+alwaysApply: true
+---
+
+harness=cursor
+profile-root=plugin
+profile=references/harnesses/cursor.md
+Read the named profile before harness-dependent work.
+
+`profile-root=plugin` means the installed plugin root: the directory containing
+`.cursor-plugin/`. A skill's own directory at `<plugin-root>/skills/<name>/` is
+two levels below it. Cloud children receive this line from the parent and must
+not use a local absolute path.
