@@ -117,9 +117,7 @@ PY
   # artifact's selected profile.
   neg="/tmp/cursor-neg-poison"
   copy_pack /pack "$neg"
-  for h in $(other_harnesses cursor); do
-    printf '\nRIG_POISON_%s\n' "$h" >> "$neg/references/harnesses/$h.md"
-  done
+  poison_other_profiles "$neg" cursor
   rule="$OUT/cursor-neg-poison-rule.txt"
   cursor_rule_artifact "$neg" "$rule"
   if assert_context_artifact negative "poison" "$rule" cursor "$neg"; then

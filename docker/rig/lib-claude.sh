@@ -123,10 +123,7 @@ harness_negative() {
   # Poisoned other-harness profiles must not reach the active hook context.
   neg="/tmp/claude-neg-poison"
   copy_pack /pack "$neg"
-  local h
-  for h in $(other_harnesses claude); do
-    printf '\nRIG_POISON_%s\n' "$h" >> "$neg/references/harnesses/$h.md"
-  done
+  poison_other_profiles "$neg" claude
   out="$OUT/claude-neg-poison-context"
   claude_context_probe "$neg" "$out" "$HOME/.claude-neg"
   if assert_context_artifact negative "poison" "$out.txt" claude "$neg"; then

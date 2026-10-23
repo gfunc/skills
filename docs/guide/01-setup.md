@@ -12,11 +12,11 @@ In a Cursor chat, run:
 
 Cursor confirms the plugin is installed.
 
-In Claude Code, run `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. Claude Code prefixes plugin commands, so each command in this guide takes a `pstack:` prefix there, such as `/pstack:setup-pstack`, which writes its model file to `~/.claude/rules/pstack-models.md`. The [Claude profile](../../references/harnesses/claude.md) covers the runtime differences.
+In Claude Code, run `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. Claude Code prefixes plugin commands, so each command in this guide takes a `pstack:` prefix there, such as `/pstack:setup-pstack`, which writes the universal `~/.agents/pstack-models.md` and copies it to `~/.claude/rules/pstack-models.md` as Claude Code's delivery surface. The [Claude profile](../../references/harnesses/claude.md) covers the runtime differences.
 
 ### Other harnesses and plain clones
 
-From a pack checkout, run `scripts/install --harness <kimi|claude|codex|pi|cursor>`. It installs that harness's native plugin or prints the harness's guidance, and writes no selection state. The installed plugin's adapter, or `scripts/resolve-harness` on a plain clone, supplies the active harness name and the absolute profile path; the skill reads that profile itself.
+From a pack checkout, run `scripts/install --harness <kimi|claude|codex|pi|cursor>`. It installs that harness's native plugin or prints the harness's guidance, and writes no selection state. The installed plugin's adapter, or `scripts/resolve-harness` on a plain clone, supplies the active harness name plus `profile-root` and `profile`. Hook, extension, and resolver deliveries give an absolute profile path; static Kimi and Cursor artifacts send `profile-root=plugin` with the profile path relative to the installed plugin root. Resolve the pair to one absolute path before reading; the skill reads that profile itself.
 
 From a plain clone, select explicitly at session start with `scripts/resolve-harness --harness <name>` or `GFUNC_HARNESS=<name>`. Explicit input wins; host markers are a warned fallback, and an ambiguous or missing match exits non-zero. Selection is per session, so several harnesses can share one clone. The [adapter contract](../../references/adapters/README.md) lists each host's delivery mechanism.
 

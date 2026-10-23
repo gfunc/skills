@@ -3,8 +3,10 @@
 # scripts/sync-upstream reads this file: first BASE line, then one path per line.
 # Intended local modifications (kept deliberately diverged from the mirror;
 # sync-upstream reports these as "local modification (intended)"):
-#   skills/poteto-mode/  skills/swarm/  skills/show-me-your-work/  skills/setup-pstack/
-#   agents/  .cursor-plugin/
+#   skills/architect/  skills/arena/  skills/automate-me/  skills/create-verification-skill/
+#   skills/figure-it-out/  skills/how/  skills/interrogate/  skills/maintain-verification-skill/
+#   skills/no-comments/  skills/poteto-mode/  skills/recall/  skills/reflect/  skills/setup-pstack/
+#   skills/show-me-your-work/  skills/swarm/  skills/why/  agents/  docs/  .cursor-plugin/
 BASE e44668c2aad92eacf4e84df47984121fefb11b82
 skills/architect/
 skills/arena/

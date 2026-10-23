@@ -12,13 +12,13 @@ This skill orchestrates three others: an inline mining pass (see step 1), your h
 
 The skill-authoring skill is `create-skill` in Cursor (built in) or Anthropic's `skill-creator`. If you have neither, follow the Agent Skills format at agentskills.io. "`create-skill`" below means whichever of these you use.
 
-**Harness profile.** Before harness-dependent work, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Harness-neutral work may continue.
+**Harness profile.** Read the active profile before harness-dependent work; `profile` is absolute, or relative to `profile-root` (`plugin` means the installed plugin root), and a parent passes its child the resolved absolute path; stop the affected action if the profile is unavailable.
 
 ## Flow
 
 ### 0. Check for an existing skill
 
-Look recursively for `*-mode/SKILL.md` matching the user's handle in the native project and user skill locations the profile's Capabilities section describes. Mode skills can live in a personal category directory (`<skills>/<handle>/`), not only at the top level. If one exists, confirm intent with the structured-question tool the profile names; without one, ask in chat with numbered options, unless they already said "update my skill" or similar:
+Look recursively for `*-mode/SKILL.md` matching the user's handle in the project and user skill folders the profile's `Skill folders` field names. Mode skills can live in a personal category directory (`<skills>/<handle>/`), not only at the top level. If one exists, confirm intent with the structured-question tool the profile names; without one, ask in chat with numbered options, unless they already said "update my skill" or similar:
 
 - Update the existing skill (default for repeat runs)
 - Start fresh (rare, ask why before doing it)

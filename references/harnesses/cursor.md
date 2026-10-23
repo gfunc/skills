@@ -53,5 +53,6 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Active harness:** `cursor`
 - **Version floor:** none pinned — Cursor ships rolling IDE and `cursor-agent` releases; use the current release.
 - **Structured question:** `AskQuestion`; with no such tool, ask in chat with numbered options.
+- **Skill folders:** project `.cursor/skills/`; user `~/.cursor/skills/`.
 - **HAS:** cloud agents (`environment: "cloud"`), local agents, the dashboard and Origin as liveness surfaces, `/loop`, the cursor-team-kit skills (`deslop`, `control-ui`, `control-cli`), `AskQuestion`, `/visualize`, and the `.cursor-plugin/` manifest.
 - **LACKS:** a pinned version floor (rolling release); token usage in transcripts (`usageData` empty); a documented user-level rules file path (User Rules are UI-managed).

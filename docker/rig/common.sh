@@ -63,6 +63,15 @@ other_harnesses() {
   done
 }
 
+# poison_other_profiles <pack-root> <harness> — append a poison marker to every
+# other harness's profile for the negative control.
+poison_other_profiles() {
+  local root="$1" h
+  for h in $(other_harnesses "$2"); do
+    printf '\nRIG_POISON_%s\n' "$h" >> "$root/references/harnesses/$h.md"
+  done
+}
+
 profile_marker() { printf '# Harness: %s\n' "$1"; }
 
 # assert_not_grep <stage> <label> <file> <needle> — content must be absent.
@@ -226,12 +235,10 @@ clone_shared() {
 # not selected; a missing active profile exits non-zero with a clear reason.
 clone_negative() {
   local stage_="$1" want="$2" pack="$3"
-  local neg="/tmp/clone-neg-$want" h out rc
+  local neg="/tmp/clone-neg-$want" out rc
 
   copy_pack "$pack" "$neg"
-  for h in $(other_harnesses "$want"); do
-    printf '\nRIG_POISON_%s\n' "$h" >> "$neg/references/harnesses/$h.md"
-  done
+  poison_other_profiles "$neg" "$want"
   out="$OUT/clone-poison-$want.txt"
   if ! ( cd "$neg" && scripts/resolve-harness --harness "$want" ) >"$out" 2>&1; then
     fail "$stage_" "poison control: resolver failed for $want"

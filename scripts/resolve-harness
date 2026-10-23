@@ -88,6 +88,11 @@ while [ $# -gt 0 ]; do
 done
 [ $# -eq 0 ] || fail 2 "unexpected argument: $1"
 
+# An explicit but empty value is a usage error, never a request to detect.
+if [ "$source" = "--harness" ] && [ -z "$explicit" ]; then
+  fail 2 "--harness needs a non-empty value (one of: $SUPPORTED)"
+fi
+
 # The pack root is the directory above this script. Resolve symlinks so a
 # linked entry point still anchors to the real installed root.
 src=${BASH_SOURCE[0]}

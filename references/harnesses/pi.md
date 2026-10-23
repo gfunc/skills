@@ -53,5 +53,6 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Active harness:** `pi`
 - **Version floor:** pi-coding-agent 1.3.0; older installs reinstall.
 - **Structured question:** none documented; ask in chat with numbered options.
+- **Skill folders:** project `.pi/skills/` and `.agents/skills/`; user `~/.pi/agent/skills/` and `~/.agents/skills/`.
 - **HAS:** native package install (`pi install <path>` or `pi install git:github.com/<owner>/<repo>@<ref>`; root `skills/` is discovered by convention, an optional `package.json` `pi.skills` pins it); headless `pi -p` and `--mode json`; `PI_CODING_AGENT_DIR` relocation for containers.
 - **LACKS:** built-in subagents (the first-party subagent route is an extension); skill namespacing (names are global and first-loaded wins, so a same-named user or project skill shadows the pack's); a `hooks.json` convention (hooks are TypeScript extension events); a built-in scheduler; packageable agents.

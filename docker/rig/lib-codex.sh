@@ -128,10 +128,7 @@ harness_negative() {
   # and the rendered developer message must not carry another marker.
   neg="/tmp/codex-neg-poison"
   copy_pack /pack "$neg"
-  local h
-  for h in $(other_harnesses codex); do
-    printf '\nRIG_POISON_%s\n' "$h" >> "$neg/references/harnesses/$h.md"
-  done
+  poison_other_profiles "$neg" codex
   out="$OUT/codex-neg-poison"
   if codex_context_artifact "$neg" "$out"; then
     if assert_context_artifact negative "poison" "$out.txt" codex "$neg"; then

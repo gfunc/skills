@@ -24,7 +24,7 @@ Open a todolist with one entry per phase before launching anything.
 
 ## Phase B: Fan out
 
-**Harness profile.** Before spawning, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Harness-neutral work may continue. Pass the active `harness=` and `profile=` paths in every worker brief.
+**Harness profile.** Read the active profile before harness-dependent work; `profile` is absolute, or relative to `profile-root` (`plugin` means the installed plugin root), and a parent passes its child the resolved absolute path; stop the affected action if the profile is unavailable. Pass the active `harness=` and absolute `profile=` paths in every worker brief.
 
 Spawn all N workers in one message using the tool and arguments the profile's Subagents section names, with the step 4 model, left unset for `auto`, `inherit-parent`, or the profile's inheritance token. Give each worker its own worktree or output path when it runs locally. Pass the profile's branch argument when it has one; otherwise name the branch in the brief.
 
