@@ -126,12 +126,12 @@ harness_context() {
     matrix plugin-child PASS "custom agent template received the plugin adapter in the no-key --agent probe"
     ok context "plugin-child: custom agent template received the adapter"
   else
-    # The live Agent spawn needs a model, so the cell itself is a manual gate.
-    # The no-key --agent probe still records the current template gap: a custom
-    # agent template must retain ${plugin_sections} (or ${base_prompt}) to see
-    # enabled plugin contributions. Ticket 12 owns agents/*.md.
-    matrix plugin-child MANUAL "live delegated spawn needs a model; no-key --agent pre-check shows agents/poteto-agent.md drops the plugin adapter (needs \${plugin_sections}/\${base_prompt}; ticket 12 owns agents)"
-    ok context "plugin-child: manual gate; custom-agent pre-check did not receive the adapter (ticket 12 template gap)"
+    # The live Agent spawn needs a model, so the cell is a manual gate. The
+    # no-key --agent probe starts the custom agent with no parent-supplied
+    # line, so the absence of the adapter is the expected stop condition: the
+    # agent contract requires the parent to pass the profile/harness paths.
+    matrix plugin-child MANUAL "live delegated spawn needs a model; no-key --agent probe without a parent-supplied line correctly has no adapter (child contract is parent-supplied profile/harness paths)"
+    ok context "plugin-child: manual gate; no-key custom-agent probe has no parent-supplied line, as the agent contract expects"
   fi
 
   clone_positive context kimi /pack
