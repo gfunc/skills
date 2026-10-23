@@ -12,7 +12,13 @@ In a Cursor chat, run:
 
 Cursor confirms the plugin is installed.
 
-In Claude Code, run `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. Claude Code prefixes plugin commands, so each command in this guide takes a `pstack:` prefix there, such as `/pstack:setup-pstack`, which writes its model rule to `~/.claude/rules/pstack-models.md`. The [Claude Code adapter](../harness/claude-code.md) covers the other differences.
+In Claude Code, run `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. Claude Code prefixes plugin commands, so each command in this guide takes a `pstack:` prefix there, such as `/pstack:setup-pstack`, which writes its model file to `~/.claude/rules/pstack-models.md`. The [Claude profile](../../references/harnesses/claude.md) covers the runtime differences.
+
+### Other harnesses and plain clones
+
+From a pack checkout, run `scripts/install --harness <kimi|claude|codex|pi|cursor>`. It installs that harness's native plugin or prints the harness's guidance, and writes no selection state. The installed plugin's adapter, or `scripts/resolve-harness` on a plain clone, supplies the active harness name and the absolute profile path; the skill reads that profile itself.
+
+From a plain clone, select explicitly at session start with `scripts/resolve-harness --harness <name>` or `GFUNC_HARNESS=<name>`. Explicit input wins; host markers are a warned fallback, and an ambiguous or missing match exits non-zero. Selection is per session, so several harnesses can share one clone. The [adapter contract](../../references/adapters/README.md) lists each host's delivery mechanism.
 
 ## Pick your models
 
@@ -22,11 +28,11 @@ Run:
 /setup-pstack
 ```
 
-[`/setup-pstack`](../../skills/setup-pstack/SKILL.md) detects the models you have access to, asks for a reasoning budget, shows you each role (code delegates, judgment, the review panels), and asks what you want. Answer the questions. It writes `~/.cursor/rules/pstack-models.mdc`, a small rule every pstack skill reads.
+[`/setup-pstack`](../../skills/setup-pstack/SKILL.md) detects the models you have access to, asks for a reasoning budget, shows you each role (code delegates, judgment, the review panels), and asks what you want. Answer the questions. It writes `~/.agents/pstack-models.md`, the portable settings file every pstack skill reads. Cursor does not auto-load a user-level rule file; a project `.cursor/rules/pstack-models.mdc` is an optional native delivery copy, not a second source of truth.
 
 The defaults run at `xhigh` reasoning, the same as the `large` budget. `unlimited` lifts each model to its highest tier, up to `max`. Opus goes to `max`. Grok tops out at `xhigh`, so it stays there. `medium` and `small` lower the reasoning and spend fewer tokens.
 
-You only override what you care about. A role with no line in the rule keeps the skill's default. To restore a default, delete that role's line. A rerun of `/setup-pstack` keeps any role whose model differs from the default. When a default changes, a rule written before the change still pins the old default, so delete those role lines, or delete the file, then run `/setup-pstack` again.
+You only override what you care about. A role with no line in the settings file keeps the skill's default. To restore a default, delete that role's line. A rerun of `/setup-pstack` keeps any role whose model differs from the default. When a default changes, a line written before the change still pins the old default, so delete those role lines, or delete the file, then run `/setup-pstack` again.
 
 You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` and pstack omits the subagent `model` field, so the subagent inherits your parent chat model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Setup also configures `swarm workers`, the default model for every `/swarm` worker unless a race names a model for each arm.
 
@@ -40,7 +46,7 @@ If you're new to pstack, say yes. An agent that can check its own work keeps goi
 
 Then setup offers once to generate a formal verification skill with [`/create-formal-verification-skill`](../../skills/create-formal-verification-skill/SKILL.md), unless the project already has one. Tests check the cases someone thought to write. A formal verification skill checks one key property of your code, such as "a job never runs twice at once", in every case within a stated scope. Say yes when your code has concurrency, retries, a state machine, or a parser, where a bug is costly and tests rarely reach the case that breaks. Otherwise say no, and run it later if that changes. [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers it.
 
-After setup, start a new chat. The model rule applies to new sessions.
+After setup, start a new chat. Your model choices apply from the next task.
 
 ## Keep the cost in check
 

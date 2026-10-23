@@ -19,6 +19,8 @@ One flat `skills/` root — every skill a peer:
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
 - `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs mirror@base→HEAD per path and reports what needs a three-way merge.
 - `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
+- `references/harnesses/` — one profile per supported harness, holding that harness's runtime mechanics and capability list. The active profile is named by the host's adapter or by `scripts/resolve-harness`; nothing is copied at setup time.
+- `references/adapters/` — the thin per-host adapters and the clone/Codex selection contract.
 
 `/to-tickets` and `/implement-spec` are retired doors: decomposition lives in the multi-phase-plan playbook, and the plan emitter lives inside poteto-mode.
 
@@ -28,6 +30,8 @@ No stack-authored setup skill; everything auto-detects with defaults. The vendor
 
 - `<repo>/docs/issue-tracker.md` — a consuming repo commits a copy of the relevant `references/trackers/*.md` (edited to taste) to say which tracker it uses. Absent it, skills default to local-markdown in `.scratch/`.
 - `~/.agents/pstack-models.md` — the role→model table (feature, refactoring, bug-fix, hardest tasks, judgment and prose, swarm workers, audit and second opinion). The stack ships the default at `skills/poteto-mode/references/pstack-models.md`; install it at `~/.agents/pstack-models.md` (copy or symlink), then edit freely. Any plan can override per-role lines at authoring time.
+
+Harness selection is not configuration: a native plugin's adapter names the active profile, and a plain clone selects explicitly with `scripts/resolve-harness --harness <name>` or `GFUNC_HARNESS=<name>`. Detection is a warned fallback; nothing is written to the pack or the working tree.
 
 ## Store convention
 

@@ -87,4 +87,4 @@ One agent runtime the pack targets: kimi-code, Claude Code, Codex, pi-coding-age
 The per-harness equivalent of a harness-specific mechanism (a role→model table, a trail-audit reader). A mechanism is kimi-native until its ports exist.
 
 **Harness profile**:
-One file per harness (`references/harnesses/<harness>.md`) holding that harness's machinery facts and capability list. At install time, setup copies the chosen profile to `references/harness.md`, the fixed path every skill reads.
+One file per harness (`references/harnesses/<harness>.md`) holding that harness's machinery facts and capability list. Each native plugin's adapter, or `scripts/resolve-harness` on a plain clone or Codex, selects the active profile and supplies its absolute path. No setup step copies a profile, and there is no shared `references/harness.md`.
