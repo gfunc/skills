@@ -28,7 +28,7 @@ Launch all reviewers in a single message using the spawn tool and arguments the 
 
 **Harness profile.** Before spawning, read the active harness profile. The adapter line or `scripts/resolve-harness` supplies `harness=<name>` and `profile=<absolute path>`; if the line or profile is missing, ambiguous, or mismatched, stop the affected action and say why. Pass the active `harness=` and `profile=` paths in every reviewer prompt so each child can read the profile itself.
 
-Reviewers need MCP access. Where the profile's spawn arguments include a read-only mode that strips MCPs, leave it off. Where the profile supports no parallel spawn, run the reviewers sequentially and disclose the reduced independence in the reply and trail. Where it supports no spawn, run each reviewer yourself in sequence and disclose the same.
+Reviewers are read-only: they inspect the diff and report, and never edit code. Use the profile's read-only mode where it has one. Where the profile supports no parallel spawn, run the reviewers sequentially and disclose the reduced independence in the reply and trail. Where it supports no spawn, run each reviewer yourself in sequence and disclose the same.
 
 | Subagent | Default model |
 |----------|---------------|
