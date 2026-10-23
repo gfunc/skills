@@ -1,56 +1,77 @@
 ---
 name: setup-pstack
-description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and writes a settings file that overrides the skill defaults, and installs the pack's native plugin for this harness. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
+description: Configure or reuse pstack's per-role models and reasoning budget. Validate availability, preview preference changes, and write only approved settings. Use for /setup-pstack, "configure pstack models", "pstack budget", or the model phase of setup-workspace.
 ---
 
-# Setup pstack
+# Configure pstack models
 
-Write pstack's model settings, one model per role:
+Configure role preferences in `~/.agents/pstack-models.md`. This universal file is the only preference authority, and pstack skills read it explicitly. A preference does not make a model available in the native harness.
 
-- **Every harness:** write `~/.agents/pstack-models.md`, the universal settings file every pstack skill reads. It is the only source of truth.
-- **Claude Code (delivery surface):** also copy the same content to `~/.claude/rules/pstack-models.md`, which Claude Code loads into each new session. The copy is a delivery surface, never a second source; write the universal file first, then copy it.
-- **Cursor (delivery surface):** Cursor does not auto-load a user-level rule file. To have Cursor apply the lines natively, also add `.cursor/rules/pstack-models.mdc` to the project (with the frontmatter below) or paste the same lines into User Rules. That copy is not a second source.
+Use this workflow for both `/setup-pstack` and the model phase of `setup-workspace`. When a caller has already obtained acceptance of the phase, continue here without another offer or slash invocation. Carry forward its explicit choices and scoped approvals. Selecting the phase alone does not approve file writes.
 
-"The settings file" below means `~/.agents/pstack-models.md` on every harness. On Claude Code, read the universal file; the `~/.claude/rules/` copy only delivers it natively.
+Do not install or update plugins, copy agent definitions, change native provider configuration, or offer verification generation. Those effects are outside this skill.
 
 ## Steps
 
-### 1. Detect available models
+### 1. Read the profile and current preferences
 
-Enumerate the model slugs you can pass to a subagent in this session, using the spawn tool the active profile's Subagents section names. That is the dependable source. If the profile names a command that lists the user's models, prefer it for completeness (for example `pi --list-models`). If you cannot detect any, ask the user to paste the slugs they have access to. Never write a real slug you have not confirmed is available. The aliases `inherit-parent` and `auto` are always valid even though they are not detected slugs.
+Read the active harness profile supplied by the caller or adapter. Follow the existing [adapter and clone-selection contract](../../references/adapters/README.md). Resolve `profile-root` and `profile` to one absolute profile path. On a plain clone without a pointer, use the pack's existing [harness resolver](../../scripts/resolve-harness). Locate the pack from this skill's actual location, not the consuming repository's working directory. A missing, unreadable, or mismatched profile blocks the affected phase.
 
-### 2. Load current state
+Read `~/.agents/pstack-models.md` if it exists. Use its role values and `# budget` line as the current choices. A missing role keeps its skill default. On reuse, report an absent budget line as unrecorded and name `large` as the default. Do not add a line. Do not treat a delivery copy as another preference source.
 
-The default role-to-model mapping is the rule shape shown in step 5 below. If the settings file already exists, read it and treat its `# budget` line and its role values as the current choices. Otherwise start from those defaults. A line whose role is not in step 5, such as `how critics`, is from a retired role. Drop it.
+Unless reconfiguration was explicitly selected, preserve existing preferences byte for byte. Do not normalize formatting, add omitted roles, delete retired lines, or refresh delivery copies. Validate the effective choices in step 2, then return the reuse result in step 6. Unavailable or unconfirmed choices require a report, not an automatic rewrite.
 
-### 3. Budget, map, and confirm
+If preferences are missing, continue with the accepted configuration phase. If the operator declines configuration, return `declined` without writes. Ask only for choices that are still missing or need resolution.
 
-**(a) Ask for a budget.** Prefer the structured-question tool the active profile's Capabilities section names over free text; without one, ask in chat with numbered options. Offer these four options with these exact labels, and name the current budget when the rule records one. With no rule, say that `large` matches the skill defaults.
+### 2. Establish native availability
 
-- `unlimited — max reasoning`
-- `large — xhigh reasoning`
-- `medium — high reasoning`
-- `small — medium reasoning`
+Use the active profile's Models and Subagents sections for the availability gate, inheritance token, and model mechanism. Inspect only documented, non-secret catalogs or session tool metadata. Prefer the profile's model-list command when one exists. Do not read credentials or provider-auth configuration, edit native settings, spawn probe agents, or make paid calls.
 
-**(b) Apply it.** Build the working table from the skill defaults, and on a re-run keep any role you changed by family, list, or alias (`inherit-parent`, `auto`). `unlimited`, `large`, `medium`, and `small` set the effort token of every real slug, panel entries included, to `max`, `xhigh`, `high`, or `medium`. The effort token is the last token, or the one before a trailing `fast`, on the ladder `max` > `xhigh` > `high` > `medium` > `low`. If the result is not a detected slug, use the same family's detected slug with the highest effort at or below the target, else mark the role as needing a choice. `inherit-parent` and `auto` do not change. So `unlimited` turns `claude-opus-5-5-xhigh` into `claude-opus-5-5-max`. Grok slugs top out at `xhigh`, so under `unlimited` the fallback puts Grok at `xhigh` and keeps `grok-4.7-xhigh-fast` as it is. `large` keeps both defaults. `small` turns them into `claude-opus-5-5-medium` and `grok-4.7-medium-fast`.
+Record the available slugs and the evidence used. A catalog name alone does not satisfy an additional gate the profile requires. If the evidence cannot establish availability, mark the affected roles as unconfirmed. Explain unavailable roles and the native prerequisite without repairing it.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any real slug not in the detected set as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` (both mean: this role runs on the parent chat model, which is how Auto users stay on Auto) as the options. Prefer the profile's structured-question tool over free text. For panel roles (arena runners, architect runners, interrogate reviewers) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but Arena selects one value from it whose model family differs from the parent's when possible. `swarm workers` is the default model for every worker unless a race or comparison assigns another model per arm.
+`inherit-parent`, `auto`, and the active profile's inheritance token are valid preference values. They leave the subagent's `model` unset and retain the parent model and effort. Disclose any inheritance limitation the profile records. Do not demand real model slugs when inheritance resolves the selected configuration.
 
-### 4. Validate
+For reused preferences, return `needs-action` if an effective choice is unavailable or unconfirmed. Leave the file unchanged. For a new or explicitly selected configuration, resolve only the affected choices in step 3.
 
-Every real slug written must be in the detected set. `inherit-parent` and `auto` always pass. If a chosen real slug is not available, stop and ask again.
+### 3. Select missing or requested choices
 
-### 5. Write the rule
+Prefer the structured-question tool in the profile's Capabilities section. Without one, ask in chat with numbered options. Do not repeat questions the operator or caller already answered.
 
-Write `~/.agents/pstack-models.md` with a `# budget` line with the chosen label and its target effort, and one line per role, using the same labels poteto-mode uses. Write it without frontmatter (start at the first `#` line). On Claude Code, after writing it, copy it verbatim to `~/.claude/rules/pstack-models.md`; that copy carries no frontmatter and is only a delivery surface. In Cursor, if you also write the optional `.cursor/rules/pstack-models.mdc` delivery copy, that copy alone includes the frontmatter below with `alwaysApply: true`. Overwrite the whole file so re-runs stay idempotent. Shape (frontmatter belongs only in the Cursor delivery copy):
+For a new configuration, start from the role defaults in step 5. For reconfiguration, start from the current effective choices. Preserve families, panel lists, aliases, and the budget unless their change was selected. Identify retired role lines, such as `how critics`, for removal only in an explicitly selected reconfiguration preview.
 
-```
----
-description: pstack per-role model choices (overrides skill defaults)
-alwaysApply: true
----
+Ask for a budget only when one is missing from the selected configuration or the operator requested a budget change. Name the current budget when recorded. With no prior choice, explain that `large` matches the skill defaults. Offer these choices:
+
+- `unlimited` uses `max` reasoning.
+- `large` uses `xhigh` reasoning.
+- `medium` uses `high` reasoning.
+- `small` uses `medium` reasoning.
+
+For a new configuration or a selected budget change, set every real slug's effort token to the target, including panel entries. The effort token is last, or immediately before a trailing `fast`. The effort ladder is `max` > `xhigh` > `high` > `medium` > `low`. If the result is not available, use the same family's available slug with the highest effort at or below the target. If none exists, mark that role as needing a choice. Do not invent a slug or change its family silently. Inheritance values do not change with the budget.
+
+For example, `unlimited` proposes `claude-opus-5-5-max` for `claude-opus-5-5-xhigh` only if available. If Grok's detected slugs stop at `xhigh`, keep `grok-4.7-xhigh-fast` under `unlimited`. Under `small`, use `claude-opus-5-5-medium` and `grok-4.7-medium-fast` only if available.
+
+Offer confirmed models and inheritance values for roles that need a choice or were selected for change. For `arena runners`, `architect runners`, and `interrogate reviewers`, each list entry creates one subagent, including repeated inheritance entries. The list length sets the count. `arena cross-judge pool` is a list from which Arena selects one value whose family differs from the parent's when possible. `swarm workers` supplies every worker's default unless a race or comparison assigns another model per arm.
+
+### 4. Validate and approve the write preview
+
+Validate every real slug to be written against step 2's evidence and the active profile's gate. Inheritance values pass as described above. If a choice is unavailable or unconfirmed, request a supported alternative or return `needs-action`. Do not write an unresolved configuration.
+
+Show every effective role and its chosen value, the budget and target effort, and the availability evidence. Preview exact paths, content changes, retired-line removals, and any delivery copies. Identify paths that remain unchanged. Ask for approval of these specific writes unless the caller already obtained that exact approval.
+
+Use only the active harness's documented delivery path. Claude Code can load a verbatim copy at `~/.claude/rules/pstack-models.md`. Cursor can use an optional project copy at `.cursor/rules/pstack-models.mdc`, with the frontmatter shown below. Cursor User Rules are UI-managed, not a user-level rule file to create. Include a delivery copy only in the approved preview. It is never another preference authority.
+
+If approved content already matches, skip the write. If approval is declined, keep the existing state and return `declined`.
+
+### 5. Write and read back approved preferences
+
+Re-read affected files immediately before writing. If the inputs changed after the preview, stop the affected write and obtain a fresh preview and approval. Unreadable files, conflicting changes, and read-only paths block this phase, not unrelated caller phases.
+
+Write only approved differences to `~/.agents/pstack-models.md`, without frontmatter. Record the chosen budget label and target effort in `# budget`. Use the role names below. These are defaults, not evidence that the named models are available:
+
+```text
 # pstack model configuration. One line per role. Delete a line to fall back to the skill default.
-# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit the subagent `model`). Alias entries in a panel list still count toward its fan-out.
+# Inheritance values keep the parent model and effort. Omit the subagent model parameter.
+# Each inheritance entry in a panel list still counts toward its fan-out.
 # budget: large (xhigh)
 feature, refactoring: grok-4.7-xhigh-fast
 bug-fix: grok-4.7-xhigh-fast
@@ -71,32 +92,24 @@ architect runners: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 interrogate reviewers: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
 ```
 
-### 6. Install the plugin for this harness
+After the universal write succeeds, create or update only approved delivery copies from that file. The Claude Code copy has no frontmatter. Only the Cursor project copy prepends this frontmatter:
 
-This step installs the pack's native plugin; it does not select a profile. Every profile under `references/harnesses/` ships with the pack, and the active harness's adapter — or `scripts/resolve-harness` on a plain clone — names the right one at runtime.
-
-Use the harness that is running this session: the adapter line in context names it. With no adapter line (a plain clone), `scripts/resolve-harness` prints the selection (explicit input first, then a warned marker fallback). Ask the user only when neither is available, and treat the answer as the install target, not a profile choice.
-
-Run the pack's installer from the pack root — it is the single source of truth for the install mechanics (native plugin install, kimi's managed-copy pre-seed, codex's subagent TOMLs):
-
-```sh
-<pack-root>/scripts/install --harness <active-harness>
+```yaml
+---
+description: pstack per-role model choices (overrides skill defaults)
+alwaysApply: true
+---
 ```
 
-The pack root is two directories up from this skill file (`setup-pstack/` to `skills/` to the root); resolve it from this file's location, not the caller's working directory. The script prints one `INSTALL <harness> <stage> OK` line per stage and exits non-zero on any `FAIL`; if any stage fails, surface the failure to the user instead of falling back to manual copies.
+Read back each written file and compare it with the approved content. If a delivery copy fails, retain the completed universal write and report the failed path. Do not roll back successful changes or report the phase as ready.
 
-If the script is missing or not executable, report that the installer is unavailable; do not hand-copy profiles. On `codex`, also copy the pack root's `codex-agents/*.toml` into `$CODEX_HOME/agents/` (create the directory, overwrite for idempotency). Codex does not plugin-package subagents, so without this step the pack's named agents are absent there.
+### 6. Return the model result
 
-The profiles ship complete, including in copied installations (Kimi's managed copy and Codex's plugin cache). The adapter line or resolver names `profile-root` and `profile`; resolve them to one absolute path before reading. A missing or unreadable profile stops that harness-dependent action. There is no shared `references/harness.md`.
+Report the model phase with these details in ordinary prose or a short list. No new result-file format is required:
 
-### 7. Confirm
-
-Tell the user which files were written: the universal `~/.agents/pstack-models.md`, on Claude Code the `~/.claude/rules/pstack-models.md` delivery copy, on Cursor the optional project rule if written, plus what the install step reported — the plugin stages, and on `codex` also the subagent TOMLs under `$CODEX_HOME/agents/`. On harnesses with a native plugin install (kimi, claude, codex, pi) the plugin itself was installed too; the script's stage lines are the record. Claude Code auto-loads the rules copy into new sessions; Cursor does not auto-load a user-level rule file, so pstack skills read `~/.agents/pstack-models.md` (or the optional project rule). In Cursor there is no plugin install — the script prints the per-session `--plugin-dir` guidance instead. Re-running this skill updates both.
-
-### 8. Offer a verification skill (optional)
-
-Check whether the project has a way to drive the real app for proof (a `verify-*` skill, or an existing harness). If not, offer once: "want a project-local verification skill, so agents can drive the app the way a user does and prove changes work? I can generate one with /create-verification-skill." On yes, invoke `/create-verification-skill` (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
-
-### 9. Offer a formal verification skill (optional)
-
-Check whether the project already has a formal verification skill (a project skill that runs a model checker, a proof, or another verifier against the code). If not, offer once: "want a formal verification skill, so agents can prove a key property of your code holds in every case in scope, not only the cases tests reach? I can generate one with /create-formal-verification-skill." On yes, invoke `/create-formal-verification-skill` (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
+- The outcome is `ready`, `needs-action`, `blocked`, `declined`, or `not-applicable`, with its reason. Distinguish reused preferences from completed or partial writes.
+- Name the universal preference path and each delivery path inspected or written. State which files changed and which stayed unchanged.
+- Include the chosen roles, panel lists, and budget. Identify omitted roles that retain defaults.
+- Include validation evidence and its limits. Configuration and availability checks are not model execution proof.
+- Explain skipped or blocked work, affected roles, and the next action. Do not claim native provisioning, installation, or verification generation.
+- When called by `setup-workspace`, return this result directly to that caller and continue its remaining phases, including after a declined or blocked model phase. Never require the operator to invoke `/setup-pstack` separately. For standalone use, finish with the same result.
