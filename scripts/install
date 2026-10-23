@@ -146,6 +146,25 @@ kimi_plugin() {
   local kh="${KIMI_CODE_HOME:-$HOME/.kimi-code}"
   local managed="$kh/plugins/managed/gfunc-skills"
   local registry="$kh/plugins/installed.json"
+  python3 - "$PACK_ROOT" "$managed" <<'PY' || return 1
+from pathlib import Path
+import sys
+
+try:
+    source = Path(sys.argv[1]).resolve(strict=True)
+    destination = Path(sys.argv[2])
+    try:
+        destination.stat()
+    except FileNotFoundError:
+        pass
+    destination = destination.resolve(strict=False)
+except (OSError, RuntimeError) as error:
+    print(f"cannot resolve install paths: {error}")
+    sys.exit(1)
+if source == destination:
+    print("source is the managed destination; use a separate source checkout")
+    sys.exit(1)
+PY
   mkdir -p "$kh/plugins"
   rm -rf "$managed"
   mkdir -p "$managed"
