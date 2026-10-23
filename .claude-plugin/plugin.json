@@ -15,5 +15,6 @@
     "workflow",
     "agent-style",
     "subagents"
-  ]
+  ],
+  "hooks": "./hooks/claude-hooks.json"
 }

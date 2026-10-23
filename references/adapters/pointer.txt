@@ -1,0 +1,4 @@
+harness={{HARNESS}}
+profile-root={{PROFILE_ROOT}}
+profile={{PROFILE}}
+Read the named profile before harness-dependent work.
