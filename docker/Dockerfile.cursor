@@ -1,0 +1,27 @@
+# gfunc-rig-cursor: Cursor Agent CLI layer. The pinned CLI is a downloaded
+# tarball (no npm package and no local binary from the operator machine); the
+# version is the last documented CLI build in the research snapshot. The
+# bundle ships its own Node runtime and native modules, so the shared base only
+# supplies git, curl, and Python for the rig.
+FROM gfunc-rig-base:latest
+
+ARG CURSOR_VERSION=2026.10.19-6bbf2c4
+ARG TARGETARCH
+
+RUN case "${TARGETARCH:-amd64}" in \
+      amd64) arch=x64 ;; \
+      arm64) arch=arm64 ;; \
+      *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+      -o /tmp/agent-cli-package.tar.gz \
+ && mkdir -p /opt/cursor-agent \
+ && tar -xzf /tmp/agent-cli-package.tar.gz -C /opt/cursor-agent --strip-components=1 \
+ && rm -f /tmp/agent-cli-package.tar.gz \
+ && ln -sf /opt/cursor-agent/cursor-agent /usr/local/bin/agent \
+ && ln -sf /opt/cursor-agent/cursor-agent /usr/local/bin/cursor-agent \
+ && agent --version | grep -qx "${CURSOR_VERSION}"
+
+COPY rig /opt/rig/rig
+COPY mock-llm /opt/rig/mock-llm
+ENTRYPOINT ["/opt/rig/rig/validate.sh"]

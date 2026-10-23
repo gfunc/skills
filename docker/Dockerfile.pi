@@ -1,5 +1,5 @@
-# gfunc-rig-pi: pi-coding-agent layer. Pin per research 12 S4.5; the shipped
-# containerization doc uses the same node:24-bookworm-slim base.
+# gfunc-rig-pi: pi-coding-agent layer. Pinned to the migration floor; the
+# shipped containerization doc uses the same node:24-bookworm-slim base.
 FROM gfunc-rig-base:latest
 
 ARG PI_VERSION=1.3.0

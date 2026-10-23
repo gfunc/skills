@@ -1,7 +1,7 @@
-# gfunc-rig-claude: Claude Code layer. Pin per research 12 S2.5.
+# gfunc-rig-claude: Claude Code layer. Pinned to the migration floor.
 FROM gfunc-rig-base:latest
 
-ARG CLAUDE_CODE_VERSION=2.1.296
+ARG CLAUDE_CODE_VERSION=2.1.307
 RUN npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
  && claude --version
 

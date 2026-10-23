@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """trail_report.py: ticket-09 mini trail-reader for rig session transcripts.
 
-Usage: trail_report.py <kimi|claude|pi|codex> <transcript> [--expect-session-start-phrase PHRASE]
+Usage: trail_report.py <kimi|claude|pi|codex> <transcript>
 
 Prints the ticket-09 mini-schema (session, time range, turns, tool calls,
 subagent spawns, models) and exits non-zero when a mandatory sanity check
 fails: empty/unparseable file, or the harness's load markers are absent
-(kimi: plugin.session_start + a completed turn; claude: assistant entries
-carrying the model field — the current-format marker research 09 lacked;
-pi: message entries in the v3 session tree; codex: session_meta envelope).
+(kimi: the production adapter line + a completed turn; claude: assistant
+entries carrying the model field — the current-format marker research 09
+lacked; pi: message entries in the v3 session tree; codex: session_meta
+envelope).
 """
 
 import argparse
@@ -16,9 +17,6 @@ import collections
 import datetime
 import json
 import sys
-
-SMOKE_PHRASE_HELP = "phrase that must appear in kimi's plugin.session_start content"
-
 
 def die(msg):
     print(f"ERROR: {msg}")
@@ -76,32 +74,42 @@ def report(rows):
 
 
 # --- kimi: wire.jsonl (protocol 1.5) ----------------------------------------
+def all_strings(value, out):
+    if isinstance(value, str):
+        out.append(value)
+    elif isinstance(value, dict):
+        for item in value.values():
+            all_strings(item, out)
+    elif isinstance(value, list):
+        for item in value:
+            all_strings(item, out)
+
+
 def harness_kimi(records, args):
     types = collections.Counter(r.get("type") for r in records)
     loop = collections.Counter()
     models = collections.Counter()
-    sess = None
     for r in records:
         p = payload(r)
         if r.get("type") == "context.append_loop_event":
             loop[p.get("type")] += 1
         if r.get("type") == "llm.request":
             models[p.get("modelAlias") or p.get("model")] += 1
-        if r.get("type") == "plugin.session_start" and sess is None:
-            sess = p
-    sess_content = ""
-    if sess is not None:
-        c = sess.get("content")
-        sess_content = c if isinstance(c, str) else json.dumps(c)
     turn_completed = any(
         payload(r).get("reason") == "completed" for r in records
         if r.get("type") == "turn.ended"
     )
 
-    if sess is None:
-        die("no plugin.session_start record — the plugin did not load")
-    if args.expect_session_start_phrase and args.expect_session_start_phrase not in sess_content:
-        die("plugin.session_start content does not contain the smoke skill phrase")
+    # The production adapter is part of the model-visible prompt, so scanning
+    # all string values finds it regardless of which wire record carries the
+    # system prompt. No plugin.session_start skill overlay is involved.
+    strings = []
+    all_strings(records, strings)
+    blob = "\n".join(strings)
+    if "harness=kimi" not in blob:
+        die("no adapter line (harness=kimi) in the wire transcript — the plugin prompt did not load")
+    if "profile=references/harnesses/kimi.md" not in blob:
+        die("adapter line does not name references/harnesses/kimi.md")
     if not turn_completed:
         die("no turn.ended with reason=completed")
 
@@ -112,7 +120,7 @@ def harness_kimi(records, args):
         ("tool_calls", sum(loop.values())),
         ("subagent_spawns", types.get("subagent.spawned", 0)),
         ("models", dict(models)),
-        ("plugin_session_start_bytes", len(sess_content)),
+        ("adapter_line", "yes (harness=kimi, profile=references/harnesses/kimi.md)"),
         ("record_types", dict(types)),
     ])
 
@@ -202,7 +210,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("harness", choices=["kimi", "claude", "pi", "codex"])
     ap.add_argument("transcript")
-    ap.add_argument("--expect-session-start-phrase", default=None, help=SMOKE_PHRASE_HELP)
     args = ap.parse_args()
     records = read_jsonl(args.transcript)
     {"kimi": harness_kimi, "claude": harness_claude, "pi": harness_pi, "codex": harness_codex}[args.harness](records, args)

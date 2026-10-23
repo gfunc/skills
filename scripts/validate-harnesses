@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # validate-harnesses: build and run the Docker validation rig, one container
-# per harness (claude, codex, pi, kimi).
+# per harness (kimi, claude, codex, pi, cursor).
 #
 # Usage: scripts/validate-harnesses [--harness <name>]... [--rebuild]
 #
-# Each container clones the pack from a read-only bind mount of this repo (the
-# GitHub remote was never pushed; the working tree itself is never installed
-# from), runs scripts/install --harness <name>, then the rig's load/smoke/
-# transcript stages. The host is untouched: no live config dir (~/.kimi-code,
-# ~/.claude, ~/.codex, ~/.pi) is ever mounted; every container gets a fresh
+# The rig clones committed HEAD into a host-side scratch clone and mounts that
+# clone read-only at /src; containers clone it again into /pack. This keeps
+# the committed-HEAD contract and works from a git worktree (whose .git file
+# points outside the worktree). The working tree itself is never installed
+# from. The host is untouched: no live config dir (~/.kimi-code, ~/.claude,
+# ~/.codex, ~/.pi, ~/.cursor) is ever mounted; every container gets a fresh
 # HOME.
 #
 # Output contract on stdout (one line per stage; scripts/install's own lines
 # pass through unchanged):
 #   INSTALL <h> <stage> OK | FAIL <h> <stage> <reason>
 #   OK <h> <stage> <detail> | SKIPPED <h> <stage> <reason> | FAIL <h> <stage> <reason>
-# Any FAIL -> the summary names it and the exit is non-zero.
+#   MATRIX <h> <plugin-direct|plugin-child|clone-direct|clone-child> <PASS|FAIL|MANUAL> <detail>
+#   MANUAL <h> <cell> reason=<why the cell cannot be proven headlessly>
+# Any FAIL -> the summary names it and the exit is non-zero. MANUAL cells are
+# explicit gaps and are never counted as passes.
 #
 # Credentials pass through at `docker run` time only, never baked into images:
 #   ANTHROPIC_API_KEY        claude smoke (real model call)
@@ -34,14 +38,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOCKER_DIR="$ROOT/docker"
 OUTDIR="$ROOT/.scratch/validate-harnesses"
-ALL_HARNESSES=(claude codex pi kimi)
+ALL_HARNESSES=(kimi claude codex pi cursor)
 
 HARNESSES=()
 REBUILD=0
 
 usage() {
   cat >&2 <<'EOF'
-Usage: scripts/validate-harnesses [--harness <claude|codex|pi|kimi>]... [--rebuild]
+Usage: scripts/validate-harnesses [--harness <kimi|claude|codex|pi|cursor>]... [--rebuild]
 
 Builds the rig images (shared node LTS base + one pinned layer per harness)
 and runs one container per harness. Stage lines on stdout follow the
@@ -58,7 +62,7 @@ while [ $# -gt 0 ]; do
     --harness)
       [ $# -ge 2 ] || { echo "validate-harnesses: --harness needs a value" >&2; usage; exit 2; }
       case "$2" in
-        claude|codex|pi|kimi) HARNESSES+=("$2") ;;
+        kimi|claude|codex|pi|cursor) HARNESSES+=("$2") ;;
         *) echo "validate-harnesses: unknown harness $2" >&2; usage; exit 2 ;;
       esac
       shift 2
@@ -80,6 +84,26 @@ while [ $# -gt 0 ]; do
 done
 
 [ "${#HARNESSES[@]}" -gt 0 ] || HARNESSES=("${ALL_HARNESSES[@]}")
+
+# --- source snapshot --------------------------------------------------------
+# Clone committed HEAD on the host. This works from a git worktree (whose
+# .git file points outside the worktree) and preserves the commit-first rule:
+# the containers can only see committed content. The clone is mounted read-only
+# and cloned again inside each container.
+mkdir -p "$OUTDIR"
+SRC_CLONE="$OUTDIR/src"
+rm -rf "$SRC_CLONE"
+if ! git clone --quiet "$ROOT" "$SRC_CLONE"; then
+  echo "validate-harnesses: could not clone committed HEAD from $ROOT" >&2
+  exit 1
+fi
+COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+CLONE_COMMIT="$(git -C "$SRC_CLONE" rev-parse HEAD)"
+if [ "$COMMIT" != "$CLONE_COMMIT" ]; then
+  echo "validate-harnesses: source clone is $CLONE_COMMIT, expected $COMMIT" >&2
+  exit 1
+fi
+echo "== source: committed HEAD $COMMIT =="
 
 # --- build ------------------------------------------------------------------
 build_args=()
@@ -109,7 +133,7 @@ for h in "${HARNESSES[@]}"; do
   set +e
   docker run --rm \
     "${envargs[@]}" \
-    -v "$ROOT:/src:ro" \
+    -v "$SRC_CLONE:/src:ro" \
     -v "$DOCKER_DIR/rig:/opt/rig/rig:ro" \
     -v "$OUTDIR/$h:/out" \
     "gfunc-rig-$h:latest" "$h" >"$OUTDIR/$h.log" 2>&1
@@ -125,14 +149,18 @@ done
 
 # --- summary ------------------------------------------------------------------
 echo "== summary =="
+manual_total=0
 for h in "${HARNESSES[@]}"; do
-  grep -hE '^(INSTALL|OK|SKIPPED|FAIL|ABORT|RIG_BREAK)' "$OUTDIR/$h.log" 2>/dev/null \
+  grep -hE '^(INSTALL|OK|SKIPPED|FAIL|ABORT|RIG_BREAK|MATRIX|MANUAL|STAGE_SUMMARY)' "$OUTDIR/$h.log" 2>/dev/null \
     | sed "s/^/[$h] /" || true
+  n="$(sed -n 's/^STAGE_SUMMARY [^ ]* failed=[0-9]* manual=\([0-9]*\).*/\1/p' "$OUTDIR/$h.log" | tail -1)"
+  case "$n" in ''|*[!0-9]*) n=0 ;; esac
+  manual_total=$((manual_total + n))
 done
 echo
 
 if [ "$OVERALL" -eq 0 ]; then
-  echo "PASS: ${#HARNESSES[@]} harness(es) green"
+  echo "PASS: ${#HARNESSES[@]} harness(es) green; ${manual_total} explicit manual gate(s)"
 else
   echo "FAIL: one or more harnesses failed (logs in $OUTDIR)"
 fi

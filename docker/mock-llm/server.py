@@ -155,4 +155,12 @@ class H(BaseHTTPRequestHandler):
         self._json({"object": "list", "data": [{"id": "mock-1", "object": "model"}]})
 
 
-ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+class QuietServer(ThreadingHTTPServer):
+    # Hosts close the SSE connection as soon as they have the answer (Kimi
+    # 2.3.0 does this aggressively). A late flush on that closed socket is not
+    # a rig failure and should not spam the stage log.
+    def handle_error(self, request, client_address):
+        pass
+
+
+QuietServer(("127.0.0.1", PORT), H).serve_forever()

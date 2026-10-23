@@ -2,18 +2,20 @@
 # validate.sh <harness> — container entrypoint for the Docker validation rig.
 #
 # Flow: clone the pack from the read-only /src mount (never the working tree)
-# -> scripts/install --harness <h> (INSTALL|FAIL contract) -> load -> smoke ->
-# transcript. Every assertion is on stdout/transcript CONTENT, never exit
-# codes (research 12 bottom line 6). Non-zero exit if any stage printed FAIL.
+# -> scripts/install --harness <h> (INSTALL|FAIL contract) -> load -> context
+# (adapter + profile markers + matrix) -> negative controls -> smoke ->
+# transcript. Every assertion is on stdout/transcript/request CONTENT, never
+# exit codes alone (research 12 bottom line 6). Non-zero exit if any stage
+# printed FAIL; MANUAL lines are explicit gaps, never passes.
 #
-# RIG_BREAK=<harness>:<install|load|smoke|transcript> corrupts exactly that
-# stage on purpose (negative control; the breakers live in lib-<harness>.sh).
+# RIG_BREAK=<harness>:<install|load|context|negative|smoke|transcript>
+# corrupts exactly that stage on purpose (breakers live in lib-<harness>.sh).
 
 set -uo pipefail
 
-HARNESS="${1:?usage: validate.sh <kimi|claude|codex|pi>}"
+HARNESS="${1:?usage: validate.sh <kimi|claude|codex|pi|cursor>}"
 case "$HARNESS" in
-  kimi|claude|codex|pi) ;;
+  kimi|claude|codex|pi|cursor) ;;
   *) echo "validate.sh: unknown harness $HARNESS" >&2; exit 2 ;;
 esac
 
@@ -22,7 +24,7 @@ source /opt/rig/rig/common.sh
 # shellcheck source=rig/lib-<harness>.sh
 source "/opt/rig/rig/lib-$HARNESS.sh"
 
-for fn in harness_prepare harness_load harness_smoke harness_transcript; do
+for fn in harness_prepare harness_load harness_context harness_negative harness_smoke harness_transcript; do
   declare -F "$fn" >/dev/null || { echo "validate.sh: $fn not defined for $HARNESS" >&2; exit 2; }
 done
 
@@ -58,6 +60,12 @@ harness_prepare
 rig_break load
 stage harness_load
 
+rig_break context
+stage harness_context
+
+rig_break negative
+stage harness_negative
+
 rig_break smoke
 stage harness_smoke
 
@@ -65,6 +73,7 @@ rig_break transcript
 stage harness_transcript
 
 harness_finish
+echo "STAGE_SUMMARY $HARNESS failed=$FAILED manual=$MANUAL_COUNT"
 
 if [ "$FAILED" -ne 0 ]; then
   exit 1
