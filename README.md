@@ -24,6 +24,14 @@ One flat `skills/` root — every skill a peer:
 
 `/to-tickets` and `/implement-spec` are retired doors: decomposition lives in the multi-phase-plan playbook, and the plan emitter lives inside poteto-mode.
 
+## Harnesses
+
+Five runtimes are supported, each with a profile under `references/harnesses/`: Kimi Code 2.3.0, Claude Code 2.1.307, Codex 0.163.0, Pi 1.3.0, and Cursor (pinned CLI in the rig).
+
+- **Native plugins** carry a thin adapter that names the active profile: Kimi's manifest prompt file, Claude's startup and child hooks, Pi's package extension, Cursor's always-applied rule. Codex cannot trust an install-time hook, so it selects explicitly.
+- **A plain clone** selects per session: `scripts/resolve-harness --harness <name>` or `GFUNC_HARNESS=<name>`. Detection is a warned fallback; missing or ambiguous identity stops the affected action.
+- **Skills read the profile themselves** before harness-dependent work and pass an absolute profile path to any child agent. The full selection contract lives in `references/adapters/README.md`.
+
 ## Configuration
 
 No stack-authored setup skill; everything auto-detects with defaults. The vendored `skills/setup-pstack` remains available for pstack-style installs. Two optional config files:
@@ -55,6 +63,6 @@ Harness selection is not configuration: a native plugin's adapter names the acti
 
 ## Status
 
-The wayfinder map driving this work is done. Ticket 12 (the emit-plan upgrade) and ticket 14 (the localization pass) have landed. Install into `~/.agents/skills` is held by the operator.
+The harness-instruction consolidation is merged to `main`: five profiles on one schema, per-host adapters, the resolver, rewired skills, installer retirement, and reconciled docs. The Docker rig passes five harnesses with twelve explicit manual gates (child-agent cells need a model; Cursor plugin delivery needs auth). Live installs into any harness's real config remain held by the operator.
 
 Derived in part from MIT-licensed work by Matt Pocock (the skills pack) and Lauren Tan (pstack). See LICENSE.
