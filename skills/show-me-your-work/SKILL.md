@@ -61,15 +61,17 @@ At the end of the run, before handing back, check the log told the truth. Read t
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
 - A fork, pivot, or abandoned approach that shaped the work but isn't logged is a gap. Add it.
+- Compare this run's approved plan and applicable standing orders with execution evidence, including obligations absent from the log. Record their evidence or explicit disposition. Flag unmet requirements and unapproved deviations. A skipped or blocked obligation is not completed or waived merely because it is logged.
 
 Correct the log, not the story. The audit never edits or removes a row, even an invented one. When a row records neither a real decision nor a real action, or its claim or evidence is wrong, add a row that supersedes it with what actually happened and a pointer that resolves. This audit does not check rows outside this run's stretches. If this run's own work shows one of them is wrong, supersede it like any wrong call.
 
 ## Cross-model review of the trail
 
-Before handing back, spawn a subagent on a different model family from the one that did the work, using the tool and arguments the profile's Subagents section names. Where the profile supports no spawn, do the pass yourself in a fresh read and disclose the reduced independence in the reply and trail. The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the profile.
+Before handing back, spawn a subagent on a different model family from the one that did the work, using the tool and arguments the profile's Subagents section names. Where the profile supports no spawn, do the pass yourself in a fresh read and disclose the reduced independence in the reply and trail. The subagent reads the audit trail, the run's transcript, its approved plan, and applicable standing orders, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the profile.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.
+- Approved obligations missing from the trail or lacking execution evidence or an explicit disposition, including unmet requirements and unapproved deviations.
 - Choices that look risky in hindsight (premature, scope-creeping, papering over a symptom).
 - Gaps the user would otherwise miss on a casual skim.
 
