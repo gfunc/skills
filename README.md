@@ -16,6 +16,7 @@ One flat `skills/` root — every skill a peer:
 - pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror and modified in place.
 - `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
 - `skills/grilling`, `skills/domain-modeling`, `skills/research`, `skills/prototype` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
+- [`skills/writing-for-agents`](skills/writing-for-agents/SKILL.md) is Matt Pocock's reference for agent-facing writing, with host-neutral skill mechanics. Root [`AGENTS.md`](AGENTS.md) uses its task-specific context pointers.
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
 - `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs mirror@base→HEAD per path and reports what needs a three-way merge.
 - `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
@@ -50,6 +51,21 @@ Use `/setup-pstack` directly for model preferences only. It neither installs the
 ## Syncing upstream
 
 `~/projects/pstack` stays a pure mirror of upstream pstack. When it fetches new upstream, run `scripts/sync-upstream` here: it reports per vendored path whether upstream changed, whether we modified it, and which rows need a human three-way merge. Local modifications are intended — they are what makes this stack ours — but they stay visible per path through the manifest and git history.
+
+## Releases
+
+The pack uses Semantic Versioning and tags named `vMAJOR.MINOR.PATCH`. Keep the same version in [`plugin.json`](plugin.json), [`kimi.plugin.json`](kimi.plugin.json), [the Claude manifest](.claude-plugin/plugin.json), and [the Cursor manifest](.cursor-plugin/plugin.json). The private poteto tooling package is versioned separately. During `0.x` development, describe compatibility changes in the release notes.
+
+To publish a release:
+
+1. Update the four manifest versions together and review the skill, reference, and attribution changes.
+2. Commit the candidate, then run [`scripts/validate-harnesses`](scripts/validate-harnesses) on that exact commit. Preserve manual gates and skipped checks in the release notes.
+3. Integrate the verified commit into `main` and push normally. If integration changes the tree, rerun the relevant checks before tagging.
+4. Create an annotated `vMAJOR.MINOR.PATCH` tag on the verified full SHA. Push only that named tag. Published tags remain fixed. Never move or reuse them.
+5. Publish through `gh release create <tag> --repo gfunc/skills --verify-tag --title <tag> --notes-file <notes> --latest`. Keep note drafts and logs under `.scratch/`. GitHub provides source archives for the tag.
+6. Read back the published release and remote tag. Confirm the tag resolves to the verified SHA and its four manifests match the release version.
+
+GitHub Releases hold the release notes. A release does not install the pack into a live harness or change user settings.
 
 ## Dependencies
 

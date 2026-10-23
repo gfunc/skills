@@ -2,7 +2,7 @@
 
 **You own the skill's voice.**
 
-1. Use your skill-authoring skill: **create-skill** in Cursor (built in), or Anthropic's `skill-creator` elsewhere. With neither, follow the Agent Skills format at agentskills.io.
+1. Read [**writing-for-agents**](../../writing-for-agents/SKILL.md) for the instructions and its skill-mechanics reference. Use your skill-authoring tool: **create-skill** in Cursor (built in), or Anthropic's `skill-creator` elsewhere. With neither, follow the Agent Skills format at agentskills.io.
 2. Validate the skill: frontmatter has `name` and `description`, referenced files exist, cross-skill links resolve.
 3. For structural changes, run the smallest probe through the documented consumer path that distinguishes competing interpretations. File readback alone does not prove downstream behavior. If that probe cannot run, name the unverified behavior and blocker. Skip test cases for subjective changes.
 4. Run **Opening a PR**.
