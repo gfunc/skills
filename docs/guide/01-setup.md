@@ -59,7 +59,33 @@ An already-correct rerun changes no maintained files, though it can create a new
 
 ## Install or update only when requested
 
-Installation is separate from repository onboarding and model configuration. To install or update the gfunc pack, explicitly request the operation and review the source, destinations, registry effects, and native trust requirements. Use the existing [installer](../../scripts/install) from a separate gfunc source checkout:
+Installation is separate from repository onboarding and model configuration. Review the source, destinations, registry effects, and native trust requirements before approving an install or update.
+
+### Use Kimi's native GitHub installation
+
+In Kimi Code, install the latest published release with:
+
+```text
+/plugins install https://github.com/gfunc/skills
+/reload
+```
+
+The unpinned repository URL follows GitHub's latest release, falling back to the default branch when no release exists. To pin a release, install `https://github.com/gfunc/skills/releases/tag/v0.2.0` instead.
+
+Inspect the installation with `/plugins info gfunc-skills`. In `/plugins`, select the plugin on the Installed tab and press Enter when an update is available. After installation, use `/reload` or start a new session. Reloading refreshes installed content. It does not download an update.
+
+Kimi 2.3.0 separates display metadata from update detection:
+
+- The installed `kimi.plugin.json` supplies the displayed version.
+- An unpinned GitHub install compares the saved ref and installed commit SHA with the latest release, or HEAD fallback.
+- An explicit branch tracks its commit. Explicit tags and commits stay pinned.
+- Local-path installs are outside the GitHub update checker.
+
+These rules come from Kimi's [plugin manager](https://github.com/MoonshotAI/kimi-code/blob/b5e28fd6beac752a2cdcc0ff2f5fdf40e6494fbb/packages/agent-core-v2/src/app/plugin/manager.ts) and [GitHub resolver](https://github.com/MoonshotAI/kimi-code/blob/b5e28fd6beac752a2cdcc0ff2f5fdf40e6494fbb/packages/agent-core-v2/src/app/plugin/github-resolver.ts). The [official plugin guide](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins.html) owns the current native commands. Official-marketplace background update notices do not establish equivalent notification behavior for a custom plugin. Unattended third-party updates are not promised here.
+
+### Use the non-interactive installer
+
+For scripted delivery or another host, use the existing [installer](../../scripts/install) from a separate gfunc source checkout:
 
 ```bash
 scripts/install --harness <name>
@@ -67,7 +93,9 @@ scripts/install --harness <name>
 
 The installer uses the selected host's native delivery or prints guidance where installation is not automated. Follow the [adapter contract](../../references/adapters/README.md) for host requirements. Do not substitute upstream pstack installation commands for this pack.
 
-For Kimi, the installer resolves the source and managed destination before replacement. If both resolve to the same directory, including through a symlink, it refuses before deletion or copying. Update from a separate source checkout. Do not stage a self-copy workaround or bypass native hook trust. Successful plugin delivery does not establish model availability or consumer-path proof.
+For a new Kimi record, the shell installer registers the managed copy with a local-path source. An unchanged existing record may be retained. This path does not establish GitHub update tracking. Prefer the native GitHub URL flow when that tracking is wanted.
+
+Before replacing a Kimi managed copy, the installer resolves the source and destination. If both resolve to the same directory, including through a symlink, it refuses before deletion or copying. Use a separate source checkout. Do not stage a self-copy workaround or bypass native hook trust. Successful plugin delivery does not establish model availability or consumer-path proof.
 
 ## Configure models without onboarding a repository
 

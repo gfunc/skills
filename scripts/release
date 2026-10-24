@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Inspect release targets, summarize validation, and publish only pushed tags."""
+
+from __future__ import annotations
+
+import sys
+sys.dont_write_bytecode = True
+
+import argparse
+from dataclasses import dataclass
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+
+from release_lib import MANIFEST_PATHS, ReleaseError, Version, agreed_version, manifest_snapshots, repository_root, tag_version
+
+
+SHA = re.compile(r"[0-9a-f]{40}\Z")
+GATES = ("tests", "version", "pack", "rig")
+DISCLOSURE = re.compile(r"(?:MANUAL |SKIPPED |MATRIX \S+ \S+ MANUAL(?: |$))")
+
+
+def command(args: list[str], *, cwd: Path | None = None) -> str:
+    result = subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+    if result.returncode:
+        raise ReleaseError(f"{args[0]} failed: {result.stderr.strip() or result.stdout.strip()}")
+    return result.stdout.strip()
+
+
+def commit_sha(value: str) -> str:
+    if not SHA.fullmatch(value):
+        raise ReleaseError("source commit must be a full lowercase 40-character SHA")
+    return value
+
+
+@dataclass(frozen=True)
+class ReleaseTarget:
+    tag: str
+    version: Version
+    commit: str
+    tag_object: str
+
+
+def remote_target(root: Path, tag: str) -> tuple[str, str]:
+    tag_version(tag)
+    output = command(["git", "ls-remote", "origin", f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"], cwd=root)
+    refs = {}
+    for line in output.splitlines():
+        sha, ref = line.split("\t", 1)
+        if ref in refs:
+            raise ReleaseError(f"duplicate remote tag ref {ref}")
+        refs[ref] = commit_sha(sha)
+    direct, peeled = refs.get(f"refs/tags/{tag}"), refs.get(f"refs/tags/{tag}^{{}}")
+    if not direct or not peeled or direct == peeled:
+        raise ReleaseError(f"remote tag {tag} must be an annotated tag")
+    return direct, peeled
+
+
+def inspect(root: Path, tag: str) -> ReleaseTarget:
+    version = tag_version(tag)
+    remote_object, remote_commit = remote_target(root, tag)
+    origin = command(["git", "remote", "get-url", "origin"], cwd=root)
+    if origin.startswith("-"):
+        raise ReleaseError("invalid origin URL")
+    if not re.match(r"(?:[A-Za-z][A-Za-z0-9+.-]*://|[^/]+@[^:]+:|/)", origin):
+        origin = str((root / origin).resolve())
+    scratch = root / ".scratch" / "release-pipeline"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="inspect-", dir=scratch) as directory:
+        target_root = Path(directory)
+        command(["git", "init", "--bare", str(target_root / "git")])
+        repo = target_root / "git"
+        command(["git", "remote", "add", "origin", origin], cwd=repo)
+        command(["git", "fetch", "--no-tags", "origin", "refs/heads/main:refs/heads/main",
+                 f"refs/tags/{tag}:refs/tags/{tag}"], cwd=repo)
+        ref = f"refs/tags/{tag}"
+        if command(["git", "cat-file", "-t", ref], cwd=repo) != "tag":
+            raise ReleaseError(f"{tag} is not an annotated tag")
+        tag_object = commit_sha(command(["git", "rev-parse", ref], cwd=repo))
+        commit = commit_sha(command(["git", "rev-parse", f"{ref}^{{commit}}"], cwd=repo))
+        if (tag_object, commit) != (remote_object, remote_commit):
+            raise ReleaseError("remote tag changed during inspection")
+        command(["git", "merge-base", "--is-ancestor", commit, "refs/heads/main"], cwd=repo)
+        for name in MANIFEST_PATHS:
+            result = subprocess.run(["git", "show", f"{commit}:{name}"], cwd=repo, capture_output=True)
+            if result.returncode:
+                raise ReleaseError(f"target commit is missing {name}")
+            path = target_root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(result.stdout)
+        agreed_version(manifest_snapshots(target_root), version.text)
+    return ReleaseTarget(tag, version, commit, tag_object)
+
+
+def emit_output(path: str | None, values: dict[str, str]) -> None:
+    if path:
+        with Path(path).open("a", encoding="utf-8") as stream:
+            for key, value in values.items():
+                if "\n" in value or "\r" in value:
+                    raise ReleaseError("workflow output must be single-line")
+                stream.write(f"{key}={value}\n")
+
+
+def evidence(root: Path, logs: Path) -> dict:
+    source = commit_sha(command(["git", "rev-parse", "HEAD"], cwd=root))
+    gates = {gate: os.environ.get(f"{gate.upper()}_RESULT", "missing") for gate in GATES}
+    disclosures = []
+    for path in sorted(logs.glob("*.log")):
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = re.sub(r"\x1b\[[0-9;]*m", "", line)
+            if DISCLOSURE.match(line) and line not in disclosures:
+                disclosures.append(line)
+    return {"source_commit": source, "gates": gates, "disclosures": disclosures}
+
+
+def verified_evidence(raw: str, commit: str) -> dict:
+    try:
+        value = json.loads(raw)
+    except ValueError as error:
+        raise ReleaseError(f"invalid validation evidence: {error}") from error
+    if not isinstance(value, dict) or value.get("source_commit") != commit:
+        raise ReleaseError("validation evidence does not match release commit")
+    if value.get("gates") != {gate: "success" for gate in GATES}:
+        raise ReleaseError("all four validation gates must succeed")
+    disclosures = value.get("disclosures")
+    if not isinstance(disclosures, list) or any(not isinstance(line, str) or "\n" in line or "\r" in line
+                                               or not DISCLOSURE.match(line)
+                                               for line in disclosures):
+        raise ReleaseError("invalid manual/skipped validation disclosures")
+    return value
+
+
+def github_api(repo: str, endpoint: str, *, allow_missing: bool = False) -> dict | None:
+    result = subprocess.run(["gh", "api", f"repos/{repo}/{endpoint}"], text=True, capture_output=True)
+    if result.returncode:
+        if allow_missing and re.search(r"\bHTTP 404\b", result.stderr):
+            return None
+        raise ReleaseError(f"GitHub read failed: {result.stderr.strip()}")
+    try:
+        value = json.loads(result.stdout)
+        if not isinstance(value, dict):
+            raise ValueError("expected an object")
+        return value
+    except ValueError as error:
+        raise ReleaseError(f"invalid GitHub response: {error}") from error
+
+
+def matching_release(value: dict, target: ReleaseTarget) -> None:
+    if (value.get("tag_name") != target.tag or value.get("draft") is not False
+            or value.get("prerelease") is not bool(target.version.prerelease)
+            or not value.get("published_at")):
+        raise ReleaseError("existing release conflicts with the expected published tag/state")
+
+
+def publish(root: Path, tag: str, expected_commit: str, repo: str, raw_evidence: str) -> str:
+    version = tag_version(tag)
+    commit_sha(expected_commit)
+    if (os.environ.get("GITHUB_EVENT_NAME") != "push" or os.environ.get("GITHUB_REF_TYPE") != "tag"
+            or os.environ.get("GITHUB_REF_NAME") != tag):
+        raise ReleaseError("publication is allowed only for the matching pushed-tag event")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or any(part in (".", "..") for part in repo.split("/")):
+        raise ReleaseError("invalid GitHub repository")
+    proof = verified_evidence(raw_evidence, expected_commit)
+    target = inspect(root, tag)
+    if target.commit != expected_commit:
+        raise ReleaseError("release tag no longer matches the validated commit")
+    existing = github_api(repo, f"releases/tags/{tag}", allow_missing=True)
+    if existing is not None:
+        matching_release(existing, target)
+        if remote_target(root, tag) != (target.tag_object, target.commit):
+            raise ReleaseError("remote tag changed while checking existing release")
+        return f"unchanged published release {tag} at {target.commit}"
+    latest = github_api(repo, "releases/latest", allow_missing=True)
+    make_latest = not version.prerelease
+    if latest is not None:
+        if latest.get("draft") is not False or latest.get("prerelease") is not False:
+            raise ReleaseError("latest release has an unexpected state")
+        latest_version = tag_version(latest.get("tag_name", ""))
+        make_latest = make_latest and version > latest_version
+    scratch = root / ".scratch" / "release-pipeline"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="publish-", dir=scratch) as directory:
+        notes = Path(directory) / "validation.md"
+        lines = ["## Validation evidence", "", f"Validated source commit `{target.commit}`.", "",
+                 "Automated gates passed: tests, manifest versions, pack checks, and the five-host Docker rig.", "",
+                 "### Manual and skipped checks", ""]
+        lines.extend(f"- {line}" for line in proof["disclosures"])
+        if not proof["disclosures"]:
+            lines.append("No MANUAL or SKIPPED lines were reported by the validation logs.")
+        lines.extend(["", "Automated checks do not prove the manual or skipped checks.", ""])
+        notes.write_text("\n".join(lines), encoding="utf-8")
+        if remote_target(root, tag) != (target.tag_object, target.commit):
+            raise ReleaseError("remote tag changed before publication")
+        args = ["gh", "release", "create", tag, "--repo", repo, "--verify-tag", "--generate-notes",
+                "--notes-file", str(notes), "--title", tag, f"--latest={'true' if make_latest else 'false'}"]
+        if version.prerelease:
+            args.append("--prerelease")
+        command(args)
+    published = github_api(repo, f"releases/tags/{tag}")
+    matching_release(published, target)
+    if remote_target(root, tag) != (target.tag_object, target.commit):
+        raise ReleaseError("remote tag changed after publication")
+    return f"published {tag} at {target.commit}; latest={str(make_latest).lower()}"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root")
+    commands = parser.add_subparsers(dest="command", required=True)
+    inspect_parser = commands.add_parser("inspect")
+    inspect_parser.add_argument("--github-output")
+    evidence_parser = commands.add_parser("evidence")
+    evidence_parser.add_argument("--logs", type=Path, required=True)
+    evidence_parser.add_argument("--github-output")
+    publish_parser = commands.add_parser("publish")
+    publish_parser.add_argument("--commit", required=True)
+    source_parser = commands.add_parser("source")
+    source_parser.add_argument("--github-output", required=True)
+    args = parser.parse_args()
+    root = repository_root(args.root)
+    try:
+        if args.command == "inspect":
+            target = inspect(root, os.environ.get("RELEASE_TAG", ""))
+            values = {"tag": target.tag, "commit": target.commit, "version": target.version.text,
+                      "prerelease": str(bool(target.version.prerelease)).lower()}
+            emit_output(args.github_output, values)
+            print(json.dumps(values, sort_keys=True))
+        elif args.command == "source":
+            source = os.environ.get("SOURCE_COMMIT", "")
+            if source:
+                commit_sha(source)
+            else:
+                source = commit_sha(command(["git", "rev-parse", "HEAD"], cwd=root))
+            emit_output(args.github_output, {"commit": source})
+        elif args.command == "evidence":
+            value = evidence(root, args.logs)
+            raw = json.dumps(value, sort_keys=True)
+            args.logs.mkdir(parents=True, exist_ok=True)
+            (args.logs / "evidence.json").write_text(raw + "\n", encoding="utf-8")
+            emit_output(args.github_output, {"evidence": raw})
+            summary = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary:
+                with Path(summary).open("a", encoding="utf-8") as stream:
+                    stream.write(f"## Validation of `{value['source_commit']}`\n\n")
+                    stream.writelines(f"- {gate}: {result}\n" for gate, result in value["gates"].items())
+                    stream.write("\n### Actual MANUAL and SKIPPED log lines\n\n")
+                    stream.write("\n".join(f"- `{line.replace('`', '')}`" for line in value["disclosures"]) or "No such lines were emitted. See gate outcomes before interpreting this result.")
+                    stream.write("\n\nManual and skipped checks are not passes.\n")
+            print(raw)
+        else:
+            print(publish(root, os.environ.get("RELEASE_TAG", ""), args.commit,
+                          os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("VALIDATION_EVIDENCE", "")))
+        return 0
+    except (OSError, ValueError, ReleaseError) as error:
+        print(f"release: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

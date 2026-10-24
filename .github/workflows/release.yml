@@ -1,0 +1,92 @@
+name: Release pack
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Annotated release tag to validate without publishing
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.inspect.outputs.tag }}
+      commit: ${{ steps.inspect.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out current workflow tooling
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect annotated remote tag and target manifests
+        id: inspect
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -o pipefail
+          mkdir -p .scratch/release-pipeline/logs
+          python3 scripts/release inspect --github-output "$GITHUB_OUTPUT" 2>&1 | tee .scratch/release-pipeline/logs/inspect.log
+      - name: Upload inspection log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-inspect-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .scratch/release-pipeline/logs/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  validate:
+    needs: inspect
+    permissions:
+      contents: read
+    uses: ./.github/workflows/validate.yml
+    with:
+      source_commit: ${{ needs.inspect.outputs.commit }}
+
+  publish:
+    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' && needs.validate.result == 'success' }}
+    needs: [inspect, validate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: pack-release-publication
+      cancel-in-progress: false
+      queue: max
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out current publication tooling
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish verified pushed tag or leave matching release unchanged
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.inspect.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.inspect.outputs.commit }}
+          VALIDATION_EVIDENCE: ${{ needs.validate.outputs.evidence }}
+        run: |
+          set -o pipefail
+          mkdir -p .scratch/release-pipeline/logs
+          python3 scripts/release publish --commit "$RELEASE_COMMIT" 2>&1 | tee .scratch/release-pipeline/logs/publish.log
+      - name: Upload publication log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .scratch/release-pipeline/logs/
+          include-hidden-files: true
+          if-no-files-found: warn
