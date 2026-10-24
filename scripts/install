@@ -137,7 +137,7 @@ verify_copy_root() {
   [ -z "$missing" ] || { echo "copied root $root missing:$missing"; return 1; }
 }
 
-# kimi has no plugin install CLI: pre-seed the managed copy + registry.
+# Non-interactive Kimi delivery pre-seeds the managed copy and registry.
 # Mechanics per research 12 §1.1: the copy must contain a valid
 # kimi.plugin.json; installed.json is the loader's registry. A stale
 # references/harness.md is excluded: selection is per entry path, not a

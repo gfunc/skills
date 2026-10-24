@@ -20,7 +20,14 @@ Checking out a release tag leaves Git in detached HEAD state. That is expected f
 
 Replace `kimi` with `claude`, `codex`, `pi`, or `cursor` when appropriate. Give the agent the returned profile pointer and your target repository's path. If clone skills are not loaded, ask it to read and follow `<pack-root>/skills/setup-workspace/SKILL.md`. This selects the active host; it does not install the pack.
 
-For native installation or updates, follow the [installation guide](docs/guide/01-setup.md#install-or-update-only-when-requested). Workspace setup, installation, and model preferences are separate operations.
+For a GitHub-tracked Kimi plugin, use the native installation flow:
+
+```text
+/plugins install https://github.com/gfunc/skills
+/reload
+```
+
+Use `/plugins` to inspect available updates. The repository URL follows the latest release, while a release-tag URL stays pinned. The [installation guide](docs/guide/01-setup.md#install-or-update-only-when-requested) explains detection and update behavior and the separate scripted installer. Workspace setup, installation, and model preferences are separate operations.
 
 ## Choose a workflow
 
@@ -80,20 +87,40 @@ Use `/setup-pstack` directly for model preferences only. It neither installs the
 
 The pack uses Semantic Versioning and tags named `vMAJOR.MINOR.PATCH`. Keep the same version in [`plugin.json`](plugin.json), [`kimi.plugin.json`](kimi.plugin.json), [the Claude manifest](.claude-plugin/plugin.json), and [the Cursor manifest](.cursor-plugin/plugin.json). The private poteto tooling package is versioned separately. During `0.x` development, describe compatibility changes in the release notes.
 
+Use [`scripts/version`](scripts/version) to inspect or change the four manifests together:
+
+```bash
+scripts/version read
+scripts/version check
+scripts/version set 0.3.0 --dry-run
+scripts/version set 0.3.0
+```
+
+The `set` examples prepare a future version. They do not commit, tag, push, or publish it.
+
 To publish a release:
 
-1. Update the four manifest versions together and review the skill, reference, and attribution changes.
-2. Commit the candidate, then run [`scripts/validate-harnesses`](scripts/validate-harnesses) on that exact commit. Preserve manual gates and skipped checks in the release notes.
-3. Integrate the verified commit into `main` and push normally. If integration changes the tree, rerun the relevant checks before tagging.
-4. Create an annotated `vMAJOR.MINOR.PATCH` tag on the verified full SHA. Push only that named tag. Published tags remain fixed. Never move or reuse them.
-5. Publish through `gh release create <tag> --repo gfunc/skills --verify-tag --title <tag> --notes-file <notes> --latest`. Keep note drafts and logs under `.scratch/`. GitHub provides source archives for the tag.
-6. Read back the published release and remote tag. Confirm the tag resolves to the verified SHA and its four manifests match the release version.
+1. Select a version, update it with `scripts/version set`, and review the manifest, skill, reference, and attribution changes.
+2. Commit the candidate and merge it into `main` after the [validation workflow](.github/workflows/validate.yml) passes. It checks the pack and runs the existing five-harness rig on committed source.
+3. Create an annotated `vMAJOR.MINOR.PATCH` tag on the verified full SHA and push only that named tag. Published tags remain fixed. Never move or reuse them.
+4. The [release Action](.github/workflows/release.yml) checks tag/version agreement, validates the exact source commit, then publishes generated notes with the actual verification limits. A manual run validates only and cannot publish.
+5. Read back the published release and remote tag. Confirm the tag resolves to the verified SHA and the four manifests match its version.
 
-GitHub Releases hold the release notes. A release does not install the pack into a live harness or change user settings.
+For a nonpublishing check of an existing release:
+
+```bash
+gh workflow run release.yml --ref main -f tag=v0.2.0
+```
+
+A version with a prerelease suffix is published as a prerelease. A stable `0.x` version remains a normal release. Older releases do not replace the latest stable release. Matching published releases remain unchanged on retries.
+
+GitHub Releases hold the release notes and provide tag source archives. Workflow logs stay in artifacts, with `MANUAL` and `SKIPPED` results disclosed as limits. A release does not install the pack into a live harness or change user settings.
 
 ## Dependencies
 
 - `node`, for `check-plan.mjs` (the plan linter) and `emit-plan`.
+- Python 3.11 or later, for version and pack checks without additional packages.
+- Docker, for the existing five-harness validation rig.
 - A forge CLI for execution: `gh` (GitHub) or `glab` (GitLab remotes).
 - Playwright, for UI-surface live lanes.
 
