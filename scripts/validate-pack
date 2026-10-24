@@ -207,7 +207,7 @@ def check(root: Path) -> tuple[list[str], list[str]]:
         try:
             text = path.read_text(encoding="utf-8")
             local_links, skipped = links(text)
-            declared_template = any(line.strip() == "Fill in the placeholders." for line in prose(text).splitlines())
+            source_lines = prose(text).splitlines()
             limits.extend(f"{name}: {limit}" for limit in skipped)
             for number, target in local_links:
                 url = urlsplit(target)
@@ -216,8 +216,8 @@ def check(root: Path) -> tuple[list[str], list[str]]:
                 if not target or re.search(r"[{}<>$]", target):
                     limits.append(f"{name}:{number}: dynamic or empty destination {target!r}")
                     continue
-                if declared_template and target == "url":
-                    limits.append(f"{name}:{number}: declared template destination {target!r}")
+                if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", target) and re.search(r"\{[^{}\s]+\}", source_lines[number - 1]):
+                    limits.append(f"{name}:{number}: template destination on a placeholder line {target!r}")
                     continue
                 decoded = unquote(url.path)
                 resolved = (path if not decoded else root / decoded.lstrip("/") if decoded.startswith("/") else path.parent / decoded).resolve()

@@ -241,13 +241,14 @@ class PackTests(ScratchCase):
         self.assertIn("escapes repository", result.stderr)
         self.assertIn("dynamic", result.stdout)
 
-    def test_declared_template_url_is_a_limit_but_real_links_still_fail(self):
+    def test_placeholder_line_is_a_limit_but_real_links_still_fail(self):
         path = self.root / "README.md"
-        path.write_text("# Template\nFill in the placeholders.\n[PR #123](url)\n")
-        result = self.cli("validate-pack")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("declared template destination 'url'", result.stdout)
-        path.write_text("# Template\nFill in the placeholders.\n[PR #123](url)\n[broken](missing.md)\n")
+        for target in ("url", "destination"):
+            path.write_text(f"# Template\n{{Claim}} [PR #123]({target})\n")
+            result = self.cli("validate-pack")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("template destination on a placeholder line", result.stdout)
+        path.write_text("# Template\n{Claim} [PR #123](url) [broken](missing.md)\n")
         result = self.cli("validate-pack")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing local target missing.md", result.stderr)
@@ -433,7 +434,9 @@ class ReleaseTests(ScratchCase):
     def test_evidence_reports_failed_gates_and_exact_manual_lines(self):
         logs = self.root / ".scratch" / "logs"
         logs.mkdir()
-        (logs / "rig.log").write_text("OK kimi stage done\nMANUAL kimi reload UI\nSKIPPED codex smoke no key\nMANUAL kimi reload UI\n")
+        matrix = "MATRIX kimi plugin-child MANUAL detail=live child needs a model"
+        expected = ["MANUAL kimi reload UI", "SKIPPED codex smoke no key", matrix]
+        (logs / "rig.log").write_text("\n".join(["OK kimi stage done", *expected, matrix, "MANUAL kimi reload UI"]) + "\n")
         output = self.root / ".scratch" / "outputs"
         summary = self.root / ".scratch" / "summary"
         self.env.update(TESTS_RESULT="success", VERSION_RESULT="success", PACK_RESULT="failure", RIG_RESULT="success",
@@ -443,9 +446,17 @@ class ReleaseTests(ScratchCase):
         value = json.loads(result.stdout)
         self.assertEqual(value["source_commit"], self.commit)
         self.assertEqual(value["gates"]["pack"], "failure")
-        self.assertEqual(value["disclosures"], ["MANUAL kimi reload UI", "SKIPPED codex smoke no key"])
+        self.assertEqual(value["disclosures"], expected)
         self.assertIn("Manual and skipped checks are not passes", summary.read_text())
+        self.assertIn(matrix, summary.read_text())
         self.assertEqual(json.loads((logs / "evidence.json").read_text()), value)
+        self.env["VALIDATION_EVIDENCE"] = json.dumps(value)
+        self.assertNotEqual(self.cli("release", "publish", "--commit", self.commit, env=self.env).returncode, 0)
+        value["gates"]["pack"] = "success"
+        self.env["VALIDATION_EVIDENCE"] = json.dumps(value)
+        result = self.cli("release", "publish", "--commit", self.commit, env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(matrix, self.create_calls()[0]["notes"])
 
 
 if __name__ == "__main__":
