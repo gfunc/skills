@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Read, check, or replace the four plugin manifest versions."""
+
+import sys
+sys.dont_write_bytecode = True
+
+import argparse
+from release_lib import ReleaseError, Version, agreed_version, manifest_snapshots, repository_root, set_version
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", help="repository root, defaults to this script's repository")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("read", "check", "set"):
+        command = commands.add_parser(name)
+        command.add_argument("--root", dest="command_root")
+        if name == "check":
+            command.add_argument("expected", nargs="?")
+        if name == "set":
+            command.add_argument("version")
+            command.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+    root = repository_root(args.command_root or args.root)
+    try:
+        if args.command == "set":
+            version = Version.parse(args.version)
+            paths = set_version(root, version, args.dry_run)
+            if paths:
+                print(f"{'would set' if args.dry_run else 'set'} {version.text}: " + ", ".join(paths))
+            else:
+                print(f"unchanged {version.text}")
+        else:
+            version = agreed_version(manifest_snapshots(root), getattr(args, "expected", None))
+            print(version.text if args.command == "read" else f"OK version {version.text}")
+        return 0
+    except (OSError, ReleaseError) as error:
+        print(f"version: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

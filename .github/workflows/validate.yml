@@ -1,0 +1,92 @@
+name: Validate pack
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_commit:
+        description: Exact source commit to validate with current workflow tooling
+        required: true
+        type: string
+    outputs:
+      evidence:
+        description: Gate results and actual manual/skipped disclosures for this commit
+        value: ${{ jobs.validate.outputs.evidence }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    outputs:
+      evidence: ${{ steps.summary.outputs.evidence }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out workflow tooling
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Resolve source commit
+        id: source
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit || github.sha }}
+        run: |
+          mkdir -p .scratch/release-pipeline/logs
+          python3 scripts/release source --github-output "$GITHUB_OUTPUT"
+      - name: Check out exact source separately
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.source.outputs.commit }}
+          path: .scratch/release-pipeline/source
+          persist-credentials: false
+      - name: Test current release tooling
+        id: tests
+        run: |
+          set -o pipefail
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v 2>&1 | tee .scratch/release-pipeline/logs/tests.log
+      - name: Check source manifest versions with current tooling
+        id: version
+        if: ${{ !cancelled() && steps.source.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 scripts/version --root .scratch/release-pipeline/source check 2>&1 | tee .scratch/release-pipeline/logs/version.log
+      - name: Check source pack with current tooling
+        id: pack
+        if: ${{ !cancelled() && steps.source.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 scripts/validate-pack --root .scratch/release-pipeline/source 2>&1 | tee .scratch/release-pipeline/logs/pack.log
+      - name: Run all five keyless Docker hosts from source HEAD
+        id: rig
+        if: ${{ !cancelled() && steps.source.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          .scratch/release-pipeline/source/scripts/validate-harnesses 2>&1 | tee .scratch/release-pipeline/logs/rig.log
+      - name: Summarize actual gate evidence
+        id: summary
+        if: always()
+        env:
+          TESTS_RESULT: ${{ steps.tests.outcome }}
+          VERSION_RESULT: ${{ steps.version.outcome }}
+          PACK_RESULT: ${{ steps.pack.outcome }}
+          RIG_RESULT: ${{ steps.rig.outcome }}
+        run: |
+          python3 scripts/release --root .scratch/release-pipeline/source evidence --logs .scratch/release-pipeline/logs --github-output "$GITHUB_OUTPUT"
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .scratch/release-pipeline/logs/
+            .scratch/release-pipeline/source/.scratch/validate-harnesses/*.log
+            .scratch/release-pipeline/source/.scratch/validate-harnesses/*/*.json
+          include-hidden-files: true
+          if-no-files-found: warn
