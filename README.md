@@ -1,13 +1,37 @@
 # gfunc-skills
 
-gfunc's agent stack combines vendored, modified [pstack](https://github.com/backnotprop/pstack) with the Wayfinder planning chain. After workspace setup, use either task entry point:
+gfunc's agent skill pack combines vendored, modified [pstack](https://github.com/backnotprop/pstack) with planning and writing skills from [Matt Pocock](https://github.com/mattpocock/skills). It supports Kimi Code, Claude Code, Codex, Pi, and Cursor through host-specific profiles.
 
-- `/poteto-mode` takes a goal and a check, selects a playbook, and runs it. Large unclear goals route to Wayfinder.
-- `/wayfinder` discusses a loose idea with you and maps the decisions, resolved one per session. It also works standalone.
+[Latest release](https://github.com/gfunc/skills/releases/latest) · [Setup guide](docs/guide/01-setup.md) · [Full guide](docs/guide/README.md)
 
-Both task workflows use pstack's autopilot-stack executor.
+## Quick start
 
-The planning chain starts with `/wayfinder` discussion. `/to-spec` synthesizes the agreed spec for your confirmation. The multi-phase-plan playbook then decomposes it into units, emits a plan, and checks it with `check-plan.mjs`. Confirm the execution plan before implementation. Other effects still need their workflow's scoped approvals. A tracker-visible work-ticket set is an optional artifact, written on request.
+If the pack is already loaded, run `/setup-workspace` in the repository you want to work on. It discovers existing configuration and completes only the phases and effects you approve. Kimi uses qualified plugin names, such as `/gfunc-skills:setup-workspace`. Use your host's displayed skill spelling.
+
+For a pinned source checkout without installation:
+
+```bash
+git clone --branch v0.2.0 --depth 1 https://github.com/gfunc/skills.git gfunc-skills
+cd gfunc-skills
+scripts/resolve-harness --harness kimi
+```
+
+Checking out a release tag leaves Git in detached HEAD state. That is expected for a pinned copy.
+
+Replace `kimi` with `claude`, `codex`, `pi`, or `cursor` when appropriate. Give the agent the returned profile pointer and your target repository's path. If clone skills are not loaded, ask it to read and follow `<pack-root>/skills/setup-workspace/SKILL.md`. This selects the active host; it does not install the pack.
+
+For native installation or updates, follow the [installation guide](docs/guide/01-setup.md#install-or-update-only-when-requested). Workspace setup, installation, and model preferences are separate operations.
+
+## Choose a workflow
+
+- [`/poteto-mode`](skills/poteto-mode/SKILL.md) takes a goal and a check, selects a playbook, and runs it. Large unclear goals route to Wayfinder.
+- [`/wayfinder`](skills/wayfinder/SKILL.md) discusses a loose idea with you and maps the decisions, resolved one per session. It also works standalone.
+- [`/writing-for-agents`](skills/writing-for-agents/SKILL.md) guides skills, `AGENTS.md`, `CLAUDE.md`, and context pointers. Its companion covers host-dependent skill mechanics.
+- [`/poteto-help`](skills/poteto-help/SKILL.md) helps you pick a skill or recover a run without starting setup or implementation.
+
+Both task entry points use pstack's autopilot-stack executor. The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. The multi-phase-plan playbook decomposes it into units and checks the execution plan before your approval. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
+
+Contributors should read [`AGENTS.md`](AGENTS.md) for repository-specific writing, upstream, scratch, verification, and release guidance.
 
 ## Layout
 
