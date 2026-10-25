@@ -99,6 +99,14 @@ harness_context() {
   local managed out child
   managed="$(kimi_plugin_root_for "$KIMI_CODE_HOME")" \
     || { fail context "installed.json has no enabled managed root"; matrix plugin-direct FAIL "no managed root"; return; }
+
+  # Static contract check on the managed copy's content; it does not prove
+  # runtime behavior.
+  assert_grep context "kimi profile contract" "$managed/references/harnesses/kimi.md" \
+    "## Waiting and notifications"
+  assert_grep context "kimi profile contract" "$managed/references/harnesses/kimi.md" \
+    "## Goal mode"
+
   ensure_mock || { matrix plugin-direct FAIL "mock unavailable"; return; }
 
   out="$OUT/kimi-context.txt"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check pack metadata, tracked boundaries, and supported local Markdown links."""
+"""Check pack metadata, tracked boundaries, supported local Markdown links, and the Kimi harness profile's required sections."""
 
 import sys
 sys.dont_write_bytecode = True
@@ -20,6 +20,15 @@ LIMITS = (
     "and explicit HTML id/name anchors; fenced code and inline code are excluded. "
     "Frontmatter checks cover plain/quoted name/description strings and indented literal/folded blocks, not general YAML validity. "
     "Dynamic/template destinations, HTML links, shortcut references, and other Markdown extensions are not validated."
+)
+
+
+KIMI_PROFILE = "references/harnesses/kimi.md"
+KIMI_PROFILE_SECTIONS = (
+    "## Waiting and notifications",
+    "## Goal mode",
+    "## Plan mode",
+    "## Cost and context",
 )
 
 
@@ -162,6 +171,23 @@ def skill_metadata(path: Path) -> None:
             raise ReleaseError(f"{key} must be a nonempty string")
 
 
+def profile_contract(root: Path) -> list[str]:
+    # The Kimi profile alone carries the sections the adapter contract depends
+    # on; other harness profiles keep their own shape. A pack with no Kimi
+    # profile at all is the installer's failure to name, not this check's.
+    path = root / KIMI_PROFILE
+    if not path.is_file():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        return [f"{KIMI_PROFILE}: {error}"]
+    headings = {line.strip() for line in prose(text).splitlines()
+                if re.match(r"#{1,6}\s", line.strip())}
+    return [f"{KIMI_PROFILE}: missing section {section}"
+            for section in KIMI_PROFILE_SECTIONS if section not in headings]
+
+
 def check(root: Path) -> tuple[list[str], list[str]]:
     errors = []
     limits = [LIMITS]
@@ -237,6 +263,7 @@ def check(root: Path) -> tuple[list[str], list[str]]:
                         errors.append(f"{name}:{number}: missing local anchor {target}")
         except (OSError, UnicodeError, ValueError, ReleaseError) as error:
             errors.append(f"{name}: {error}")
+    errors.extend(profile_contract(root))
     print(f"version {version.text}; inspected {len(tracked)} tracked files")
     return errors, limits
 
