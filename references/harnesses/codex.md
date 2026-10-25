@@ -18,6 +18,7 @@ Custom agents are standalone TOML files, one per file, at `$CODEX_HOME/agents/*.
 - **Per-spawn model parameter:** partial. The docs describe an explicit spawn request as the highest-precedence input but do not publish the `spawn_agent` schema on 0.163.0; a skill can request a model in prose, not pass a verified structured argument.
 - **Inheritance token:** omitted — no `inherit` or `primary` token is documented; an absent model runs on the parent's.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.codex/config.toml`, `~/.codex/<name>.config.toml` profiles, and `~/.codex/agents/*.toml`.
+- **Model smoke:** run a probe through `spawn_agent` or a custom agent TOML carrying the model; with the per-spawn model schema unverified, record `manual`.
 
 ## Transcripts
 
@@ -29,6 +30,11 @@ Append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the p
 ## Scheduler
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait that re-invokes the harness.
+- **No native goal mode.** `spawn_agent` calls run concurrently, but nothing carries a predicate across turns; use an external cron or a checked plan for that.
+
+## Plan mode
+
+- Codex has plan mode (`/plan`, or Shift+Tab), entered by the user; it holds the agent read-only until the operator approves the plan. It is experimental and flag-gated, so verify the host exposes it before relying on it.
 
 ## Forge
 

@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""Audit one Kimi agent's wire.jsonl trail for orchestration-contract violations.
+
+The parent in a delegated run plans, briefs, reviews, and records; children
+author. This tool reads one agent's wire (protocol 1.5) and reports the two
+ways that contract breaks, both deterministic:
+
+  poll              The parent polls for state with repeated Bash calls
+                    (`git status`, `git log`, or a timed `sleep`) while a
+                    background child is still running. A completion is an
+                    event, not something to poll for.
+  parent-authoring  The parent edits product files itself with Edit/Write.
+
+Parsed event schema. Every wire line is one JSON object; `type` selects the
+record. Only these records are consumed, everything else is ignored:
+
+  tool call       type == "context.append_loop_event" whose event.type ==
+                  "tool.call"; fields event.toolCallId, event.name,
+                  event.args, envelope time (ms)
+  child spawn     type == "subagent.spawned"; fields subagentId,
+                  runInBackground
+  child end       type in {"subagent.completed", "subagent.cancelled",
+                  "subagent.failed"}; field subagentId
+
+The wire is append-only, so file order is event order. Background children
+are correlated by subagentId: live from a spawned event with
+runInBackground=true until its end event. A poll counts when any background
+child is live, so overlapping children are handled.
+
+v1 scope: these two checks only. Plan-gate inference, context metrics, and
+per-turn slicing are deliberately absent; counts cover the whole wire.
+"""
+
+import sys
+
+sys.dont_write_bytecode = True
+
+import argparse
+import json
+import re
+import subprocess
+import tempfile
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Iterator, Mapping, Sequence
+
+
+class WireError(Exception):
+    """The input is not a parseable wire trail."""
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    tool_call_id: str
+    name: str
+    args: Mapping[str, object]
+    time: int | None
+
+
+@dataclass(frozen=True)
+class ChildSpawned:
+    subagent_id: str
+    background: bool
+
+
+@dataclass(frozen=True)
+class ChildEnded:
+    subagent_id: str
+
+
+CHILD_ENDED_TYPES = ("subagent.completed", "subagent.cancelled", "subagent.failed")
+
+POLL_COMMAND = re.compile(
+    r"\bgit\s+status\b|\bgit\s+log\b|\bsleep\s+[0-9]+(?:\.[0-9]+)?[smh]?\b"
+)
+
+EXCLUDED_PATH_MARKERS = ("/.scratch/", "/.kimi-code/")
+EXCLUDED_PATH_PREFIXES = (".scratch/", ".kimi-code/")
+
+
+def parse_wire(lines: Sequence[str]) -> Iterator[ToolCall | ChildSpawned | ChildEnded]:
+    for number, line in enumerate(lines, 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError as error:
+            raise WireError(f"line {number}: malformed JSON: {error}") from error
+        if not isinstance(record, dict):
+            raise WireError(f"line {number}: record is not an object")
+        rtype = record.get("type")
+        if rtype == "context.append_loop_event":
+            event = record.get("event")
+            if isinstance(event, dict) and event.get("type") == "tool.call":
+                yield ToolCall(
+                    tool_call_id=str(event.get("toolCallId", "")),
+                    name=str(event.get("name", "")),
+                    args=event.get("args") if isinstance(event.get("args"), dict) else {},
+                    time=record.get("time"),
+                )
+        elif rtype == "subagent.spawned":
+            yield ChildSpawned(
+                subagent_id=str(record.get("subagentId", "")),
+                background=bool(record.get("runInBackground")),
+            )
+        elif rtype in CHILD_ENDED_TYPES:
+            yield ChildEnded(subagent_id=str(record.get("subagentId", "")))
+
+
+def is_poll_command(command: object) -> bool:
+    return isinstance(command, str) and bool(POLL_COMMAND.search(command))
+
+
+def is_product_path(path: object) -> bool:
+    if not isinstance(path, str) or not path.strip():
+        return False
+    if path.startswith(EXCLUDED_PATH_PREFIXES):
+        return False
+    return not any(marker in path for marker in EXCLUDED_PATH_MARKERS)
+
+
+@dataclass
+class Report:
+    tool_calls: int
+    background_spawns: int
+    background_live_at_end: int
+    poll_candidate_calls: int
+    poll_single_calls: int
+    poll_run_count: int
+    poll_run_calls: int
+    poll_runs: list[list[ToolCall]]
+    authoring_calls: int
+    authoring_paths: list[str]
+
+
+def audit(events: Iterator[ToolCall | ChildSpawned | ChildEnded]) -> Report:
+    live: set[str] = set()
+    background_spawns = 0
+    tool_calls = 0
+    poll_candidate_calls = 0
+    runs: list[list[ToolCall]] = []
+    current_run: list[ToolCall] = []
+    authoring: list[ToolCall] = []
+
+    def end_run() -> None:
+        nonlocal current_run
+        if current_run:
+            runs.append(current_run)
+            current_run = []
+
+    for event in events:
+        if isinstance(event, ChildSpawned):
+            if event.background:
+                background_spawns += 1
+                live.add(event.subagent_id)
+        elif isinstance(event, ChildEnded):
+            live.discard(event.subagent_id)
+        else:
+            tool_calls += 1
+            args = event.args if isinstance(event.args, dict) else {}
+            if event.name == "Bash" and is_poll_command(args.get("command")) and live:
+                poll_candidate_calls += 1
+                current_run.append(event)
+                continue
+            if event.name in ("Edit", "Write") and is_product_path(args.get("path")):
+                authoring.append(event)
+            end_run()
+    end_run()
+
+    findings = [run for run in runs if len(run) >= 2]
+    singles = [run for run in runs if len(run) == 1]
+    return Report(
+        tool_calls=tool_calls,
+        background_spawns=background_spawns,
+        background_live_at_end=len(live),
+        poll_candidate_calls=poll_candidate_calls,
+        poll_single_calls=len(singles),
+        poll_run_count=len(findings),
+        poll_run_calls=sum(len(run) for run in findings),
+        poll_runs=findings,
+        authoring_calls=len(authoring),
+        authoring_paths=sorted({
+            str(call.args.get("path")) for call in authoring if isinstance(call.args, dict)
+        }),
+    )
+
+
+def iso(time_ms: int | None) -> str:
+    if not time_ms:
+        return "?"
+    return datetime.fromtimestamp(time_ms / 1000, tz=timezone.utc).isoformat(timespec="seconds")
+
+
+def print_text(report: Report, wire_name: str) -> None:
+    print(f"wire: {wire_name}")
+    print(
+        f"tool calls: {report.tool_calls}; "
+        f"background spawns: {report.background_spawns}; "
+        f"live at end: {report.background_live_at_end}"
+    )
+    print(
+        f"poll: {report.poll_candidate_calls} poll-shaped Bash calls while a "
+        f"background child was live "
+        f"({report.poll_single_calls} singles, {report.poll_run_calls} in runs)"
+    )
+    print(
+        f"poll findings: {report.poll_run_count} runs of >= 2 consecutive polls "
+        f"({report.poll_run_calls} calls)"
+    )
+    for run in report.poll_runs[:10]:
+        print(f"  run of {len(run)} calls, {iso(run[0].time)} to {iso(run[-1].time)}")
+    print(f"parent-authoring findings: {report.authoring_calls} product Edit/Write calls")
+    for path in report.authoring_paths[:10]:
+        print(f"  {path}")
+    if len(report.authoring_paths) > 10:
+        print(f"  ... and {len(report.authoring_paths) - 10} more files")
+
+
+def report_json(report: Report) -> dict:
+    return {
+        "tool_calls": report.tool_calls,
+        "background_spawns": report.background_spawns,
+        "background_live_at_end": report.background_live_at_end,
+        "poll_candidate_calls": report.poll_candidate_calls,
+        "poll_single_calls": report.poll_single_calls,
+        "poll_run_count": report.poll_run_count,
+        "poll_run_calls": report.poll_run_calls,
+        "poll_runs": [
+            {"calls": len(run), "first_time": run[0].time, "last_time": run[-1].time}
+            for run in report.poll_runs
+        ],
+        "authoring_calls": report.authoring_calls,
+        "authoring_paths": report.authoring_paths,
+    }
+
+
+def selected_finding(report: Report, fail_on: str) -> bool:
+    if fail_on == "poll":
+        return report.poll_run_count > 0
+    if fail_on == "parent-authoring":
+        return report.authoring_calls > 0
+    return False
+
+
+def run_audit(path: Path, fail_on: str, as_json: bool) -> int:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        print(f"wire-audit: cannot read {path.name}: {error}", file=sys.stderr)
+        return 2
+    try:
+        report = audit(parse_wire(lines))
+    except WireError as error:
+        print(f"wire-audit: {path.name}: {error}", file=sys.stderr)
+        return 2
+    if as_json:
+        print(json.dumps(report_json(report), indent=2))
+    else:
+        print_text(report, path.name)
+    return 1 if selected_finding(report, fail_on) else 0
+
+
+# --- self-test ---------------------------------------------------------------
+
+
+def envelope_tool(call_id: str, name: str, args: dict, time: int = 0) -> str:
+    return json.dumps(
+        {
+            "type": "context.append_loop_event",
+            "agentId": "main",
+            "event": {
+                "type": "tool.call",
+                "turnId": "0",
+                "toolCallId": call_id,
+                "name": name,
+                "args": args,
+            },
+            "time": time,
+        }
+    )
+
+
+def envelope_spawn(subagent_id: str, background: bool, time: int = 0) -> str:
+    return json.dumps(
+        {
+            "type": "subagent.spawned",
+            "subagentId": subagent_id,
+            "runInBackground": background,
+            "time": time,
+        }
+    )
+
+
+def envelope_end(subagent_id: str, kind: str = "subagent.completed", time: int = 0) -> str:
+    return json.dumps({"type": kind, "subagentId": subagent_id, "time": time})
+
+
+METADATA = json.dumps({"type": "metadata", "protocol_version": "1.5", "created_at": 1})
+
+POLLING_WIRE = [
+    METADATA,
+    envelope_spawn("agent-1", True, 100),
+    envelope_tool("t1", "Bash", {"command": "git status --short"}, 101),
+    envelope_tool("t2", "Bash", {"command": "git log -1 --oneline"}, 102),
+    envelope_tool("t3", "Read", {"path": "/repo/README.md"}, 103),
+    envelope_tool("t4", "Bash", {"command": "git status"}, 104),
+    envelope_tool("t5", "Read", {"path": "/repo/CONTEXT.md"}, 105),
+    envelope_spawn("agent-2", True, 106),
+    envelope_tool("t6", "Bash", {"command": "sleep 30"}, 107),
+    envelope_end("agent-1", time=108),
+    envelope_tool("t7", "Bash", {"command": "git status --porcelain"}, 109),
+    envelope_end("agent-2", time=110),
+    envelope_tool("t8", "Bash", {"command": "git status"}, 111),
+    envelope_tool("t9", "Edit", {"path": "/repo/.scratch/feature/run.md"}, 112),
+]
+
+CLEAN_WIRE = [
+    METADATA,
+    envelope_spawn("agent-9", False, 100),
+    envelope_tool("t1", "Bash", {"command": "git status --short"}, 101),
+    envelope_end("agent-9", time=102),
+    envelope_spawn("agent-10", True, 103),
+    envelope_tool("t2", "Bash", {"command": "git status"}, 104),
+    envelope_tool("t3", "Read", {"path": "/repo/README.md"}, 105),
+    envelope_tool("t4", "Bash", {"command": "git status"}, 106),
+    envelope_tool("t5", "Bash", {"command": "ls -la"}, 107),
+    envelope_end("agent-10", time=108),
+    envelope_tool("t6", "Bash", {"command": "git status"}, 109),
+    envelope_tool("t7", "Write", {"path": "/repo/.scratch/feature/plan.md"}, 110),
+    envelope_tool("t8", "Write", {"path": "/home/u/.kimi-code/sessions/s/agents/main/plans/p.md"}, 111),
+    envelope_tool("t9", "Edit", {"path": ".scratch/feature/run.md"}, 112),
+]
+
+AUTHORING_WIRE = [
+    METADATA,
+    envelope_tool("t1", "Edit", {"path": "/repo/src/app.py"}, 100),
+    envelope_tool("t2", "Write", {"path": "/repo/README.md"}, 101),
+    envelope_tool("t3", "Edit", {"path": "/repo/.scratch/x/run.md"}, 102),
+    envelope_tool("t4", "Write", {"path": "/home/u/.kimi-code/sessions/s/agents/main/plans/p.md"}, 103),
+    envelope_tool("t5", "Write", {"path": ".kimi-code/skills/foo.md"}, 104),
+]
+
+MALFORMED_WIRE = [METADATA, '{"type": "subagent.spawned", ']
+
+
+def scan(path: Path, *extra: str) -> tuple[int, dict | None]:
+    process = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve()), str(path), "--json", *extra],
+        capture_output=True,
+        text=True,
+    )
+    payload = None
+    if process.stdout.strip():
+        try:
+            payload = json.loads(process.stdout)
+        except ValueError:
+            payload = None
+    return process.returncode, payload
+
+
+def check(name: str, actual: object, expected: object) -> bool:
+    status = "pass" if actual == expected else f"FAIL (expected {expected!r}, got {actual!r})"
+    print(f"  {name}: {status}")
+    return actual == expected
+
+
+def self_test() -> int:
+    ok = True
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        cases = {
+            "polling.jsonl": POLLING_WIRE,
+            "clean.jsonl": CLEAN_WIRE,
+            "authoring.jsonl": AUTHORING_WIRE,
+            "malformed.jsonl": MALFORMED_WIRE,
+        }
+        for name, records in cases.items():
+            (root / name).write_text("\n".join(records) + "\n", encoding="utf-8")
+
+        print("polling.jsonl: positive polling cases (runs, overlap, git log, sleep)")
+        code, data = scan(root / "polling.jsonl")
+        ok &= check("exit --fail-on none", code, 0)
+        assert data is not None
+        ok &= check("poll_candidate_calls", data["poll_candidate_calls"], 5)
+        ok &= check("poll_run_count", data["poll_run_count"], 2)
+        ok &= check("poll_run_calls", data["poll_run_calls"], 4)
+        ok &= check("poll_single_calls", data["poll_single_calls"], 1)
+        ok &= check("authoring_calls stays zero", data["authoring_calls"], 0)
+        code, _ = scan(root / "polling.jsonl", "--fail-on", "poll")
+        ok &= check("exit --fail-on poll", code, 1)
+        code, _ = scan(root / "polling.jsonl", "--fail-on", "parent-authoring")
+        ok &= check("exit --fail-on parent-authoring", code, 0)
+
+        print("clean.jsonl: negative cases (no child, single polls, foreground child, excluded paths)")
+        code, data = scan(root / "clean.jsonl", "--fail-on", "poll")
+        ok &= check("exit --fail-on poll", code, 0)
+        assert data is not None
+        ok &= check("poll_candidate_calls", data["poll_candidate_calls"], 2)
+        ok &= check("poll_run_count", data["poll_run_count"], 0)
+        ok &= check("poll_single_calls", data["poll_single_calls"], 2)
+        ok &= check("authoring_calls", data["authoring_calls"], 0)
+
+        print("authoring.jsonl: parent authoring on product files only")
+        code, data = scan(root / "authoring.jsonl")
+        ok &= check("exit --fail-on none", code, 0)
+        assert data is not None
+        ok &= check("authoring_calls", data["authoring_calls"], 2)
+        ok &= check(
+            "authoring_paths",
+            data["authoring_paths"],
+            ["/repo/README.md", "/repo/src/app.py"],
+        )
+        code, _ = scan(root / "authoring.jsonl", "--fail-on", "parent-authoring")
+        ok &= check("exit --fail-on parent-authoring", code, 1)
+        code, _ = scan(root / "authoring.jsonl", "--fail-on", "poll")
+        ok &= check("exit --fail-on poll", code, 0)
+
+        print("malformed.jsonl: input errors exit 2")
+        code, _ = scan(root / "malformed.jsonl")
+        ok &= check("exit on malformed wire", code, 2)
+
+    print("self-test: OK" if ok else "self-test: FAILED")
+    return 0 if ok else 1
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="wire-audit",
+        description="Audit one agent's Kimi wire.jsonl for polling and parent authoring.",
+    )
+    parser.add_argument("wire", nargs="?", help="path to one agent's wire.jsonl")
+    parser.add_argument(
+        "--fail-on",
+        choices=["poll", "parent-authoring", "none"],
+        default="none",
+        help="exit non-zero when this check has findings (default: none)",
+    )
+    parser.add_argument("--json", action="store_true", help="print the report as JSON")
+    parser.add_argument(
+        "--self-test", action="store_true", help="run the built-in fixture tests and exit"
+    )
+    args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+    if not args.wire:
+        parser.error("a wire.jsonl path is required unless --self-test is given")
+    return run_audit(Path(args.wire), args.fail_on, args.json)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

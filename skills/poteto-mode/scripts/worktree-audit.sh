@@ -4,6 +4,14 @@
 # operated in it. Emits a table sorted by size with a suggested bucket. Never
 # deletes anything; deletion stays a human-gated step in the playbook.
 #
+# DIRTY is clean, wip:N (tracked uncommitted edits), or scratch:N (untracked
+# plus ignored paths). Ignored files need --ignored because plain porcelain
+# never shows them, and `git worktree remove` deletes them without a refusal.
+# Every scratch path is enumerated in a listing after the table, and a scratch
+# worktree is bucketed confirm-scratch, never safe. Untracked and ignored
+# content is removed only after the operator sees the listing and confirms
+# (cursor/plugins#449).
+#
 # Usage: worktree-audit.sh [-b|--base <ref>] [--transcripts <dir>]... [repo-path]
 #   repo-path defaults to the current repo.
 #   -b sets the ref the MERGED column checks against (e.g. origin/integration).
@@ -57,6 +65,7 @@ git rev-parse --verify --quiet "$base^{commit}" >/dev/null 2>&1 || { echo "error
 # state. Origin when its CLI can read this repo's PRs, otherwise gh. Empty when
 # neither can.
 prs=$(mktemp)
+scratch_paths=$(mktemp)
 if command -v origin >/dev/null 2>&1 \
 	&& raw=$(origin pr list --author "@me" --state all --limit 1000 \
 		--json number,status,headRef 2>/dev/null); then
@@ -96,12 +105,23 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	# real signal; merge-base only catches fast-forward/rebase merges.
 	git merge-base --is-ancestor "$head" "$base" 2>/dev/null && merged=YES || merged=no
 
-	# Distinguish real WIP (tracked edits) from disposable untracked scratch.
-	porcelain=$(git -C "$wt" status --porcelain 2>/dev/null)
-	if [ -z "$porcelain" ]; then dirty=clean
-	elif printf '%s\n' "$porcelain" | grep -qv '^??'; then
-		dirty="wip:$(printf '%s\n' "$porcelain" | grep -cv '^??')"
-	else dirty="scratch:$(printf '%s\n' "$porcelain" | grep -c '^??')"; fi
+	# Distinguish tracked WIP from untracked and ignored paths. --ignored is
+	# load-bearing: plain porcelain reports an ignored-only worktree as clean,
+	# and every scratch path lands in the after-table listing so removal is
+	# confirmed against an inventory, not a count.
+	porcelain=$(git -C "$wt" status --porcelain --ignored 2>/dev/null)
+	wip_n=0; scratch_n=0
+	if [ -n "$porcelain" ]; then
+		wip_n=$(printf '%s\n' "$porcelain" | grep -cv -e '^??' -e '^!!')
+		scratch_n=$(printf '%s\n' "$porcelain" | grep -c -e '^??' -e '^!!')
+	fi
+	if [ "$wip_n" -gt 0 ]; then dirty="wip:$wip_n"
+	elif [ "$scratch_n" -gt 0 ]; then dirty="scratch:$scratch_n"
+	else dirty=clean; fi
+	if [ "$scratch_n" -gt 0 ]; then
+		printf '%s\n' "$porcelain" | grep -e '^??' -e '^!!' \
+			| while read -r line; do printf '%s\t%s\n' "$wt" "$line" >> "$scratch_paths"; done
+	fi
 
 	branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
 	if [ -z "$branch" ]; then remote=detached
@@ -127,16 +147,23 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	fi
 	recent=$([ "$last_ts" -gt 0 ] 2>/dev/null && [ $(( (now - last_ts) / 86400 )) -le 4 ] && echo yes || echo no)
 
-	case "$dirty" in wip:*) bucket=hold-wip ;; *)
-		case "$pr" in */open|*/draft) bucket=hold-open-pr ;; *)
-			if [ "$recent" = yes ]; then bucket=verify-recent-chat
-			elif [ "$merged" = YES ] || [ "$pr" != "-" ]; then bucket=safe
-			else bucket=review; fi ;;
-		esac ;;
+	case "$dirty" in
+	wip:*) bucket=hold-wip ;;
+	scratch:*) bucket=confirm-scratch ;;
+	*) case "$pr" in */open|*/draft) bucket=hold-open-pr ;; *)
+		if [ "$recent" = yes ]; then bucket=verify-recent-chat
+		elif [ "$merged" = YES ] || [ "$pr" != "-" ]; then bucket=safe
+		else bucket=review; fi ;;
+	esac ;;
 	esac
 
 	printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
 		"$size" "$age" "$merged" "$dirty" "$remote" "$pr" "$last" "$bucket" "$wt"
 done | sort -t$'\t' -k1,1 -rh
 
-rm -f "$prs"
+if [ -s "$scratch_paths" ]; then
+	echo "# scratch paths: untracked or ignored, none removed without the operator confirming this listing"
+	sort "$scratch_paths"
+fi
+
+rm -f "$prs" "$scratch_paths"

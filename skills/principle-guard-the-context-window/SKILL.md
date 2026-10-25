@@ -10,3 +10,6 @@ disable-model-invocation: true
 
 **Pattern:**
 - **Size phases and cap scope.** Limit files per phase, set turn budgets, account for mechanism costs.
+- **Count the resend.** Every step resends the full context, so input tokens dominate a long run. A poll is a step; at a 600K context, 100 polls is roughly 60M input tokens.
+- **Keep the model and effort stable for a run.** Switching either invalidates the prompt cache and repays the whole context at full price.
+- **Route bulk to children.** Bulk reads and diff review go to subagents; decision-relevant reads stay in the parent.

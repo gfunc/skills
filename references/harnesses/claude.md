@@ -18,6 +18,7 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 - **Per-spawn model parameter:** yes.
 - **Inheritance token:** `inherit` — also the default and the meaning of an unset `CLAUDE_CODE_SUBAGENT_MODEL`.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.claude/settings.json` (`model`, `modelPicker`, `env`); user agents in `~/.claude/agents/`. User rules under `~/.claude/rules/` auto-load in every session, so that directory is a delivery surface, not a second preference store.
+- **Model smoke:** verify a chosen alias with one `Agent` call passing the alias or the full model ID as `model`.
 
 ## Transcripts
 
@@ -29,6 +30,11 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 ## Scheduler
 
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
+- **No native goal mode.** For work that must continue across turns, carry the predicate in `/loop` or in a checked plan; subagents already notify on completion from either default mode.
+
+## Plan mode
+
+- Claude Code has plan mode; the user enters it (Shift+Tab) and `ExitPlanMode` presents the plan for approval. While it is active, the agent writes only the plan file.
 
 ## Forge
 

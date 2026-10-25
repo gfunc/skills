@@ -18,6 +18,7 @@ Agents are not package resources — a package cannot declare `agents/` — so d
 - **Per-spawn model parameter:** no.
 - **Inheritance token:** omitted — no `inherit` or `primary` token is documented; omitting `model` runs the child on the parent's active `provider/modelId` and thinking level.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.pi/agent/settings.json`, `~/.pi/agent/models.json`, and `~/.pi/agent/agents/*.md`; credentials live only in `auth.json`.
+- **Model smoke:** no stock spawn; an alias probe records `not-run`.
 
 ## Transcripts
 
@@ -29,6 +30,11 @@ The file is a tree, not an append-only log: walk from the active leaf toward the
 ## Scheduler
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait.
+- **Goal mode:** unverified; a probe of the installed package found no `/goal` command or goal extension. Probe the host before relying on one, and record `unverified` rather than "not available" unless a probe confirms it.
+
+## Plan mode
+
+- No native plan mode is documented. The pack's plan gate is a checked plan (`emit-plan` plus `check-plan`), not a harness mode.
 
 ## Forge
 

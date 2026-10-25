@@ -39,6 +39,8 @@ If `~/.agents/pstack-models.md` exists, setup validates the effective choices an
 
 A recorded model preference does not provision that model. Setup reports unavailable or unconfirmed roles without changing native provider settings or credentials. Declining model configuration does not block repository wiring.
 
+Model configuration can end with an opt-in smoke, shown in the write preview before anything runs. It launches one foreground probe per distinct alias, not per role, and reports every alias as `resolved`, `failed`, `manual`, or `not-run`. It stays opt-in because each probe is a paid call. A harness without a spawn mechanism reports `not-run`, and an alias whose resolution cannot be verified in the run transcript reports `manual`. A failed slug returns `needs-action` and names the replacement.
+
 ## Choose optional verification work
 
 When no project-local verification skill exists, workspace setup offers generation once. An existing harness does not suppress the offer. The new skill wraps that harness instead of duplicating it. For a usable stale or incomplete skill, setup offers maintenance once. If several candidates exist, choose the target explicitly. An unusable skill is a reported gap, not permission to replace it.
@@ -74,7 +76,7 @@ The unpinned repository URL follows GitHub's latest release, falling back to the
 
 Inspect the installation with `/plugins info gfunc-skills`. In `/plugins`, select the plugin on the Installed tab and press Enter when an update is available. After installation, use `/reload` or start a new session. Reloading refreshes installed content. It does not download an update.
 
-Kimi 2.3.0 separates display metadata from update detection:
+Current Kimi Code separates display metadata from update detection:
 
 - The installed `kimi.plugin.json` supplies the displayed version.
 - An unpinned GitHub install compares the saved ref and installed commit SHA with the latest release, or HEAD fallback.
