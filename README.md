@@ -53,6 +53,7 @@ One flat `skills/` root — every skill a peer:
 - `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
 - `references/harnesses/` holds one profile per supported harness. The host's adapter or `scripts/resolve-harness` names the active profile without copying it to a separate selection file.
 - `references/adapters/` — the thin per-host adapters and the clone/Codex selection contract.
+- [`docs/harness/wire-audit.md`](docs/harness/wire-audit.md) — usage for `scripts/wire-audit`, which reads one Kimi wire trail and reports parent polling and parent authoring.
 
 `/to-tickets` and `/implement-spec` are retired doors: decomposition lives in the multi-phase-plan playbook, and the plan emitter lives inside poteto-mode.
 
