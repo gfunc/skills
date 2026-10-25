@@ -23,7 +23,7 @@ jobs:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - name: Check out current workflow tooling
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           fetch-depth: 0
@@ -38,7 +38,7 @@ jobs:
           python3 scripts/release inspect --github-output "$GITHUB_OUTPUT" 2>&1 | tee .scratch/release-pipeline/logs/inspect.log
       - name: Upload inspection log
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: release-inspect-${{ github.run_id }}-${{ github.run_attempt }}
           path: .scratch/release-pipeline/logs/
@@ -67,7 +67,7 @@ jobs:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - name: Check out current publication tooling
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           fetch-depth: 0
@@ -84,7 +84,7 @@ jobs:
           python3 scripts/release publish --commit "$RELEASE_COMMIT" 2>&1 | tee .scratch/release-pipeline/logs/publish.log
       - name: Upload publication log
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: release-publish-${{ github.run_id }}-${{ github.run_attempt }}
           path: .scratch/release-pipeline/logs/
