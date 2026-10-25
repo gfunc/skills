@@ -1,0 +1,85 @@
+name: Bump pack version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer to set, for example 0.2.2
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Set the pack version
+        id: set-version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${VERSION#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          python3 scripts/version set "$version"
+          python3 scripts/version check "$version"
+          python3 scripts/validate-pack
+          test "$(python3 scripts/version read)" = "$version"
+          expected=$(printf '%s\n' .claude-plugin/plugin.json .cursor-plugin/plugin.json kimi.plugin.json plugin.json | sort)
+          changed=$(git diff --name-only | sort)
+          if [ "$changed" != "$expected" ]; then
+            echo "::error::Expected only the four plugin manifests to change, got [$(printf '%s' "$changed" | tr '\n' ' ')]"
+            exit 1
+          fi
+      - name: Run the release tooling tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Open the release pull request
+        env:
+          VERSION: ${{ steps.set-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          version="$VERSION"
+          branch="release/v${version}"
+          remote_url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          existing="$(git ls-remote --heads "$remote_url" "refs/heads/$branch")"
+          if [ -n "$existing" ]; then
+            echo "::error::Branch ${branch} already exists in ${GITHUB_REPOSITORY}; delete it or pick a different version."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add .claude-plugin/plugin.json .cursor-plugin/plugin.json kimi.plugin.json plugin.json
+          git commit -m "chore(release): set plugin versions to ${version}"
+          git push "$remote_url" "HEAD:refs/heads/$branch"
+          body="## Why
+          Prepare the ${version} release. The Bump pack version workflow set the four plugin manifests together instead of editing them by hand.
+
+          ## What changed
+          \`scripts/version set ${version}\` updated the version field in \`plugin.json\`, \`kimi.plugin.json\`, \`.claude-plugin/plugin.json\`, and \`.cursor-plugin/plugin.json\`. Nothing else changed.
+
+          ## Scope
+          Version fields only. This workflow does not tag or publish; the tag and the release stay with the release procedure on the merged commit.
+
+          ## Verification
+          - \`scripts/version check ${version}\` and \`scripts/validate-pack\` passed
+          - \`scripts/version read\` returned ${version} and the diff is exactly the four manifests
+          - \`python3 -m unittest discover -s scripts/tests -p 'test_*.py'\` passed
+          "
+          pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "chore(release): set plugin versions to ${version}" --body "$body")"
+          echo "Pull request: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
