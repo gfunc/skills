@@ -21,6 +21,7 @@ Ground first, then commit. Don't start the run until you can state:
 - The definition of done as a falsifiable predicate (the **prove-it-works** principle skill).
 - Scope, quantified: rough units and effort, plus the blockers grounding surfaced.
 - The rigor level, biased high. One-way doors and high blast radius get more. Reversible low-stakes steps get less. Rigor is gates and artifacts, not "try harder".
+- The write boundary, listed. Every repo, namespace, registry, and credential store the run may write. Evidence establishes existence and intended effects, not permission. An external, shared, production, or credential-store write needs an operator grant before the run starts. Never request a secret value. An unconfirmed grant is a refuse-to-plan condition.
 
 Present the framing and tradeoffs before committing to a long run. Reversible work proceeds (the **never-block-on-the-human** principle skill), but a multi-hour run earns one checkpoint.
 
