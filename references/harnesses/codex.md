@@ -32,6 +32,10 @@ Append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the p
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait that re-invokes the harness.
 - **No native goal mode.** `spawn_agent` calls run concurrently, but nothing carries a predicate across turns; use an external cron or a checked plan for that.
 
+## Plan mode
+
+- Codex has plan mode (`/plan`, or Shift+Tab), entered by the user; it holds the agent read-only until the operator approves the plan. It arrived experimental behind `[features]` `collaboration_modes` in 0.88.0, so verify the host exposes it before relying on it.
+
 ## Forge
 
 - **Forge CLI:** `gh` by default; `glab` when the remote is GitLab.

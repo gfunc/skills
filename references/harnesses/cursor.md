@@ -32,6 +32,10 @@ Read only the active workspace's `agent-transcripts/` tree; the system prompt na
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
 - **No native goal mode.** Background `Task` completions arrive as notifications. For work that must continue across turns, carry the predicate in `/loop` or in a checked plan.
 
+## Plan mode
+
+- Cursor ships Plan Mode, entered with Shift+Tab or the mode dropdown. The agent researches, asks clarifying questions, and presents a plan the operator approves before it edits.
+
 ## Forge
 
 - **Forge CLI:** `gh` by default; `glab` when the remote is GitLab.

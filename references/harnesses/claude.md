@@ -32,6 +32,10 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
 - **No native goal mode.** For work that must continue across turns, carry the predicate in `/loop` or in a checked plan; subagents already notify on completion from either default mode.
 
+## Plan mode
+
+- Claude Code has plan mode; the user enters it (Shift+Tab) and `ExitPlanMode` presents the plan for approval. While it is active, the agent writes only the plan file.
+
 ## Forge
 
 - **Forge CLI:** `gh` by default; `glab` when the remote is GitLab.

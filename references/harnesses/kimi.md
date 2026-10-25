@@ -50,6 +50,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 - Installed 2.3.1 accepted an agent-issued `EnterPlanMode`; current source says only the user can enter. Do not rely on programmatic entry.
 - `ExitPlanMode` presents the plan for approval; a rejection keeps plan mode active.
 - While plan mode is active, writes outside the plan file, `TaskStop`, `CronCreate`, and `CronDelete` are blocked.
+- Ask all scope questions in the same approval summary as the plan handback, so one approval settles the plan and the open calls together.
 
 ## Cost and context
 
