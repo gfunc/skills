@@ -29,6 +29,7 @@ Append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the p
 ## Scheduler
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait that re-invokes the harness.
+- **No native goal mode.** `spawn_agent` calls run concurrently, but nothing carries a predicate across turns; use an external cron or a checked plan for that.
 
 ## Forge
 

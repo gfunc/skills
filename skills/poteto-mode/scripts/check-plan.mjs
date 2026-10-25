@@ -19,7 +19,8 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_MARKERS = ["git show origin/main:", "/loop 1h", "status message"];
+const PROGRAM_MARKERS = ["git show origin/main:", "status message"];
+const PROGRAM_CONTINUATION = /\/loop|\/goal|CronCreate/;
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -119,6 +120,8 @@ else {
 	for (const marker of PROGRAM_MARKERS) {
 		if (!bodyText(program).includes(marker)) fail(program.n, `Program checklist lacks "${marker}"`);
 	}
+	if (!PROGRAM_CONTINUATION.test(bodyText(program)))
+		fail(program.n, 'Program checklist lacks a continuation marker the profile names ("/loop", "/goal", or "CronCreate")');
 }
 
 const close = find("Close the program");

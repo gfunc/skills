@@ -29,6 +29,7 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 ## Scheduler
 
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
+- **No native goal mode.** For work that must continue across turns, carry the predicate in `/loop` or in a checked plan; subagents already notify on completion from either default mode.
 
 ## Forge
 

@@ -29,6 +29,7 @@ The file is a tree, not an append-only log: walk from the active leaf toward the
 ## Scheduler
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait.
+- **Goal mode:** `unverified` on pi-coding-agent 1.3.0, probed 2026-10-25; the package has no `/goal` command or goal extension. Probe the host before relying on one, and record `unverified` rather than "not available" unless a probe confirms it.
 
 ## Forge
 

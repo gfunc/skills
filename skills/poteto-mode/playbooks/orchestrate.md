@@ -8,7 +8,7 @@ Ceremony must scale with the program. On cheap near-identical units, collapse it
 
 Three rules carry the rest.
 
-- Completions are queue events, not interrupts.
+- Completions are queue events, not interrupts. On a harness that delivers them automatically, a drain is event-driven and a poll is a bug.
 - Every spawn and every resume carries the standing orders verbatim.
 - The brief is the product. A vague brief fails quietly, because a worker cannot ask you a question.
 

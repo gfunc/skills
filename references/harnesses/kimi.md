@@ -4,9 +4,18 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 
 ## Subagents
 
-- **Spawn tool and arguments:** `Agent` spawns one child with `description`, `prompt`, `subagent_type`, `model`, and `run_in_background: true`. `AgentSwarm` runs one prompt template over an item list at one model; the `{{item}}` placeholder varies each brief. In swarm mode (`/swarm on`, or `/swarm <task>` for one turn) `AgentSwarm` is auto-approved; outside it, manual permission mode asks. Cursor-only parameters (`environment`, `cloud_base_branch`) are rejected.
-- **Parallel spawn:** yes. Background `Agent` calls run concurrently; `AgentSwarm` fans one template out over its item list. Heterogeneous briefs need separate `Agent` calls.
+- **Spawn tool and arguments:** `Agent` spawns one child with `description`, `prompt`, `subagent_type`, `model`, and `run_in_background`, which defaults to **false**. `AgentSwarm` runs one prompt template over an item list at one model; the `{{item}}` placeholder varies each brief. In swarm mode (`/swarm on`, or `/swarm <task>` for one turn) `AgentSwarm` is auto-approved; outside it, manual permission mode asks. Cursor-only parameters (`environment`, `cloud_base_branch`) are rejected.
+- **Choose foreground when the next step needs the result.** A foreground child returns inline in the spawning turn. Foreground is not serial; independent foreground `Agent` calls in one message run concurrently. Use one message for independent probes, reads, or judges.
+- **Choose background only to detach.** A background child returns immediately and completes later. Use it only when the parent has other work and does not need the result now. Never launch a background child and then poll `TaskOutput` or `git status`; see Waiting and notifications.
+- **Parallel spawn:** yes. Independent foreground `Agent` calls in one message run concurrently; `AgentSwarm` fans one template out over its item list. Heterogeneous briefs need separate `Agent` calls.
 - **Fresh child inherits parent context:** no. A child starts from its spawn prompt; the parent passes the profile path, role-prompt path, and inputs explicitly. Agent definitions are Markdown frontmatter (`name`, `description`, `whenToUse`, `override`, `tools`, `disallowedTools`, `subagents`) and cannot set a model.
+
+## Waiting and notifications
+
+- A background completion is delivered automatically as a notification; do not poll for it. A foreground result comes inline in the spawning turn.
+- `TaskOutput` is a non-blocking snapshot of a task's current state, not a wait.
+- `WaitFor` is experimental, gated behind `wait_for`; it suspends the turn with a 90-second cap and consumes the completion notification it waits on.
+- Neither result path needs a status loop. If the next step cannot proceed without a result, spawn that child in the foreground.
 
 ## Models
 
@@ -27,6 +36,25 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 ## Scheduler
 
 - **Scheduler:** CronCreate — a timed job that injects a stored prompt. Jobs persist under the session directory's `cron/`.
+
+## Goal mode
+
+- `/goal <objective>` starts a persistent objective the session pursues across automatically continuing turns. State the finish line and the stop condition; the objective runs up to 4000 characters.
+- A goal stops as `complete`, `paused`, or `blocked`. `/goal status`, `pause`, `resume`, `cancel`, `replace`, and `next` manage it.
+- Budgets exist for time, turns, and tokens; `/goal status` reports progress. `SetGoalBudget` is the main-agent tool where it is exposed.
+- Use `/goal` for autonomous-run predicates. Use CronCreate for timed audit ticks. There is no `/loop`.
+
+## Plan mode
+
+- Installed 2.3.1 accepted an agent-issued `EnterPlanMode`; current source says only the user can enter. Do not rely on programmatic entry.
+- `ExitPlanMode` presents the plan for approval; a rejection keeps plan mode active.
+- While plan mode is active, writes outside the plan file, `TaskStop`, `CronCreate`, and `CronDelete` are blocked.
+
+## Cost and context
+
+- The wire carries `usage.record` and `token_counting.measured` events; there is no model-visible cost API.
+- Switching model or effort invalidates the prompt cache. Each child consumes tokens.
+- `/goal` and `SetGoalBudget` bound a long run; goal continuation checkpoints across turns instead of holding one giant turn open.
 
 ## Forge
 

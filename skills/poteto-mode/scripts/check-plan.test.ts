@@ -163,3 +163,20 @@ test("accepts an indented Surface line without a colon flag", () => {
 	const plan = validPlan.replace("## PR 1\n**Depends on.**", "## PR 1\n  Surface: ui\n**Depends on.**");
 	runPlanText(plan, 0);
 });
+
+test("accepts a profile-named continuation in place of /loop 1h", () => {
+	const goalPlan = validPlan.replace(
+		"`git show origin/main:` /loop 1h status message",
+		"`git show origin/main:` CronCreate `/goal` status message",
+	);
+	runPlanText(goalPlan, 0);
+});
+
+test("rejects a program checklist with no continuation marker", () => {
+	const noTick = validPlan.replace(
+		"`git show origin/main:` /loop 1h status message",
+		"`git show origin/main:` status message",
+	);
+	const result = runPlanText(noTick, 1);
+	assert.ok(result.stderr.includes("continuation marker"));
+});

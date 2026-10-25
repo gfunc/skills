@@ -29,6 +29,7 @@ Read only the active workspace's `agent-transcripts/` tree; the system prompt na
 ## Scheduler
 
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
+- **No native goal mode.** Background `Task` completions arrive as notifications. For work that must continue across turns, carry the predicate in `/loop` or in a checked plan.
 
 ## Forge
 
