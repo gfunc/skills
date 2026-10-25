@@ -34,7 +34,7 @@ Append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the p
 
 ## Plan mode
 
-- Codex has plan mode (`/plan`, or Shift+Tab), entered by the user; it holds the agent read-only until the operator approves the plan. It arrived experimental behind `[features]` `collaboration_modes` in 0.88.0, so verify the host exposes it before relying on it.
+- Codex has plan mode (`/plan`, or Shift+Tab), entered by the user; it holds the agent read-only until the operator approves the plan. It is experimental and flag-gated, so verify the host exposes it before relying on it.
 
 ## Forge
 

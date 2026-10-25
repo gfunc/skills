@@ -2,8 +2,6 @@
 
 Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl trails.
 
-Verified against Kimi Code 2.3.1 / kimi-code 7ccac2b (2026-10-23).
-
 ## Subagents
 
 - **Spawn tool and arguments:** `Agent` spawns one child with `description`, `prompt`, `subagent_type`, `model`, and `run_in_background`, which defaults to **false**. `AgentSwarm` runs one prompt template over an item list at one model; the `{{item}}` placeholder varies each brief. In swarm mode (`/swarm on`, or `/swarm <task>` for one turn) `AgentSwarm` is auto-approved; outside it, manual permission mode asks. Cursor-only parameters (`environment`, `cloud_base_branch`) are rejected.
@@ -18,6 +16,12 @@ Verified against Kimi Code 2.3.1 / kimi-code 7ccac2b (2026-10-23).
 - `TaskOutput` is a non-blocking snapshot of a task's current state, not a wait.
 - `WaitFor` is experimental, gated behind `wait_for`; it suspends the turn with a 90-second cap and consumes the completion notification it waits on.
 - Neither result path needs a status loop. If the next step cannot proceed without a result, spawn that child in the foreground.
+
+## Progress updates
+
+- `NotifyUser` sends a progress update without ending the turn. Use it for the early approach, phase conclusions, long waits, and blockers.
+- It does not ask questions. A subagent's update does not reach the parent, so a child reports in its final message.
+- Completion notifications are automatic; progress updates do not replace them.
 
 ## Models
 
@@ -49,7 +53,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 
 ## Plan mode
 
-- Installed 2.3.1 accepted an agent-issued `EnterPlanMode`; current source says only the user can enter. Do not rely on programmatic entry.
+- Plan mode entry varies by build. Do not rely on programmatic entry; handle the active state.
 - `ExitPlanMode` presents the plan for approval; a rejection keeps plan mode active.
 - While plan mode is active, writes outside the plan file, `TaskStop`, `CronCreate`, and `CronDelete` are blocked.
 - Ask all scope questions in the same approval summary as the plan handback, so one approval settles the plan and the open calls together.

@@ -76,7 +76,7 @@ The unpinned repository URL follows GitHub's latest release, falling back to the
 
 Inspect the installation with `/plugins info gfunc-skills`. In `/plugins`, select the plugin on the Installed tab and press Enter when an update is available. After installation, use `/reload` or start a new session. Reloading refreshes installed content. It does not download an update.
 
-Kimi 2.3.0 separates display metadata from update detection:
+Current Kimi Code separates display metadata from update detection:
 
 - The installed `kimi.plugin.json` supplies the displayed version.
 - An unpinned GitHub install compares the saved ref and installed commit SHA with the latest release, or HEAD fallback.

@@ -92,6 +92,9 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 The chat that receives `/poteto-mode` is the orchestrator. It plans, briefs, reviews, gates, and records. It does not author product changes when a child can. If a child cannot do a step, the step is blocked or absorbed by a named child, not by the parent. The parent writes only the plan and the run ledger; any product edit fails the phase. The parent may run read-only gate commands and review diffs.
 
+- Maintain the todo list as the agent-level ledger. Mark a phase `in_progress` before its spawn and `done` only after the child's step table reconciles and the gate passes.
+- Use the harness progress tool when one exists (Kimi `NotifyUser`) for the early approach, phase conclusions, long waits, and blockers. It is not a question channel and does not replace the final reply.
+
 ## Subagents
 
 **Use the pack's `poteto-agent` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers), where the harness registers it. The chat that receives `/poteto-mode` runs the playbook. Never spawn a `poteto-agent` to run the playbook itself. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own agent choice for diverse-model review. Respect what the skill prescribes, don't override to `poteto-agent`.

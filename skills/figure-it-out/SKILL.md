@@ -40,7 +40,7 @@ Then execute the design. Add its steps to the todolist as concrete items between
 
 ## Phase C: Run the loop
 
-Each unit is an experiment and a delegated brief. The parent runs the loop, reviews, and gates; the child edits. If a unit cannot be delegated, say why in the todo and the ledger. State the hypothesis, make the smallest change, measure against the predicate on the real artifact, keep it if it advanced, revert it if it didn't. Apply the **sequence-verifiable-units** principle skill, verifying each unit before starting the next instead of batching checks at the end.
+Each unit is an experiment and a delegated brief. The parent runs the loop, reviews, and gates; the child edits. If a unit cannot be delegated, say why in the todo and the ledger. State the hypothesis, make the smallest change, measure against the predicate on the real artifact, keep it if it advanced, revert it if it didn't. Apply the **sequence-verifiable-units** principle skill, verifying each unit before starting the next instead of batching checks at the end. The parent updates the todo list at each unit boundary; the child's step table updates it, and a child's report is not a substitute for the list.
 
 - Verify by inspecting the artifact, never a self-report. When something passes too easily, suspect the observation method before the system.
 - Pair delegated work with a judge. If a worker games the gate, reset and harden the contract. If the gate itself is wrong, fix the gate in its own change rather than routing around it.
