@@ -99,6 +99,8 @@ scripts/version set 0.3.0
 
 The `set` examples prepare a future version. They do not commit, tag, push, or publish it.
 
+To prepare a release without editing the manifests by hand, run the **Bump pack version** workflow from Actions with the target version. It sets the four manifests on a `release/v<version>` branch and opens a PR. It does not tag or publish. Review and merge it after validation, then tag the verified SHA as below.
+
 To publish a release:
 
 1. Select a version, update it with `scripts/version set`, and review the manifest, skill, reference, and attribution changes.
