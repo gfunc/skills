@@ -29,7 +29,7 @@ jobs:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - name: Check out workflow tooling
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
@@ -41,7 +41,7 @@ jobs:
           mkdir -p .scratch/release-pipeline/logs
           python3 scripts/release source --github-output "$GITHUB_OUTPUT"
       - name: Check out exact source separately
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ steps.source.outputs.commit }}
           path: .scratch/release-pipeline/source
@@ -81,7 +81,7 @@ jobs:
           python3 scripts/release --root .scratch/release-pipeline/source evidence --logs .scratch/release-pipeline/logs --github-output "$GITHUB_OUTPUT"
       - name: Upload validation logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
