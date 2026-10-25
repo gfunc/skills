@@ -18,6 +18,7 @@ The dashboard and Origin are the liveness surface for cloud agents. The pack's `
 - **Per-spawn model parameter:** yes.
 - **Inheritance token:** `inherit` (default). It nominally runs the parent chat model but is reported to resolve incorrectly (a Grok parent returned GPT-5.5 Medium, forum.cursor.com 2026-07); verify the resolved model before relying on it.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: the Cursor Settings model picker and BYOK in Settings → Models; user subagents in `~/.cursor/agents/*.md`. User Rules are UI-managed under Customize → Rules, not a documented filesystem path; project rules are `.cursor/rules/*.mdc`. `~/.cursor/rules/*.mdc` is not documented as a user-level auto-loaded rule path.
+- **Model smoke:** verify a chosen model with one foreground local `Task` carrying the `model` parameter; a cloud probe is optional and spends cloud quota.
 
 ## Transcripts
 

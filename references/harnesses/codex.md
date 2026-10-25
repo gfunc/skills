@@ -18,6 +18,7 @@ Custom agents are standalone TOML files, one per file, at `$CODEX_HOME/agents/*.
 - **Per-spawn model parameter:** partial. The docs describe an explicit spawn request as the highest-precedence input but do not publish the `spawn_agent` schema on 0.163.0; a skill can request a model in prose, not pass a verified structured argument.
 - **Inheritance token:** omitted — no `inherit` or `primary` token is documented; an absent model runs on the parent's.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.codex/config.toml`, `~/.codex/<name>.config.toml` profiles, and `~/.codex/agents/*.toml`.
+- **Model smoke:** run a probe through `spawn_agent` or a custom agent TOML carrying the model; with the per-spawn model schema unverified, record `manual`.
 
 ## Transcripts
 

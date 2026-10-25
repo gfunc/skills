@@ -18,6 +18,7 @@ Agents are not package resources — a package cannot declare `agents/` — so d
 - **Per-spawn model parameter:** no.
 - **Inheritance token:** omitted — no `inherit` or `primary` token is documented; omitting `model` runs the child on the parent's active `provider/modelId` and thinking level.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.pi/agent/settings.json`, `~/.pi/agent/models.json`, and `~/.pi/agent/agents/*.md`; credentials live only in `auth.json`.
+- **Model smoke:** no stock spawn; an alias probe records `not-run`.
 
 ## Transcripts
 

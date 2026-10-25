@@ -25,7 +25,7 @@ If preferences are missing, continue with the accepted configuration phase. If t
 
 ### 2. Establish native availability
 
-Use the active profile's Models and Subagents sections for the availability gate, inheritance token, and model mechanism. Inspect only documented, non-secret catalogs or session tool metadata. Prefer the profile's model-list command when one exists. Do not read credentials or provider-auth configuration, edit native settings, spawn probe agents, or make paid calls.
+Use the active profile's Models and Subagents sections for the availability gate, inheritance token, and model mechanism. Inspect only documented, non-secret catalogs or session tool metadata. Prefer the profile's model-list command when one exists. Do not read credentials or provider-auth configuration or edit native settings. Do not spawn probe agents or make paid calls before the write preview. The approved smoke in step 6 is the only exception.
 
 Record the available slugs and the evidence used. A catalog name alone does not satisfy an additional gate the profile requires. If the evidence cannot establish availability, mark the affected roles as unconfirmed. Explain unavailable roles and the native prerequisite without repairing it.
 
@@ -56,7 +56,7 @@ Offer confirmed models and inheritance values for roles that need a choice or we
 
 Validate every real slug to be written against step 2's evidence and the active profile's gate. Inheritance values pass as described above. If a choice is unavailable or unconfirmed, request a supported alternative or return `needs-action`. Do not write an unresolved configuration.
 
-Show every effective role and its chosen value, the budget and target effort, and the availability evidence. Preview exact paths, content changes, retired-line removals, and any delivery copies. Identify paths that remain unchanged. Ask for approval of these specific writes unless the caller already obtained that exact approval.
+Show every effective role and its chosen value, the budget and target effort, and the availability evidence. Preview exact paths, content changes, retired-line removals, and any delivery copies. Include the opt-in model smoke from step 6 in the same preview: the roles it covers, the distinct alias each resolves to, one foreground probe per distinct alias, and the expected spend. Identify paths that remain unchanged. Ask for approval of these specific writes and the exact previewed smoke unless the caller already obtained that approval.
 
 Use only the active harness's documented delivery path. Claude Code can load a verbatim copy at `~/.claude/rules/pstack-models.md`. Cursor can use an optional project copy at `.cursor/rules/pstack-models.mdc`, with the frontmatter shown below. Cursor User Rules are UI-managed, not a user-level rule file to create. Include a delivery copy only in the approved preview. It is never another preference authority.
 
@@ -105,11 +105,21 @@ Read back each written file and compare it with the approved content. If a deliv
 
 ### 6. Return the model result
 
+If the approved preview included the model smoke, run it after the write completes. Launch one foreground probe per **distinct alias** in the approved configuration, not one per role, in a single message; foreground calls run concurrently. Each probe is one small task that names its alias.
+
+- Kimi, Claude, and Cursor: spawn through `Agent` or `Task` with the chosen alias as the model.
+- Codex: use `spawn_agent` or a custom agent TOML carrying the model. With the per-spawn model schema unverified, record `manual` instead of running it.
+- Pi: no stock spawn; record `not-run`.
+- Roles on `inherit-parent`, `auto`, or the profile's inheritance token: nothing to resolve; record `not-run`.
+
+Record each distinct alias as `resolved`, `failed`, `manual`, or `not-run`. Completion text does not prove alias resolution. Verify the alias against the spawn record the active profile names, such as the `subagent.spawned` wire event, where one exists; without that evidence, record `manual` and name the gap. A failed slug returns `needs-action` and names the replacement.
+
 Report the model phase with these details in ordinary prose or a short list. No new result-file format is required:
 
 - The outcome is `ready`, `needs-action`, `blocked`, `declined`, or `not-applicable`, with its reason. Distinguish reused preferences from completed or partial writes.
 - Name the universal preference path and each delivery path inspected or written. State which files changed and which stayed unchanged.
 - Include the chosen roles, panel lists, and budget. Identify omitted roles that retain defaults.
 - Include validation evidence and its limits. Configuration and availability checks are not model execution proof.
+- When the smoke ran, include each distinct alias with its `resolved`, `failed`, `manual`, or `not-run` result and the evidence behind it.
 - Explain skipped or blocked work, affected roles, and the next action. Do not claim native provisioning, installation, or verification generation.
 - When called by `setup-workspace`, return this result directly to that caller and continue its remaining phases, including after a declined or blocked model phase. Never require the operator to invoke `/setup-pstack` separately. For standalone use, finish with the same result.

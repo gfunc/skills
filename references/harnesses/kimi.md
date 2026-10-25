@@ -25,6 +25,7 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 - **Per-spawn model parameter:** yes, while a pool is configured; without one, subagents inherit the caller's model and the parameter is not offered.
 - **Inheritance token:** `primary` — the caller's model and effort. Omitting the parameter inherits the caller's model.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.kimi-code/config.toml` (`default_model`, `[secondary_model]`); project `local.toml` carries no model keys.
+- **Model smoke:** verify a chosen alias with one foreground `Agent` per distinct alias, launched in one message; confirm the alias against that spawn's `subagent.spawned` wire event, which records the model and effort.
 
 ## Transcripts
 

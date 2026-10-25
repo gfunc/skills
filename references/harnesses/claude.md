@@ -18,6 +18,7 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 - **Per-spawn model parameter:** yes.
 - **Inheritance token:** `inherit` — also the default and the meaning of an unset `CLAUDE_CODE_SUBAGENT_MODEL`.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.claude/settings.json` (`model`, `modelPicker`, `env`); user agents in `~/.claude/agents/`. User rules under `~/.claude/rules/` auto-load in every session, so that directory is a delivery surface, not a second preference store.
+- **Model smoke:** verify a chosen alias with one `Agent` call passing the alias or the full model ID as `model`.
 
 ## Transcripts
 
