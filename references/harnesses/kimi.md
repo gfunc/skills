@@ -2,6 +2,8 @@
 
 Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl trails.
 
+Verified against Kimi Code 2.3.1 / kimi-code 7ccac2b (2026-10-23).
+
 ## Subagents
 
 - **Spawn tool and arguments:** `Agent` spawns one child with `description`, `prompt`, `subagent_type`, `model`, and `run_in_background`, which defaults to **false**. `AgentSwarm` runs one prompt template over an item list at one model; the `{{item}}` placeholder varies each brief. In swarm mode (`/swarm on`, or `/swarm <task>` for one turn) `AgentSwarm` is auto-approved; outside it, manual permission mode asks. Cursor-only parameters (`environment`, `cloud_base_branch`) are rejected.
