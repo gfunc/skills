@@ -23,7 +23,7 @@ The lifecycle is spec intake → architect → dev-lead plan → orchestrate →
 | Hat | Who | Notes |
 |---|---|---|
 | Spec acceptance | Main agent | Checks the readiness checklist; routes gaps back. |
-| Architect | Main agent | Arena-led design; reuses the restored poteto-mode Principles index; authors no separate design principles. |
+| Architect | Main agent | Runs the restored `architect` skill's Phase A (ground with `how`, `why` when ownership or layering changes) and Phase B (sketch via `arena`, two-plus candidates, red-flag screen, interface-depth comparison, one synthesized package), stopping before Phase C; the design review replaces Agree. Reuses the restored poteto-mode Principles index; authors no separate design principles. |
 | Plan lead | Main agent, or a fresh subagent with the [plan-lead prompt](references/roles/plan-lead.md) | A read-only plan agent cannot write the plan. |
 | Orchestrator | Main agent | Schedules waves, confirms staffing, runs the goal, orchestrates the review loop. |
 | PR owner | The [`dev-owner`](../../agents/dev-owner.md) agent | Execution only; it does not plan or review. |
@@ -46,14 +46,17 @@ Packaging, one PR or a base-chained stack, is not a separate workflow.
 
 ## Design
 
-The main agent runs the architect phase. Read the restored [poteto-mode Principles index](../poteto-mode/SKILL.md) and its design-relevant `principle-*` leaves; start-dev authors no separate design principles.
+The main agent runs the design phase inside the restored [`architect`](../architect/SKILL.md) skill's Phase A and B. `/start-dev` is the human invocation, so the main agent follows that skill's phases deliberately, not as an auto-invocation. Read the restored [poteto-mode Principles index](../poteto-mode/SKILL.md) and its design-relevant `principle-*` leaves; start-dev authors no separate design principles.
 
-1. `how` grounds the affected subsystem.
-2. `arena` runs the architectural design discussion, as poteto-mode uses it: competing designs, base selection, and grafting. It is the default for a non-trivial design.
-3. `architect` sketches the selected design's types, signatures, and module boundaries.
-4. `interrogate` when the arena cannot settle a contested design; `prototype` for a question a run can settle.
+**Phase A, Ground.** Run `how` over the affected subsystems and produce the architectural understanding it prescribes. When the design redefines ownership or layering, also run `why` so the existing rationale becomes a constraint. Skip Phase A only for genuine greenfield with no surrounding system.
 
-The artifact is the arena's competing designs, the selected base and grafts, the type and module sketch, the data model, and any prototype evidence. It lives in the run root and is referenced from the plan. The design review is a fresh subagent on a different model family or the operator; the architect never reviews its own design. When the design contradicts the spec, route back to wayfinder or to-spec; do not silently rewrite the spec.
+**Phase B, Sketch.** Run `architect` Phase B exactly: `arena` with the design-sketch task and the Phase A grounding, each runner taking `architect`'s `references/runner-prompt.md`, the runners drawn from the `architect runners` line in `~/.agents/pstack-models.md`. At least two structurally distinct candidates before synthesis, whole-shape alternatives rather than point fixes. Screen every candidate against `architect`'s [`references/design-red-flags.md`](../architect/references/design-red-flags.md). Compare the viable candidates on interface depth and prefer the design that hides more complexity behind a smaller public surface. Arena returns one synthesized design package, and its synthesis decision fills the rationale's synthesis section.
+
+**Stop before Phase C.** The mandatory design review, a fresh subagent on a different model family or the operator, replaces `architect`'s Agree checkpoint, and the operator's plan approval follows it. Phase D, Implement, is `dev-owner`'s execution phase; the synthesized sketch is the contract the plan carries and the implementation fills in against. Phase E, Scrap, is the re-design route: when execution or review shows the sketch is wrong as a pattern, re-run Phase A and B and re-chart the plan rather than bolting fixes onto a wrong design.
+
+For a contested design, run `interrogate` before the design review; for a question a run can settle, run `prototype`. Do not run the `architect` skill's Phase C checkpoint; the design review is that gate here.
+
+The design artifact is the Phase B synthesized package, its types, signatures, module boundaries, rationale, base and grafts, plus the design review. It lives in the run root and is referenced from the plan. When the design contradicts the spec, route back to wayfinder or to-spec; do not silently rewrite the spec.
 
 ## Plan
 

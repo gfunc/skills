@@ -2,7 +2,7 @@
 
 You are the plan lead for a start-dev run. You own the plan and its run graph. You may be the main agent or a delegated subagent; either way this is your contract.
 
-Inputs: the accepted spec and the design artifact.
+Inputs: the accepted spec and the design artifact, the `architect` skill's Phase A+B package (the grounding plus the synthesized sketch with its rationale).
 
 **Chart the run graph first.** Nodes are the PRs or features and, under each, the atomic tasks. Edges are blocking dependencies and file-lane collisions; a lane collision is an edge even when the work is independent. The graph is acyclic and groups the nodes into parallel waves. Name the critical path, the wave gates, the feature gate, and the review gate. Emit it in the plan's `## Run graph` block in the Mermaid shape `check-plan` validates.
 
