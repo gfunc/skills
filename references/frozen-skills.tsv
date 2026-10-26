@@ -1,12 +1,17 @@
 # Matt Pocock frozen skills: source https://github.com/mattpocock/skills @ 49dd158 (v1.3.1)
-# 29 frozen files: 22 byte-identical ports, 13 files under the four adapted ports.
-# Adapted ports, frozen as-is (not byte-identical), by family:
-#   skills/learn/ 6 files: adapted from productivity/teach; teach renamed to learn to avoid pstack's teach.
-#   skills/to-spec/ 2 files: SKILL.md carries tracker-doc resolution, spec confirmation, and a harness section; agents/openai.yaml is byte-identical.
-#   skills/wayfinder/ 2 files: SKILL.md carries tracker-doc resolution and a harness section; agents/openai.yaml is byte-identical.
-#   skills/writing-for-agents/ 3 files: SKILL.md and SKILL-MECHANICS.md carry source metadata and harness-profile invocation; agents/openai.yaml is byte-identical.
-# Byte-identical families: skills/domain-modeling/ 4, skills/grilling/ 2, skills/handoff/ 2,
-#   skills/prototype/ 4, skills/research/ 2, skills/to-questionnaire/ 2.
+# 29 frozen files: 23 byte-identical, 6 changed.
+# The 6 changed files sit inside four adapted families that hold 13 frozen files in total;
+#   the other 7 files in those families are byte-identical companions:
+#   skills/learn/ 6 files (SKILL.md and agents/openai.yaml changed, adapted from productivity/teach
+#     with teach renamed to learn to avoid pstack's teach; the four *-FORMAT.md files are byte-identical)
+#   skills/to-spec/ 2 files (SKILL.md changed: tracker-doc resolution, spec confirmation, harness section;
+#     agents/openai.yaml byte-identical)
+#   skills/wayfinder/ 2 files (SKILL.md changed: tracker-doc resolution and harness section;
+#     agents/openai.yaml byte-identical)
+#   skills/writing-for-agents/ 3 files (SKILL.md and SKILL-MECHANICS.md changed: source metadata and
+#     harness-profile invocation; agents/openai.yaml byte-identical)
+# The other six families are 16 byte-identical files: skills/domain-modeling/ 4, skills/grilling/ 2,
+#   skills/handoff/ 2, skills/prototype/ 4, skills/research/ 2, skills/to-questionnaire/ 2.
 # Do not edit these files. Amend this manifest only when provenance changes.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
