@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 const checker = join(import.meta.dirname, "check-plan.mjs");
@@ -55,12 +55,15 @@ Close.
 Recorded.
 `;
 
-const runPlanText = (text: string, expectedExit: number) => {
+const runPlanText = (text: string, expectedExit: number, env: Record<string, string> = {}) => {
 	const directory = mkdtempSync(join(tmpdir(), "check-plan-test-"));
 	const file = join(directory, "plan.md");
 	writeFileSync(file, text);
 	try {
-		const result = spawnSync("node", [checker, file], { encoding: "utf8" });
+		const result = spawnSync("node", [checker, file], {
+			encoding: "utf8",
+			env: { ...process.env, ...env },
+		});
 		assert.strictEqual(result.status, expectedExit);
 		return result;
 	} finally {
@@ -179,4 +182,62 @@ test("rejects a program checklist with no continuation marker", () => {
 	);
 	const result = runPlanText(noTick, 1);
 	assert.ok(result.stderr.includes("continuation marker"));
+});
+
+test("accepts an installed plugin path when the file exists", () => {
+	const home = mkdtempSync(join(tmpdir(), "check-plan-home-"));
+	try {
+		const file = join(home, "plugins", "managed", "gfunc-skills", "skills", "poteto-mode", "playbooks", "autopilot-stack.md");
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(file, "# playbook\n");
+		runPlanText(validPlan.replace("`git show origin/main:`", `\`${file}\``), 0);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("rejects an installed plugin path when the plugin is present and the file is missing", () => {
+	const home = mkdtempSync(join(tmpdir(), "check-plan-home-"));
+	try {
+		const file = join(home, "plugins", "managed", "gfunc-skills", "skills", "poteto-mode", "playbooks", "missing.md");
+		mkdirSync(dirname(file), { recursive: true });
+		const result = runPlanText(validPlan.replace("`git show origin/main:`", `\`${file}\``), 1);
+		assert.ok(result.stderr.includes("installed plugin file does not exist"));
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("accepts an installed plugin path when the plugin is absent and prints a note", () => {
+	const home = mkdtempSync(join(tmpdir(), "check-plan-home-"));
+	try {
+		const file = join(home, "plugins", "managed", "gfunc-skills", "skills", "poteto-mode", "playbooks", "autopilot-stack.md");
+		const result = runPlanText(validPlan.replace("`git show origin/main:`", `\`${file}\``), 0);
+		assert.ok(result.stderr.includes("installed plugin root is not present"));
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("rejects a program checklist with neither a remote marker nor an installed plugin path", () => {
+	const plan = validPlan.replace("`git show origin/main:` ", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("read source"));
+});
+
+test("rejects a plugin-sourced plan whose tick prompt reads from trunk", () => {
+	const home = mkdtempSync(join(tmpdir(), "check-plan-home-"));
+	try {
+		const file = join(home, "plugins", "managed", "gfunc-skills", "skills", "poteto-mode", "playbooks", "autopilot-stack.md");
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(file, "# playbook\n");
+		const line = `\`${file}\` /loop 1h status message`;
+		const plan = validPlan
+			.replace("`git show origin/main:` /loop 1h status message", line)
+			.replace(line, `${line}\nRe-read the execution playbook from trunk.`);
+		const result = runPlanText(plan, 1);
+		assert.ok(result.stderr.includes("tick prompt"));
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
 });

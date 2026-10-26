@@ -19,7 +19,9 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_MARKERS = ["git show origin/main:", "status message"];
+const PROGRAM_STATUS_MARKER = "status message";
+const REMOTE_READ_MARKER = "git show origin/main:";
+const PLUGIN_TOKEN = /`([^`\n]+)`/g;
 const PROGRAM_CONTINUATION = /\/loop|\/goal|CronCreate/;
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
@@ -39,6 +41,7 @@ if (!file) {
 
 const raw = fs.readFileSync(file, "utf8").split(/\r?\n/);
 const problems = [];
+const notes = [];
 const fail = (line, message) => problems.push(`${file}:${line}: ${message}`);
 
 let start = 0;
@@ -95,6 +98,36 @@ const find = (title) => sections.find((s) => s.title === title);
 const bodyText = (s) => s.body.map((l) => l.text).join("\n");
 const boxes = (ls) => ls.filter((l) => !l.code && BOX.test(l.text)).map((l) => ({ n: l.n, text: l.text.match(BOX)[1] }));
 
+const installedPluginPaths = (text) => {
+	const tokens = [...text.matchAll(PLUGIN_TOKEN)].flatMap((match) => match[1].split(/\s+/));
+	return [...new Set(tokens.filter((token) =>
+		token.startsWith("/") &&
+		token.includes("/plugins/") &&
+		token.includes("/skills/") &&
+		token.endsWith(".md") &&
+		!token.includes("<") &&
+		!token.includes(">") &&
+		!token.includes("*")
+	))];
+};
+
+const validateInstalledPluginPaths = (paths, line) => {
+	for (const pluginPath of paths) {
+		const at = pluginPath.indexOf("/skills/");
+		const pluginDir = pluginPath.slice(0, at);
+		if (!fs.existsSync(pluginDir)) {
+			notes.push(`installed plugin root is not present, path not validated: ${pluginPath}`);
+			continue;
+		}
+		if (!fs.existsSync(pluginPath)) {
+			fail(line, `installed plugin file does not exist: ${pluginPath}`);
+			continue;
+		}
+		if (!fs.statSync(pluginPath).isFile())
+			fail(line, `installed plugin path is not a file: ${pluginPath}`);
+	}
+};
+
 const h1 = lines.findIndex((l) => !l.code && l.text.startsWith("# "));
 if (h1 === -1) fail(1, "no H1 title");
 const howToRead = find("How to read this");
@@ -117,10 +150,17 @@ else {
 		if (at === -1) fail(program.n, `Program checklist lacks "### ${name}" in order`);
 		else cursor = at + 1;
 	}
-	for (const marker of PROGRAM_MARKERS) {
-		if (!bodyText(program).includes(marker)) fail(program.n, `Program checklist lacks "${marker}"`);
-	}
-	if (!PROGRAM_CONTINUATION.test(bodyText(program)))
+	const programText = bodyText(program);
+	if (!programText.includes(PROGRAM_STATUS_MARKER))
+		fail(program.n, `Program checklist lacks "${PROGRAM_STATUS_MARKER}"`);
+	const pluginPaths = installedPluginPaths(programText);
+	validateInstalledPluginPaths(pluginPaths, program.n);
+	const hasRemoteRead = programText.includes(REMOTE_READ_MARKER);
+	if (!hasRemoteRead && pluginPaths.length === 0)
+		fail(program.n, `Program checklist lacks a read source: "${REMOTE_READ_MARKER}" or an installed plugin path`);
+	if (!hasRemoteRead && pluginPaths.length && /Re-read the execution playbook from trunk/.test(programText))
+		fail(program.n, "tick prompt reads the playbook from trunk; name the installed plugin path");
+	if (!PROGRAM_CONTINUATION.test(programText))
 		fail(program.n, 'Program checklist lacks a continuation marker the profile names ("/loop", "/goal", or "CronCreate")');
 }
 
@@ -225,4 +265,5 @@ if (closeIndex !== -1) {
 for (const line of report) console.log(line);
 console.log(`${prSections.length} PR sections, ${problems.length} problems`);
 for (const p of problems) console.error(p);
+for (const note of notes) console.error(`note: ${note}`);
 process.exit(problems.length ? 1 : 0);
