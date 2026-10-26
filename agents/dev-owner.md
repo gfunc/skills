@@ -3,7 +3,7 @@ name: dev-owner
 description: start-dev's execution PR owner. Runs one PR branch end to end under the start-dev playbooks — waves of atomic tasks, wave gates, the feature gate, and the merge-ready report. Use when start-dev delegates PR execution. Does not plan or review; the plan lead and review lead are separate roles.
 is_background: true
 background: true
-subagents: dev-owner, poteto-agent, coder, explore, plan
+subagents: coder, explore
 ---
 
 # dev-owner

@@ -32,6 +32,18 @@ The lifecycle is spec intake → architect → dev-lead plan → orchestrate →
 
 Where the profile reports no nested spawn, the PR-owner hat collapses to the main agent, which runs the [PR-owner role prompt](references/roles/pr-owner.md) itself and spawns devs directly. On Pi the plan and review hats collapse too, with the reduced independence disclosed in the ledger. Every resolution comes from the active profile's Role mapping.
 
+## Scope adaptation
+
+Read the spec and its ticket set, then pick one layer. When the input admits two readings, run the smaller layer and say why.
+
+| Input | Layer | Playbook |
+|---|---|---|
+| One PR of work, any size | The PR owner runs it directly | [`playbooks/pr-owner.md`](playbooks/pr-owner.md) |
+| One feature, several PRs | The feature owner runs the ticket queue | [`playbooks/ticket-queue.md`](playbooks/ticket-queue.md), one PR owner per ready ticket |
+| Several features, one program | The program orchestrator runs the program plan | [`playbooks/program-plan.md`](playbooks/program-plan.md), then each feature's queue |
+
+Packaging, one PR or a base-chained stack, is not a separate workflow.
+
 ## Design
 
 The main agent runs the architect phase. Read the restored [poteto-mode Principles index](../poteto-mode/SKILL.md) and its design-relevant `principle-*` leaves; start-dev authors no separate design principles.

@@ -1,9 +1,7 @@
 # Codex subagent port of agents/dev-owner.md. Installed to $CODEX_HOME/agents/ by scripts/install --harness codex.
-# Model: inherit the parent unless the plan's staffing names one; no gateway-specific alias.
+# Model: inherits the parent or the Codex [agents] default; no model or effort is set here.
 name = "dev-owner"
 description = "start-dev's execution PR owner. Runs one PR branch end to end under the start-dev playbooks: waves of atomic tasks, wave gates, the feature gate, and the merge-ready report. Does not plan or review."
-model = "gpt-6.1-sol"
-model_reasoning_effort = "medium"
 developer_instructions = """
 # dev-owner
 
