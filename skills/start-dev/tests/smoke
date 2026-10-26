@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""start-dev end-to-end smoke: run the layered execution workflow in a scratch repo.
+"""start-dev structural smoke: drive the workflow's file-moving machinery in a scratch repo.
 
-Builds a synthetic spec, one feature, two parallel atomic tasks, one wave gate,
-one feature gate, and a review/fix pass, then asserts the program, feature, and
-PR ledgers and their evidence exist. Exit 0 only when every assertion holds.
+Builds a synthetic spec and stamps a plan with emit-plan, runs check-plan,
+creates per-task git worktree lanes, commits each task, merges them onto one
+PR branch, and writes the program, feature, and PR ledgers plus gate logs.
+Then asserts the ledgers, the evidence files, and the emitter's portable
+model fallback.
+
+This exercises the workflow's artifacts and tools, not the skill or a model.
+No agent runs, no skill is loaded, and no model is called. Live model-backed
+behavior is a separate manual check. Exit 0 only when every assertion holds.
 
 Usage: skills/start-dev/tests/smoke [--keep]
 """
@@ -120,6 +126,22 @@ def main() -> int:
         )
         print(f"  note check-plan on the unauthored skeleton exits {checker.returncode} (expected: placeholder boxes)")
 
+        empty_models = spec_dir / "empty-models.md"
+        empty_models.write_text("# no roles configured\n")
+        fallback = subprocess.run(
+            ["node", str(SKILL / "scripts" / "emit-plan"), "--feature", "demo",
+             "--title", "Demo", "--surface", "library", "--pr", "1",
+             "--models", str(empty_models),
+             "--out", str(spec_dir / "plan-fallback.md")],
+            cwd=repo, capture_output=True, text=True,
+        )
+        fallback_text = (spec_dir / "plan-fallback.md").read_text()
+        check(fallback.returncode == 0, "emit-plan runs with an empty models file", fallback.stderr.strip()[:120])
+        check("inherit-parent" in fallback_text, "fallback stamps the inherit-parent token")
+        check("magpie/" not in fallback_text, "fallback stamps no environment-specific alias")
+        check("no \"swarm workers\" line" in fallback.stderr and "inherit-parent" in fallback.stderr,
+              "fallback warns on stderr naming the models file and the stamped token")
+
         write_ledgers(repo, "demo")
 
         tasks = [
@@ -213,7 +235,7 @@ def main() -> int:
             for failure in FAILURES:
                 print(f"  - {failure}")
             return 1
-        print("SMOKE OK program, feature, and PR ledgers with evidence")
+        print("SMOKE OK structural artifacts: ledgers, evidence, and portable fallback")
         return 0
     finally:
         for task_dir in (repo / ".scratch" / "demo" / "lanes").glob("*") if (repo / ".scratch" / "demo" / "lanes").is_dir() else []:

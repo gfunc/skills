@@ -185,7 +185,7 @@ def publish(root: Path, tag: str, expected_commit: str, repo: str, raw_evidence:
     with tempfile.TemporaryDirectory(prefix="publish-", dir=scratch) as directory:
         notes = Path(directory) / "validation.md"
         lines = ["## Validation evidence", "", f"Validated source commit `{target.commit}`.", "",
-                 "Automated gates passed: tests, manifest versions, pack checks, the start-dev smoke, and the five-host Docker rig.", "",
+                 "Automated gates passed: tests, manifest versions, pack checks, the start-dev structural smoke, and the five-host Docker rig.", "",
                  "### Manual and skipped checks", ""]
         lines.extend(f"- {line}" for line in proof["disclosures"])
         if not proof["disclosures"]:

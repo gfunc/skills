@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const USAGE = `Usage: node emit-plan --feature <slug> --title "<Program>" --surface ui|cli|library|backend --pr <id> [--playbook autopilot-stack] [--out <path>] [--models <path>] [--force]`;
 
 const SURFACES = ["ui", "cli", "library", "backend"];
-const DEFAULT_MODEL = "magpie/bi-dev/group/auto-glm-5-3-flash";
+const DEFAULT_MODEL = "inherit-parent";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.dirname(scriptDir);
@@ -60,7 +60,10 @@ try {
 } catch {
 	// missing models file falls through to the default model
 }
-if (!model) model = DEFAULT_MODEL;
+if (!model) {
+	model = DEFAULT_MODEL;
+	console.error(`emit-plan: no "swarm workers" line in ${modelsPath}; stamping ${DEFAULT_MODEL}`);
+}
 
 const register = fs.readFileSync(registerPath, "utf8").trimEnd();
 

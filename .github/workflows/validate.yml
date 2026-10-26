@@ -63,7 +63,7 @@ jobs:
         run: |
           set -o pipefail
           python3 scripts/validate-pack --root .scratch/release-pipeline/source 2>&1 | tee .scratch/release-pipeline/logs/pack.log
-      - name: Run start-dev smoke from source HEAD
+      - name: Run start-dev structural smoke from source HEAD
         id: smoke
         if: ${{ !cancelled() && steps.source.outcome == 'success' }}
         run: |

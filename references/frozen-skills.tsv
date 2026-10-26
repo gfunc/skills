@@ -1,11 +1,13 @@
-# Matt Pocock frozen skills: source /home/jason/projects/mattpocock/skills @ 49dd158 (v1.3.1)
-# Do not edit these files. Ticket 11 may amend this manifest when provenance changes.
-# Adapted ports frozen as-is (not byte-identical):
-#   skills/learn/SKILL.md and agents/openai.yaml: adapted from productivity/teach; teach renamed to learn to avoid pstack's teach.
-#   skills/to-spec/SKILL.md: tracker-doc resolution, spec confirmation, and harness section.
-#   skills/wayfinder/SKILL.md: tracker-doc resolution and harness section.
-#   skills/writing-for-agents/SKILL.md and SKILL-MECHANICS.md: source metadata and harness-profile invocation.
-#   The full 13-adapted list is in .scratch/v0.3-start-dev/notes/01-modification-inventory.md.
+# Matt Pocock frozen skills: source https://github.com/mattpocock/skills @ 49dd158 (v1.3.1)
+# 29 frozen files: 22 byte-identical ports, 13 files under the four adapted ports.
+# Adapted ports, frozen as-is (not byte-identical), by family:
+#   skills/learn/ 6 files: adapted from productivity/teach; teach renamed to learn to avoid pstack's teach.
+#   skills/to-spec/ 2 files: SKILL.md carries tracker-doc resolution, spec confirmation, and a harness section; agents/openai.yaml is byte-identical.
+#   skills/wayfinder/ 2 files: SKILL.md carries tracker-doc resolution and a harness section; agents/openai.yaml is byte-identical.
+#   skills/writing-for-agents/ 3 files: SKILL.md and SKILL-MECHANICS.md carry source metadata and harness-profile invocation; agents/openai.yaml is byte-identical.
+# Byte-identical families: skills/domain-modeling/ 4, skills/grilling/ 2, skills/handoff/ 2,
+#   skills/prototype/ 4, skills/research/ 2, skills/to-questionnaire/ 2.
+# Do not edit these files. Amend this manifest only when provenance changes.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
 skills/domain-modeling/GLOSSARY-FORMAT.md	21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801

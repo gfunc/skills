@@ -28,7 +28,7 @@ These hunks were removed from pstack-owned files and re-homed here. The restored
 
 ## Preserved but not owned by start-dev
 
-The scratch-listing safety fix from `skills/poteto-mode/scripts/worktree-audit.sh` and `playbooks/worktree-cleanup.md` (upstream reference cursor/plugins#449) is worth offering to pstack upstream. It was reverted here with the rest of those files because the pack does not modify restored pstack paths. Until upstream takes it, the guard lives in this note.
+The scratch-listing safety fix from `skills/poteto-mode/scripts/worktree-audit.sh` and `skills/poteto-mode/playbooks/worktree-cleanup.md` (upstream reference cursor/plugins#449) is worth offering to pstack upstream. It was reverted here with the rest of those files because the pack does not modify restored pstack paths. Until upstream takes it, the guard lives in this note.
 
 The guard, for any operator who wants it back locally.
 

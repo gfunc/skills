@@ -43,7 +43,7 @@ The spawn allowlist for a `poteto-agent` PR owner is `poteto-agent`, `coder`, `e
 - One writer per branch. The PR owner is the only writer of its PR branch.
 - The standing orders in [`references/standing-orders.md`](references/standing-orders.md) are stamped into every plan and carried verbatim in every brief.
 - Run artifacts live under `.scratch/<effort>/` in the target repo, per the [run ledger](playbooks/run-ledger.md). Durable plans that a restored pstack playbook authors stay in `docs/`.
-- This skill is self-contained. It references the restored pstack skills by name for principles, architecture discussion, and standards; it does not read `poteto-mode` at runtime.
+- This skill reads the restored pstack skills and playbooks it names, by path, for principles, architecture discussion, and standards. It does not depend on the 0.2.1 modified workflow; every path it names resolves in the restored pack.
 
 ## Playbooks
 
