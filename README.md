@@ -140,4 +140,4 @@ The existing [harness rig](scripts/validate-harnesses) separates automated asser
 
 The Kimi profile has a content contract: `validate-pack` requires its `Waiting and notifications`, `Goal mode`, `Plan mode`, and `Cost and context` sections, and the Kimi rig stage greps the managed copy for the two sections that change runtime behavior. Both are content checks, not behavior proofs.
 
-Derived in part from MIT-licensed work by Matt Pocock (the skills pack) and Lauren Tan (pstack). See LICENSE.
+Derived in part from MIT-licensed work by Matt Pocock (the skills pack) and Lauren Tan (pstack). See LICENSE. The frozen Matt Pocock ports, including the 13 adapted files and the 0.3.0 `handoff` port, are listed in [`references/frozen-skills.tsv`](references/frozen-skills.tsv). `scripts/frozen_skills.py` fails when a frozen file changes.

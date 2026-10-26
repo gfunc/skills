@@ -1,0 +1,37 @@
+# Matt Pocock frozen skills: source /home/jason/projects/mattpocock/skills @ 49dd158 (v1.3.1)
+# Do not edit these files. Ticket 11 may amend this manifest when provenance changes.
+# Adapted ports frozen as-is (not byte-identical):
+#   skills/learn/SKILL.md and agents/openai.yaml: adapted from productivity/teach; teach renamed to learn to avoid pstack's teach.
+#   skills/to-spec/SKILL.md: tracker-doc resolution, spec confirmation, and harness section.
+#   skills/wayfinder/SKILL.md: tracker-doc resolution and harness section.
+#   skills/writing-for-agents/SKILL.md and SKILL-MECHANICS.md: source metadata and harness-profile invocation.
+#   The full 13-adapted list is in .scratch/v0.3-start-dev/notes/01-modification-inventory.md.
+# Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
+# 0.3.0 adds the byte-identical handoff port; add its two rows when copied.
+skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
+skills/domain-modeling/GLOSSARY-FORMAT.md	21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801
+skills/domain-modeling/SKILL.md	7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3
+skills/domain-modeling/agents/openai.yaml	f6bf2aa996c6e6f53fdd0708e18a0d16a56aed8322cca59fedbe3c0d2c75f06b
+skills/grilling/SKILL.md	befdff1e27a1dfe2a294d5871169ac1afe16d983911daa4f32627514a48c1e15
+skills/grilling/agents/openai.yaml	1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b
+skills/learn/GLOSSARY-FORMAT.md	9b99859ec28437668130d8f2ce5a342938970f8a1ed4fd38c3eab4f4b5fff210
+skills/learn/LEARNING-RECORD-FORMAT.md	701fa34b6748aa89e6c960ffb815257f481a7d77fb2900f9028f7edf3fdd6052
+skills/learn/MISSION-FORMAT.md	8cacbb3c0644d3ae0ea4965564797099401a6930a23f7cf462918576587f2418
+skills/learn/RESOURCES-FORMAT.md	e9cacf34026e11a8d1c8f9de88abe5bcbf654f4ebdb25cae8c0de0d5f48f44ec
+skills/learn/SKILL.md	8286dbac91d3bfb729bc50029c3d8ed86e7486a4299d9b19c383a6e3a6252ca2
+skills/learn/agents/openai.yaml	58bbc5f1f1015a3429dddf18f4c7f4be82ec1be1c9cf791461ffe8b5d28932f4
+skills/prototype/LOGIC.md	f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9
+skills/prototype/SKILL.md	714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3
+skills/prototype/UI.md	723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3
+skills/prototype/agents/openai.yaml	5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc
+skills/research/SKILL.md	985569f15739c713d6784887c3d186d4ef9ac85bec5ad9c068d25bf0739928e4
+skills/research/agents/openai.yaml	9b4c470d63221c1f68f22df70b83e2f12401b317babe0d1b7b5f24a974474d0d
+skills/to-questionnaire/SKILL.md	b5eb929842ee0e93d867c5e906d183d350f2f2d149eaeaa86967d94d8eda1d3b
+skills/to-questionnaire/agents/openai.yaml	9e8a06c38c8842eea8d4922cb9d1ead8e3ace647bab259b943c994a1b4742bc2
+skills/to-spec/SKILL.md	95216b4a477b76852fc6781c5ac9c5e142bac7b5560fa493df80edfca94847f5
+skills/to-spec/agents/openai.yaml	1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb
+skills/wayfinder/SKILL.md	692fdf3d36e203c939cf5dc1835ba79b7f84996837a0470ce33925c90451caa4
+skills/wayfinder/agents/openai.yaml	88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073
+skills/writing-for-agents/SKILL-MECHANICS.md	2820af2e4a8907cf459a3d9b5734faec314f6d2d17f8b570fc46ff962650736b
+skills/writing-for-agents/SKILL.md	fe233fa8a6fb2dc26f57b782dc9a051e0d4d3a7158a1b3d1707b4e3cd796481f
+skills/writing-for-agents/agents/openai.yaml	eacb24b2a618cfb81dacb0416f4fdd75ddf3a8060f8ddb99aae1b1e301907e4b

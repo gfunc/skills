@@ -12,6 +12,7 @@ import subprocess
 import unicodedata
 from urllib.parse import unquote, urlsplit
 
+from frozen_skills import check_frozen_skills
 from release_lib import ReleaseError, agreed_version, manifest_snapshots, repository_root
 
 
@@ -264,6 +265,12 @@ def check(root: Path) -> tuple[list[str], list[str]]:
         except (OSError, UnicodeError, ValueError, ReleaseError) as error:
             errors.append(f"{name}: {error}")
     errors.extend(profile_contract(root))
+    if (root / "references" / "frozen-skills.tsv").exists():
+        errors.extend(check_frozen_skills(root))
+    elif root.resolve() == Path(__file__).resolve().parents[1]:
+        errors.append("references/frozen-skills.tsv: missing")
+    else:
+        limits.append("references/frozen-skills.tsv not present; Matt Pocock freeze check skipped")
     print(f"version {version.text}; inspected {len(tracked)} tracked files")
     return errors, limits
 
