@@ -36,6 +36,10 @@ The guard, for any operator who wants it back locally.
 - List every untracked and ignored path after the audit table. Removal is confirmed against that listing, not against a count.
 - Never `git worktree remove --force` or `rm -rf` a path absent from the listing. Plain `git worktree remove` deletes ignored files without a refusal, and force-removing ignored-only content is what destroyed worktrees in cursor/plugins#449.
 
+## Principles index copy
+
+`references/principles.md` is a copy of the `## Principles` section of pstack `e44668c` `skills/poteto-mode/SKILL.md` (MIT, Lauren Tan): the full index of core, architecture, verification, delegation, and meta principles with each principle's when-it-applies. It is not a copy of the whole poteto-mode skill. The `principle-*` leaf skills remain the authority; start-dev owns this copy and its phase references; the restored pstack file is unchanged.
+
 ## What start-dev deliberately does not carry
 
 `skills/poteto-mode/references/pstack-models.md` was discarded as local runtime state. `emit-plan` reads `~/.agents/pstack-models.md` and falls back to its own default; no pack script reads the discarded file.
