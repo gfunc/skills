@@ -1,6 +1,6 @@
 ---
 name: setup-workspace
-description: Onboard a repository for Wayfinder and pstack. Discover existing guidance, tracker, models, plugin, and verification coverage. Preview and approve scoped changes, complete selected phases, and report each scope. Use for /setup-workspace or "set up this workspace".
+description: Onboard a repository for the gfunc pack, Wayfinder, and start-dev. Discover existing guidance, tracker, models, plugin, and verification coverage. Preview and approve scoped changes, complete selected phases, and report each scope. Use for /setup-workspace or "set up this workspace".
 ---
 
 # Set up a workspace
@@ -81,4 +81,4 @@ Report workspace, user/harness, and verification separately. Use `ready`, `needs
 
 After failure or interruption, retain completed changes and evidence. Clean up only processes and disposable resources this run created, using recorded identities, never broad process-name kills or repository resets. Evidence stays. On resume, re-inspect actual state, reconcile prior approvals and resources, and preview remaining differences. Do not replay stale writes. An already-correct rerun changes no maintained files, though it may create a new run report.
 
-Return the report path or persistence limitation, per-scope outcomes, and next actions. You may suggest Wayfinder for an unclear large goal or poteto-mode for a clear task with a success check. Do not start either workflow automatically.
+Return the report path or persistence limitation, per-scope outcomes, and next actions. You may suggest Wayfinder for an unclear large goal, start-dev for an approved spec, or poteto-mode for a clear task with a success check. Do not start any of them automatically. start-dev specifics live in its own skill; this router does not own pstack's verification offers, which setup-pstack keeps.

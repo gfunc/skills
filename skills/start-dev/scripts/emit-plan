@@ -8,13 +8,12 @@ import { fileURLToPath } from "node:url";
 const USAGE = `Usage: node emit-plan --feature <slug> --title "<Program>" --surface ui|cli|library|backend --pr <id> [--playbook autopilot-stack] [--out <path>] [--models <path>] [--force]`;
 
 const SURFACES = ["ui", "cli", "library", "backend"];
-const DEFAULT_MODEL = "magpie/bi-dev/group/auto-glm-5-3-flash";
+const DEFAULT_MODEL = "inherit-parent";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.dirname(scriptDir);
-const repoRoot = path.dirname(path.dirname(skillDir));
 const skeletonPath = path.join(skillDir, "references", "plan-skeleton.md");
-const registerPath = path.join(repoRoot, "references", "standing-orders.md");
+const registerPath = path.join(skillDir, "references", "standing-orders.md");
 
 const args = process.argv.slice(2);
 const flags = { playbook: "autopilot-stack", force: false };
@@ -61,14 +60,17 @@ try {
 } catch {
 	// missing models file falls through to the default model
 }
-if (!model) model = DEFAULT_MODEL;
+if (!model) {
+	model = DEFAULT_MODEL;
+	console.error(`emit-plan: no "swarm workers" line in ${modelsPath}; stamping ${DEFAULT_MODEL}`);
+}
 
 const register = fs.readFileSync(registerPath, "utf8").trimEnd();
 
 let plan = fs.readFileSync(skeletonPath, "utf8");
 
 const drift = (marker) => {
-	console.error(`emit-plan: skeleton is missing the ${marker} marker; re-sync ${path.relative(repoRoot, skeletonPath)}`);
+	console.error(`emit-plan: skeleton is missing the ${marker} marker; re-sync ${path.relative(skillDir, skeletonPath)}`);
 	process.exit(1);
 };
 const countMatches = (source, pattern) => {

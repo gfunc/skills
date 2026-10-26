@@ -1,8 +1,8 @@
 {
 	"name": "gfunc-skills",
 	"displayName": "gfunc-skills",
-	"version": "0.2.2",
-	"description": "gfunc's own agent stack: pstack vendored and modified, with the wayfinder planning chain integrated. Two front doors (/poteto-mode automatic, /wayfinder HITL), one executor (autopilot-stack).",
+	"version": "0.3.0",
+	"description": "gfunc's own agent stack: original pstack vendored, with the wayfinder planning chain and a start-dev execution front door. Three front doors (/poteto-mode, /wayfinder, /start-dev).",
 	"author": {
 		"name": "gfunc"
 	},
@@ -14,6 +14,8 @@
 		"pstack",
 		"poteto-mode",
 		"wayfinder",
+		"start-dev",
+		"dev-owner",
 		"workflow",
 		"agent-style",
 		"subagents"

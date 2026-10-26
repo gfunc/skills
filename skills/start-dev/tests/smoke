@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""start-dev structural smoke: drive the workflow's file-moving machinery in a scratch repo.
+
+Builds a synthetic spec and stamps a plan with emit-plan, runs check-plan,
+creates per-task git worktree lanes, commits each task, merges them onto one
+PR branch, and writes the program, feature, and PR ledgers plus gate logs.
+Then asserts the ledgers, the evidence files, and the emitter's portable
+model fallback.
+
+This exercises the workflow's artifacts and tools, not the skill or a model.
+No agent runs, no skill is loaded, and no model is called. Live model-backed
+behavior is a separate manual check. Exit 0 only when every assertion holds.
+
+Usage: skills/start-dev/tests/smoke [--keep]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+PACK_ROOT = Path(__file__).resolve().parents[3]
+SKILL = PACK_ROOT / "skills" / "start-dev"
+
+FAILURES: list[str] = []
+
+
+def check(condition: bool, label: str, detail: str = "") -> None:
+    if condition:
+        print(f"  ok {label}")
+    else:
+        FAILURES.append(f"{label}{': ' + detail if detail else ''}")
+        print(f"  FAIL {label} {detail}")
+
+
+def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+
+
+def git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    return run(["git", *args], cwd)
+
+
+def write_ledgers(repo: Path, effort: str) -> None:
+    """Initialize the layered ledger from the pack's templates and drive one run."""
+
+    root = repo / ".scratch" / effort
+    (root / "features" / "F1").mkdir(parents=True, exist_ok=True)
+
+    (root / "program.md").write_text(
+        "# demo-program run ledger\n\n"
+        "Run root: `.scratch/demo/`\n"
+        "Standing orders: `skills/start-dev/references/standing-orders.md`\n\n"
+        "## Features\n\n"
+        "| id | title | state | owner | updated |\n|---|---|---|---|---|\n"
+        "| F1 | demo-feature | in-progress | main | t0 |\n"
+    )
+    (root / "features.tsv").write_text(
+        "id\ttitle\tstate\towner\tupdated\nF1\tdemo-feature\tin-progress\tmain\tt0\n"
+    )
+    (root / "decisions.tsv").write_text("date\tdecision\tevidence\nt0\trouter selected feature layer\tone feature, two atomic tasks\n")
+    (root / "agents.tsv").write_text("id\trole\tstate\tstuck_after\nPR-OWNER-1\tpoteto-agent pr-owner\trunning\t-\n")
+
+
+def dispatch_wave(repo: Path, effort: str, tasks: list[dict]) -> dict:
+    """Dispatch one wave of atomic tasks concurrently; one commit per task lane."""
+
+    root = repo / ".scratch" / effort
+    lanes = root / "lanes"
+    lanes.mkdir(parents=True, exist_ok=True)
+    started = {}
+    for task in tasks:
+        lane = lanes / task["id"]
+        if lane.exists():
+            shutil.rmtree(lane)
+        result = git(["worktree", "add", str(lane.resolve()), "-b", task["branch"], "main"], repo)
+        started[task["id"]] = result.returncode
+    return started
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--keep", action="store_true", help="keep the scratch repo for inspection")
+    args = parser.parse_args()
+
+    t0 = time.time()
+    repo = Path(tempfile.mkdtemp(prefix="start-dev-smoke-"))
+    keep = args.keep
+    try:
+        print(f"scratch repo {repo}")
+        result = git(["init", "-q", "-b", "main"], repo)
+        check(result.returncode == 0, "git init", result.stderr.strip())
+        git(["config", "user.email", "smoke@example"], repo)
+        git(["config", "user.name", "smoke"], repo)
+        (repo / ".gitignore").write_text(".scratch/\n")
+        git(["add", ".gitignore"], repo)
+        git(["commit", "-qm", "init"], repo)
+
+        spec_dir = repo / ".scratch" / "demo"
+        spec_dir.mkdir(parents=True)
+        (spec_dir / "spec.md").write_text(
+            "# demo spec\n\nOne feature, two atomic tasks, disjoint file lanes, a wave gate, a feature gate, a review and a fix.\n"
+        )
+        check((spec_dir / "spec.md").is_file(), "synthetic spec written")
+
+        emit = subprocess.run(
+            ["node", str(SKILL / "scripts" / "emit-plan"), "--feature", "demo",
+             "--title", "Demo", "--surface", "library", "--pr", "1",
+             "--out", str(spec_dir / "plan.md")],
+            cwd=repo, capture_output=True, text=True,
+        )
+        check(emit.returncode == 0, "emit-plan stamps the plan", emit.stderr.strip()[:120])
+        check((spec_dir / "plan.md").is_file(), "plan.md exists at the run root")
+        plan_text = (spec_dir / "plan.md").read_text()
+        check("The root never pushes. Owners push only their own branch." in plan_text,
+              "stamped standing order 10 carries the clarified push rule")
+
+        checker = subprocess.run(
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(spec_dir / "plan.md")],
+            cwd=repo, capture_output=True, text=True,
+        )
+        print(f"  note check-plan on the unauthored skeleton exits {checker.returncode} (expected: placeholder boxes)")
+
+        empty_models = spec_dir / "empty-models.md"
+        empty_models.write_text("# no roles configured\n")
+        fallback = subprocess.run(
+            ["node", str(SKILL / "scripts" / "emit-plan"), "--feature", "demo",
+             "--title", "Demo", "--surface", "library", "--pr", "1",
+             "--models", str(empty_models),
+             "--out", str(spec_dir / "plan-fallback.md")],
+            cwd=repo, capture_output=True, text=True,
+        )
+        fallback_text = (spec_dir / "plan-fallback.md").read_text()
+        check(fallback.returncode == 0, "emit-plan runs with an empty models file", fallback.stderr.strip()[:120])
+        check("inherit-parent" in fallback_text, "fallback stamps the inherit-parent token")
+        check("magpie/" not in fallback_text, "fallback stamps no environment-specific alias")
+        check("no \"swarm workers\" line" in fallback.stderr and "inherit-parent" in fallback.stderr,
+              "fallback warns on stderr naming the models file and the stamped token")
+
+        emitted = (spec_dir / "plan.md").read_text()
+        check("## Run graph" in emitted, "emitted plan carries the Run graph section")
+        check("Continuation: " in emitted, "emitted plan carries the profile-named Continuation line")
+        check("[gate: feature]" in emitted and "[gate: review]" in emitted,
+              "emitted run graph names the feature and review gates")
+
+        write_ledgers(repo, "demo")
+
+        tasks = [
+            {"id": "w1t1", "branch": "task/w1t1", "file": "src/alpha.txt"},
+            {"id": "w1t2", "branch": "task/w1t2", "file": "src/beta.txt"},
+        ]
+        started = dispatch_wave(repo, "demo", tasks)
+        check(all(code == 0 for code in started.values()), "two task lanes created in one wave",
+              f"return codes {started}")
+
+        evidence = repo / ".scratch" / "demo" / "features" / "F1" / "run.md"
+        evidence.parent.mkdir(parents=True, exist_ok=True)
+        evidence.write_text(
+            "# demo-feature run\n\n"
+            "## Tickets\n\n"
+            "| id | title | file lane | edges | surface | state |\n|---|---|---|---|---|---|\n"
+            "| P1 | two atomic tasks | src/** | none | library | wave-1 dispatched |\n\n"
+            "## Gates\n\n"
+            "| date | gate | command | exit | evidence |\n|---|---|---|---|---|\n"
+            "| t1 | wave-1 | targeted: ls src/alpha.txt src/beta.txt | 0 | logs/wave-1.log |\n"
+            "| t2 | feature | full gate over the PR head | 0 | logs/feature-gate.log |\n\n"
+            "## Review\n\n"
+            "| round | lead | family | verdict | findings | fixed |\n|---|---|---|---|---|---|\n"
+            "| 1 | review-lead | different | PASS | 1 | 1 |\n\n"
+            "## Review and fix\n\n"
+            "| round | reviewer | findings | fixer | fixed | rechecked |\n|---|---|---|---|---|---|\n"
+            "| 1 | reviewer-A (different family) | 1 | fixer-A | 1 | high-risk only |\n"
+        )
+        check(evidence.is_file(), "feature ledger written with wave gate, feature gate, and review/fix rows")
+
+        logs = repo / ".scratch" / "demo" / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        (logs / "wave-1.log").write_text("exit 0\nsrc/alpha.txt\nsrc/beta.txt\n")
+        (logs / "feature-gate.log").write_text("exit 0\nall checks\n")
+        (logs / "review-1.md").write_text("finding: missing newline at EOF in src/alpha.txt\n")
+
+        for task in tasks:
+            lane = repo / ".scratch" / "demo" / "lanes" / task["id"]
+            target = lane / task["file"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(f"{task['id']}\n")
+            git(["add", task["file"]], lane)
+            commit = git(["commit", "-qm", f"task {task['id']}"], lane)
+            check(commit.returncode == 0, f"task {task['id']} commits in its own lane", commit.stderr.strip()[:80])
+
+        pr_branch = "pr/demo-1"
+        pr = git(["checkout", "-q", "-b", pr_branch, "main"], repo)
+        check(pr.returncode == 0, "PR branch created from main")
+        merges = [git(["merge", "-q", "--no-ff", t["branch"], "-m", f"merge {t['id']}"], repo) for t in tasks]
+        check(all(m.returncode == 0 for m in merges), "merge worker integrates both task commits",
+              "; ".join(m.stderr.strip()[:60] for m in merges))
+        for task in tasks:
+            present = (repo / task["file"]).is_file()
+            check(present, f"merged lane content present on the PR branch ({task['file']})")
+        writers = subprocess.run(["git", "log", "--format=%an", pr_branch], cwd=repo,
+                                 capture_output=True, text=True).stdout.splitlines()
+        check(writers.count("smoke") == 5, "PR branch carries the init, two task, and two merge commits under repo-local identity", str(writers))
+
+        program_ledger = repo / ".scratch" / "demo" / "program.md"
+        feature_tsv = repo / ".scratch" / "demo" / "features" / "F1" / "tickets.tsv"
+        feature_tsv.write_text("id\ttitle\tfile_lane\tedges\tsurface\tstate\nP1\ttwo atomic tasks\tsrc/**\tnone\tlibrary\tmerged\n")
+        decisions = repo / ".scratch" / "demo" / "decisions.tsv"
+        agents = repo / ".scratch" / "demo" / "agents.tsv"
+
+        for path, label in [
+            (program_ledger, "program ledger"), (repo / ".scratch/demo/features.tsv", "features.tsv"),
+            (evidence, "feature run ledger"), (feature_tsv, "ticket tsv"),
+            (decisions, "decisions.tsv"), (agents, "agents.tsv"),
+        ]:
+            check(path.is_file() and path.stat().st_size > 0, f"{label} exists and is nonempty")
+
+        wave_log = (logs / "wave-1.log").read_text()
+        check("exit 0" in wave_log, "wave gate evidence records the exit code")
+        review = (logs / "review-1.md").read_text()
+        fix = repo / ".scratch" / "demo" / "logs" / "fix-1.md"
+        fix.write_text("fixed: newline added in src/alpha.txt; recheck: high-risk only\n")
+        check("finding" in review and fix.is_file(), "review recorded one finding and the fix pass recorded its fix")
+
+        run_md = evidence.read_text()
+        for needle, label in [
+            ("wave-1", "wave gate row"), ("| t2 | feature |", "feature gate row"),
+            ("reviewer-A", "reviewer row"), ("fixer-A", "fixer row"),
+            ("| PASS |", "review-lead verdict row"),
+        ]:
+            check(needle in run_md, f"feature ledger carries the {label}")
+
+        tracked = git(["status", "--porcelain"], repo).stdout.strip()
+        check(tracked == "", "scratch artifacts stay untracked (.scratch gitignored)", tracked[:80])
+
+        elapsed = time.time() - t0
+        print(f"\nsmoke completed in {elapsed:.1f}s")
+        if FAILURES:
+            print(f"SMOKE FAIL ({len(FAILURES)}):")
+            for failure in FAILURES:
+                print(f"  - {failure}")
+            return 1
+        print("SMOKE OK structural artifacts: ledgers, evidence, and portable fallback")
+        return 0
+    finally:
+        for task_dir in (repo / ".scratch" / "demo" / "lanes").glob("*") if (repo / ".scratch" / "demo" / "lanes").is_dir() else []:
+            git(["worktree", "remove", "--force", str(task_dir)], repo)
+        if not keep:
+            shutil.rmtree(repo, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

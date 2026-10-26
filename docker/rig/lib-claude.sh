@@ -18,16 +18,17 @@ harness_load() {
   local ver out want
   ver="$(claude --version 2>&1 | head -1)"
   want="$(ls -d "$PACK"/skills/*/ | wc -l | tr -d ' ')"
+  agents="$(ls "$PACK"/agents/*.md 2>/dev/null | wc -l | tr -d ' ')"
   out="$OUT/claude-plugin-details.txt"
   claude plugin details gfunc-skills@gfunc >"$out" 2>&1 || true
   assert_grep load "plugin details" "$out" "Skills ($want)" || return
-  assert_grep load "plugin details" "$out" "Agents (2)" || return
+  assert_grep load "plugin details" "$out" "Agents ($agents)" || return
   assert_grep load "plugin details" "$out" "Hooks (2)" || return
   if ! scripts/install --harness claude >"$OUT/claude-reinstall.txt" 2>&1; then
     fail load "reinstall failed: $(tail -1 "$OUT/claude-reinstall.txt")"
     return
   fi
-  ok load "cli=$ver; plugin details lists Skills ($want), Agents (2), Hooks (2); reinstall idempotent"
+  ok load "cli=$ver; plugin details lists Skills ($want), Agents ($agents), Hooks (2); reinstall idempotent"
 }
 
 # claude_context_probe <plugin-dir-or-empty> <out-prefix> [config-dir]
@@ -148,11 +149,12 @@ harness_smoke() {
   fi
   skip smoke "ANTHROPIC_API_KEY not set; context stage owns the no-key adapter proof"
   want="$(ls -d "$PACK"/skills/*/ | wc -l | tr -d ' ')"
+  agents="$(ls "$PACK"/agents/*.md 2>/dev/null | wc -l | tr -d ' ')"
   out="$OUT/smoke-oracle.txt"
   claude plugin details gfunc-skills@gfunc >"$out" 2>&1 || true
   if assert_grep smoke-oracle "oracle" "$out" "Skills ($want)" \
-     && assert_grep smoke-oracle "oracle" "$out" "Agents (2)"; then
-    ok smoke-oracle "plugin details inventories Skills ($want), Agents (2) without credentials (inventory only)"
+     && assert_grep smoke-oracle "oracle" "$out" "Agents ($agents)"; then
+    ok smoke-oracle "plugin details inventories Skills ($want), Agents ($agents) without credentials (inventory only)"
   fi
   # Structural run: system/init is emitted before the auth failure, so one
   # no-key -p run leaves a real current-format transcript for the trail reader.

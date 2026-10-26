@@ -1,6 +1,7 @@
 import sys
 sys.dont_write_bytecode = True
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
+from frozen_skills import check_frozen_skills
 from release_lib import MANIFEST_PATHS, ReleaseError, Version, set_version
 
 
@@ -304,7 +306,7 @@ class ReleaseTests(ScratchCase):
                         GH_STUB_LOG=str(self.log), RELEASE_TAG="v0.2.0", GITHUB_EVENT_NAME="push",
                         GITHUB_REF_TYPE="tag", GITHUB_REF_NAME="v0.2.0", GITHUB_REPOSITORY="fixture/pack",
                         VALIDATION_EVIDENCE=json.dumps({"source_commit": self.commit,
-                            "gates": {gate: "success" for gate in ("tests", "version", "pack", "rig")},
+                            "gates": {gate: "success" for gate in ("tests", "version", "pack", "smoke", "rig")},
                             "disclosures": ["MANUAL kimi plugin reload needs UI", "SKIPPED codex smoke no key"]}))
         self.state.write_text(json.dumps({"existing": None, "latest": None}))
 
@@ -439,7 +441,7 @@ class ReleaseTests(ScratchCase):
         (logs / "rig.log").write_text("\n".join(["OK kimi stage done", *expected, matrix, "MANUAL kimi reload UI"]) + "\n")
         output = self.root / ".scratch" / "outputs"
         summary = self.root / ".scratch" / "summary"
-        self.env.update(TESTS_RESULT="success", VERSION_RESULT="success", PACK_RESULT="failure", RIG_RESULT="success",
+        self.env.update(TESTS_RESULT="success", VERSION_RESULT="success", PACK_RESULT="failure", SMOKE_RESULT="success", RIG_RESULT="success",
                         GITHUB_STEP_SUMMARY=str(summary))
         result = self.cli("release", "evidence", "--logs", str(logs), "--github-output", str(output), env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -457,6 +459,38 @@ class ReleaseTests(ScratchCase):
         result = self.cli("release", "publish", "--commit", self.commit, env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(matrix, self.create_calls()[0]["notes"])
+
+
+class FrozenSkillsTests(unittest.TestCase):
+    def setUp(self):
+        scratch = ROOT / ".scratch" / "release-pipeline" / "tests"
+        scratch.mkdir(parents=True, exist_ok=True)
+        self.temporary = tempfile.TemporaryDirectory(dir=scratch)
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.skill = self.root / "skills" / "demo" / "SKILL.md"
+        self.skill.parent.mkdir(parents=True)
+        self.skill.write_text("frozen\n", encoding="utf-8")
+        self.manifest = self.root / "references" / "frozen-skills.tsv"
+        self.manifest.parent.mkdir(parents=True)
+        self.write_manifest()
+
+    def write_manifest(self):
+        self.manifest.write_text(
+            f"skills/demo/SKILL.md\t{hashlib.sha256(self.skill.read_bytes()).hexdigest()}\n",
+            encoding="utf-8",
+        )
+
+    def test_matching_freeze_has_no_problems(self):
+        self.assertEqual(check_frozen_skills(self.root), [])
+
+    def test_changed_file_is_reported(self):
+        self.skill.write_text("changed\n", encoding="utf-8")
+        self.assertTrue(any("changed" in problem for problem in check_frozen_skills(self.root)))
+
+    def test_new_file_in_frozen_skill_is_reported(self):
+        (self.skill.parent / "new.md").write_text("new\n", encoding="utf-8")
+        self.assertTrue(any("new file" in problem for problem in check_frozen_skills(self.root)))
 
 
 if __name__ == "__main__":

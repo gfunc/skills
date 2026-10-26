@@ -15,14 +15,16 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 ### Arm the program
 
 - [ ] State the protocol and this plan to the operator, then stop. Start execution only on the operator's explicit go.
-- [ ] Read these from trunk at program start. Re-read them at every tick. Run these in the gfunc-skills repo.
+- [ ] Read these from one source at program start. Re-read them at every tick. Use the remote checkout or the installed plugin.
   - [ ] `git show origin/main:skills/poteto-mode/playbooks/<execution playbook>.md`
   - [ ] `git show origin/main:skills/swarm/SKILL.md`
   - [ ] `git show origin/main:<control skill path>`
   - [ ] `git show origin/main:skills/poteto-mode/playbooks/opening-a-pr.md`
   - [ ] `git show origin/main:skills/<each other leaf skill the program uses>`
-- [ ] On the operator's go, arm the audit tick. The `/loop 1h` marker resolves through the active harness profile; `/loop 1h` on Cursor and Claude, a CronCreate hourly tick on Kimi, an external cron where the profile has no scheduler. Arm it with the tick prompt below. Never leave the cadence to memory.
-- [ ] Use this tick prompt, verbatim. "Re-read the execution playbook from trunk. Audit the operation against it and fix drift in this tick. Probe every active lane and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then post a short status message to the operator in chat only when the audit found a tracked change that no earlier status message reported, such as a PR opened, a code-ready head, a round launched or closed, a verdict, a merge, a stuck agent and the action taken, a blocker added or cleared, or a decision only the operator can make. Name every such change and nothing else. Do not repeat a table, the merged list, or an unchanged blocker. If the audit found none, end the turn with no reply text. Either way, log this tick's row in your decision trail. The row names the items reported, or none."
+  - [ ] Installed plugin alternative. Replace each `git show origin/main:<path>` with `<installed plugin root>/<path>` and use those absolute paths everywhere in this program.
+- [ ] On the operator's go, set the continuation.
+  Continuation: <the profile's continuation mechanism, named from the active profile's Role mapping; a goal where the profile has `/goal`, a scheduler tick where it has one and no goal, an external cron where it has neither>. Where a goal exists, the merge-ready PR is the completion criterion; no background polling and no audit tick run under it.
+- [ ] Use this tick prompt, verbatim. "Re-read the execution playbook from the source named in Arm the program. Audit the operation against it and fix drift in this tick. Probe every active lane and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then post a short status message to the operator in chat only when the audit found a tracked change that no earlier status message reported, such as a PR opened, a code-ready head, a round launched or closed, a verdict, a merge, a stuck agent and the action taken, a blocker added or cleared, or a decision only the operator can make. Name every such change and nothing else. Do not repeat a table, the merged list, or an unchanged blocker. If the audit found none, end the turn with no reply text. Either way, log this tick's row in your decision trail. The row names the items reported, or none."
 - [ ] On the operator's hold or stand-down, send every owner a zero-writes order at once.
 
 ### Spawn owners
@@ -46,8 +48,8 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 ### Verdict and merge, for every PR
 
 - [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head. Run each full swarm per `skills/swarm/SKILL.md`. One gates lane. The ten live lanes from the PR's **Verify, live** block. The perf lane from its **Verify, perf** block. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The root audits the receipts in the merge-ready report before the verdict.
-- [ ] Clean only when every lane is `PASS`. Findings go back to the owner, including a defect that a lane filed as a note. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `playbooks/shipping.md`.
-- [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `playbooks/shipping.md`.>
+- [ ] Clean only when every lane is `PASS`. Findings go back to the owner, including a defect that a lane filed as a note. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `skills/poteto-mode/playbooks/shipping.md`.
+- [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `skills/poteto-mode/playbooks/shipping.md`.>
 
 ### Boot recipe, for every live lane
 
@@ -57,6 +59,29 @@ Each live lane runs in its own git worktree at the PR head, checked out under th
 - [ ] <Start the backend and the surface. Wait for ready.>
 - [ ] <Deliver input through Playwright (`skills/playwright-cli`) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>
 - [ ] Save every screenshot to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png` and return the paths with the report.
+
+## Run graph
+
+```mermaid
+graph TD
+  subgraph W1[Wave 1]
+    T1[task: <id> lane <glob>]
+    T2[task: <id> lane <glob>]
+  end
+  subgraph W2[Wave 2]
+    T3[task: <id> lane <glob>]
+  end
+  T1 -->|blocks| T3
+  W1 -->|wave gate| W2
+  W2 -->|feature gate| FG[gate: feature]
+  FG -->|review| RL[gate: review]
+```
+
+**Critical path.** <The longest blocking chain, named with its gates.>
+
+**Staffing.** <role-to-model map per unit; critical-dev and reviewer independence; the model-family diversity rule. Outside auto mode this map is presented to the operator before the first wave.>
+
+**Risk.** <the risk register with a fallback per risk and the verification ceiling.>
 
 ## <Task as a verb phrase> (<PR id>)
 

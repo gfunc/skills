@@ -1,9 +1,10 @@
 # Wire audit
 
 [`scripts/wire-audit`](../../scripts/wire-audit) reads one Kimi agent's `wire.jsonl`
-trail (protocol 1.5) and reports two ways a delegated parent breaks the
-orchestration contract: polling for a background child's state, and authoring
-product edits itself. It is read-only and prints counts; it never sends
+trail (protocol 1.5) and reports three ways a delegated parent breaks the
+orchestration contract: polling for a background child's state, authoring
+product edits itself, and spawning background children or adding cron jobs
+under an active goal. It is read-only and prints counts; it never sends
 anything or writes anywhere.
 
 ```bash
@@ -33,11 +34,20 @@ ledger, and store) or under `.kimi-code/` (harness session artifacts,
 including plan-mode plan files), matched on path segments for absolute and
 relative forms.
 
+**goal-mode.** A goal is active from `goal.create` until a `goal.update` sets
+its status to `complete`, `paused`, `blocked`, or `cancelled`; an `active`
+status resumes it. A `subagent.spawned` with `runInBackground: true` in that
+window is a finding. A `cron.add` in that window is also a finding. The goal
+is the continuation, so a background child or a timed tick turns the next turn
+into a poll.
+
 ## Exit codes
 
 - `0` no findings selected by `--fail-on` (default `none`)
 - `1` findings present for the selected check
 - `2` usage or input error, including a malformed wire line
+
+`--fail-on` accepts `poll`, `parent-authoring`, `goal-mode`, or `none`.
 
 ## Limits (v1)
 
@@ -45,4 +55,6 @@ Counts span the whole wire; there is no plan-gate inference, so a
 post-approval slice is out of scope, and there are no context metrics. The
 input is one agent's wire; children have their own trails. The wire is
 append-only, so file order is authoritative and timestamps are report-only.
-The pass contract for the script is `--self-test`, not any historical count.
+Goal state comes only from `goal.create` and `goal.update`; a wire with no
+goal events reports zero. Only `cron.add` is counted, not a cron fire. The
+pass contract for the script is `--self-test`, not any historical count.

@@ -19,7 +19,7 @@ from release_lib import MANIFEST_PATHS, ReleaseError, Version, agreed_version, m
 
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
-GATES = ("tests", "version", "pack", "rig")
+GATES = ("tests", "version", "pack", "smoke", "rig")
 DISCLOSURE = re.compile(r"(?:MANUAL |SKIPPED |MATRIX \S+ \S+ MANUAL(?: |$))")
 
 
@@ -124,7 +124,7 @@ def verified_evidence(raw: str, commit: str) -> dict:
     if not isinstance(value, dict) or value.get("source_commit") != commit:
         raise ReleaseError("validation evidence does not match release commit")
     if value.get("gates") != {gate: "success" for gate in GATES}:
-        raise ReleaseError("all four validation gates must succeed")
+        raise ReleaseError(f"all {len(GATES)} validation gates must succeed")
     disclosures = value.get("disclosures")
     if not isinstance(disclosures, list) or any(not isinstance(line, str) or "\n" in line or "\r" in line
                                                or not DISCLOSURE.match(line)
@@ -185,7 +185,7 @@ def publish(root: Path, tag: str, expected_commit: str, repo: str, raw_evidence:
     with tempfile.TemporaryDirectory(prefix="publish-", dir=scratch) as directory:
         notes = Path(directory) / "validation.md"
         lines = ["## Validation evidence", "", f"Validated source commit `{target.commit}`.", "",
-                 "Automated gates passed: tests, manifest versions, pack checks, and the five-host Docker rig.", "",
+                 "Automated gates passed: tests, manifest versions, pack checks, the start-dev structural smoke, and the five-host Docker rig.", "",
                  "### Manual and skipped checks", ""]
         lines.extend(f"- {line}" for line in proof["disclosures"])
         if not proof["disclosures"]:

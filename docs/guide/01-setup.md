@@ -1,118 +1,66 @@
-# Set up a workspace
+# Set up pstack
 
-Use this guide to onboard a repository for the gfunc pack's Wayfinder and pstack workflows. [`/setup-workspace`](../../skills/setup-workspace/SKILL.md) discovers existing configuration, previews changes, completes approved phases, and reports what remains.
+In this page you install the plugin, pick which models pstack uses, and run your first task. Setup is one command plus a short conversation.
 
-## Use the loaded pack or a plain clone
+## Install the plugin
 
-Reuse an already-loaded gfunc plugin. Repository setup does not require another install. A plain clone also works without installation.
-
-Examples use short skill names. Use the spelling shown by your host's skill menu. Kimi requires qualified plugin names, such as `/gfunc-skills:setup-workspace`, as the [Kimi profile](../../references/harnesses/kimi.md) explains.
-
-For a plain clone, select the harness from the pack checkout at session start:
-
-```bash
-scripts/resolve-harness --harness <name>
-```
-
-Replace `<name>` with your harness name from the [adapter contract](../../references/adapters/README.md). Give the agent the returned pointer and the consuming repository's path. If the host has not loaded clone skills, ask the agent to read and follow `<pack-root>/skills/setup-workspace/SKILL.md`. The contract owns profile selection and native-host delivery. A missing or mismatched profile stops only the actions that need it.
-
-## Run workspace setup
-
-In the target repository, invoke:
+In a Cursor chat, run:
 
 ```text
-/setup-workspace
+/add-plugin pstack
 ```
 
-The flow inspects tracker instructions, repository guidance, domain documents, check commands, model preferences, plugin state, and verification skills before proposing writes. Review each concrete preview before approving its effects. Selecting a phase alone does not approve its writes or execution.
+Cursor confirms the plugin is installed.
 
-For repository wiring, expect these limits:
+In Claude Code, run `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. Claude Code prefixes plugin commands, so each command in this guide takes a `pstack:` prefix there, such as `/pstack:setup-pstack`, which writes its model rule to `~/.claude/rules/pstack-models.md`. The [Claude Code profile](../../references/harnesses/claude.md) covers the other differences.
 
-- Local Markdown under `.scratch/` is the tracker default, even when a Git remote exists. Setup does not create `docs/issue-tracker.md` just to restate that default.
-- Existing custom tracker instructions remain authoritative. Legacy migration gets a preview and a compatibility pointer. Conflicting tracker documents require your choice.
-- Setup updates one existing guidance owner. If neither `AGENTS.md` nor `CLAUDE.md` exists, it proposes `AGENTS.md`. It preserves custom and nested instructions and does not create empty glossaries, ADRs, or context maps.
-- A selected remote tracker permits only approved local instructions and read-only capability checks. Setup does not create labels, issues, maps, or PRs.
+## Pick your models
 
-The [repository wiring guide](../../skills/setup-workspace/references/repository-wiring.md) owns the exact file and migration rules.
-
-If `~/.agents/pstack-models.md` exists, setup validates the effective choices and preserves the file unless you select reconfiguration. If preferences are missing, setup offers configuration once. Accepting the phase runs [`/setup-pstack`](../../skills/setup-pstack/SKILL.md) within the same conversation. It completes selection, availability checks, and any separately approved preference write, then returns to workspace setup. You do not need to invoke another command.
-
-A recorded model preference does not provision that model. Setup reports unavailable or unconfirmed roles without changing native provider settings or credentials. Declining model configuration does not block repository wiring.
-
-Model configuration can end with an opt-in smoke, shown in the write preview before anything runs. It launches one foreground probe per distinct alias, not per role, and reports every alias as `resolved`, `failed`, `manual`, or `not-run`. It stays opt-in because each probe is a paid call. A harness without a spawn mechanism reports `not-run`, and an alias whose resolution cannot be verified in the run transcript reports `manual`. A failed slug returns `needs-action` and names the replacement.
-
-## Choose optional verification work
-
-When no project-local verification skill exists, workspace setup offers generation once. An existing harness does not suppress the offer. The new skill wraps that harness instead of duplicating it. For a usable stale or incomplete skill, setup offers maintenance once. If several candidates exist, choose the target explicitly. An unusable skill is a reported gap, not permission to replace it.
-
-Before accepted work runs, review the proposed files, launch and doctor commands, real journey, isolated data, evidence location, and cleanup. This approval covers only the previewed local work. It does not authorize dependency installation, native repairs, paid calls, shared or production resources, product-code fixes, commits, or PRs.
-
-[`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md) owns generation and its proof requirements. It must execute at least one mapped real consumer journey and preserve evidence after cleanup. [`/maintain-verification-skill`](../../skills/maintain-verification-skill/SKILL.md) owns maintenance and must exercise every mapped feature. Any additional effects those workflows request still need separate approval.
-
-Libraries, docs sites, and skill packs use their actual consumer paths, not an invented application UI. A build, unit tests, a discovered harness, or newly written instructions do not replace real journey evidence. Unexecuted or failed generated work remains an unverified draft or blocked result. Declining or blocking verification does not stop unrelated onboarding. Formal verification is a separate capability, not a workspace setup offer.
-
-## Review the result and resume safely
-
-Setup reports workspace, user and harness, and verification results separately. Each result uses `ready`, `needs-action`, `blocked`, `declined`, or `not-applicable`, with reasons and next actions. Model preferences, native availability, and plugin state remain separate items. Configured or discovered state is not verified execution.
-
-The secret-free report goes in the target repository's gitignored `.scratch/setup-workspace/<run-id>/report.md`. A needed ignore-rule change requires approval. If the report cannot be saved, setup returns it in the conversation and names the limitation. The [run report guide](../../skills/setup-workspace/references/run-report.md) defines its contents.
-
-An already-correct rerun changes no maintained files, though it can create a new report. After interruption, setup keeps successful changes and evidence, cleans up only run-owned resources, and re-inspects actual state before previewing remaining changes. It does not reset unrelated work or replay stale writes.
-
-## Install or update only when requested
-
-Installation is separate from repository onboarding and model configuration. Review the source, destinations, registry effects, and native trust requirements before approving an install or update.
-
-### Use Kimi's native GitHub installation
-
-In Kimi Code, install the latest published release with:
+Run:
 
 ```text
-/plugins install https://github.com/gfunc/skills
-/reload
+/setup-pstack
 ```
 
-The unpinned repository URL follows GitHub's latest release, falling back to the default branch when no release exists. To pin a release, install `https://github.com/gfunc/skills/releases/tag/v0.2.0` instead.
+[`/setup-pstack`](../../skills/setup-pstack/SKILL.md) detects the models you have access to, asks for a reasoning budget, shows you each role (code delegates, judgment, the review panels), and asks what you want. Answer the questions. It writes `~/.cursor/rules/pstack-models.mdc`, a small rule every pstack skill reads.
 
-Inspect the installation with `/plugins info gfunc-skills`. In `/plugins`, select the plugin on the Installed tab and press Enter when an update is available. After installation, use `/reload` or start a new session. Reloading refreshes installed content. It does not download an update.
+The defaults run at `xhigh` reasoning, the same as the `large` budget. `unlimited` lifts each model to its highest tier, up to `max`. Opus goes to `max`. Grok tops out at `xhigh`, so it stays there. `medium` and `small` lower the reasoning and spend fewer tokens.
 
-Current Kimi Code separates display metadata from update detection:
+You only override what you care about. A role with no line in the rule keeps the skill's default. To restore a default, delete that role's line. A rerun of `/setup-pstack` keeps any role whose model differs from the default. When a default changes, a rule written before the change still pins the old default, so delete those role lines, or delete the file, then run `/setup-pstack` again.
 
-- The installed `kimi.plugin.json` supplies the displayed version.
-- An unpinned GitHub install compares the saved ref and installed commit SHA with the latest release, or HEAD fallback.
-- An explicit branch tracks its commit. Explicit tags and commits stay pinned.
-- Local-path installs are outside the GitHub update checker.
+You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` and pstack omits the subagent `model` field, so the subagent inherits your parent chat model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Setup also configures `swarm workers`, the default model for every `/swarm` worker unless a race names a model for each arm.
 
-These rules come from Kimi's [plugin manager](https://github.com/MoonshotAI/kimi-code/blob/b5e28fd6beac752a2cdcc0ff2f5fdf40e6494fbb/packages/agent-core-v2/src/app/plugin/manager.ts) and [GitHub resolver](https://github.com/MoonshotAI/kimi-code/blob/b5e28fd6beac752a2cdcc0ff2f5fdf40e6494fbb/packages/agent-core-v2/src/app/plugin/github-resolver.ts). The [official plugin guide](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins.html) owns the current native commands. Official-marketplace background update notices do not establish equivalent notification behavior for a custom plugin. Unattended third-party updates are not promised here.
+## Accept the verification offers, or don't
 
-### Use the non-interactive installer
+At the end of setup, `/setup-pstack` looks for a way to prove app behavior in your project, either a `verify-*` skill or an existing harness. If it finds neither, it offers once to generate one with [`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md).
 
-For scripted delivery or another host, use the existing [installer](../../scripts/install) from a separate gfunc source checkout:
+Say yes and it writes `.cursor/skills/verify-<app>/`, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and setup moves on. You can run `/create-verification-skill` yourself any time. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers it in depth.
 
-```bash
-scripts/install --harness <name>
-```
+If you're new to pstack, say yes. An agent that can check its own work keeps going until the check passes. An agent that can't hands every result back to you to check by hand. Of everything in this guide, the verification skill pays off the most.
 
-The installer uses the selected host's native delivery or prints guidance where installation is not automated. Follow the [adapter contract](../../references/adapters/README.md) for host requirements. Do not substitute upstream pstack installation commands for this pack.
+Then setup offers once to generate a formal verification skill with [`/create-formal-verification-skill`](../../skills/create-formal-verification-skill/SKILL.md), unless the project already has one. Tests check the cases someone thought to write. A formal verification skill checks one key property of your code, such as "a job never runs twice at once", in every case within a stated scope. Say yes when your code has concurrency, retries, a state machine, or a parser, where a bug is costly and tests rarely reach the case that breaks. Otherwise say no, and run it later if that changes. [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers it.
 
-For a new Kimi record, the shell installer registers the managed copy with a local-path source. An unchanged existing record may be retained. This path does not establish GitHub update tracking. Prefer the native GitHub URL flow when that tracking is wanted.
+After setup, start a new chat. The model rule applies to new sessions.
 
-Before replacing a Kimi managed copy, the installer resolves the source and destination. If both resolve to the same directory, including through a symlink, it refuses before deletion or copying. Use a separate source checkout. Do not stage a self-copy workaround or bypass native hook trust. Successful plugin delivery does not establish model availability or consumer-path proof.
+## Keep the cost in check
 
-## Configure models without onboarding a repository
+pstack spends extra tokens on subagents and review panels. That's the price of the rigor. To spend fewer:
 
-Use [`/setup-pstack`](../../skills/setup-pstack/SKILL.md) for focused model and reasoning-budget configuration. It uses the same capability as the workspace flow and writes only approved preference changes. Existing preferences remain unchanged unless you select reconfiguration.
+- Rerun `/setup-pstack` and pick a smaller reasoning budget or cheaper models. A strong model in the main chat with cheaper, faster models in the code roles is a good split.
+- Set a role to `auto` or `inherit-parent` so it runs on the chat's own model.
+- Shorten a panel list. Each entry runs one subagent.
+- Save `/poteto-mode` for work that needs rigor. A small, obvious edit doesn't.
 
-That owner defines role defaults, budget choices, inheritance values, availability validation, and optional native delivery copies. `~/.agents/pstack-models.md` is the sole preference authority. The active profile owns native availability. `/setup-pstack` does not install or update plugins, repair native settings, or offer verification work.
+## Run your first task
 
-To reduce cost, request a smaller budget, cheaper available models, or shorter panel lists. Use the owner's supported inheritance values when roles should use the parent model.
-
-## Start a task separately
-
-Setup returns its report without starting implementation. Use `/wayfinder` for a large unclear goal. For a clear task, give `/poteto-mode` a goal and a check:
+Pick something real but small, and describe it the way you'd describe it to a colleague:
 
 ```text
 /poteto-mode add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-Next, read [Route work through `/poteto-mode`](./02-poteto-mode.md).
+Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt. If `/poteto-mode` skips a step, the step stays in the list with `skip: <reason>`, so you can see what it chose not to do.
+
+From here you can type normal follow-ups. To keep `/poteto-mode` on for the whole chat, pick it from the `/` menu with Option+Enter (Mac) or Alt+Enter (Windows) instead of Enter. That makes it a [Custom Mode](https://cursor.com/docs/skills#using-a-skill-as-a-custom-mode), which stays in context on every turn until you exit it. Custom Modes are available in the Agents Window and the CLI. Plain Enter attaches the skill to one message, and it fades as the chat moves on.
+
+Next: [Route work through `/poteto-mode`](./02-poteto-mode.md).
