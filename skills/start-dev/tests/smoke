@@ -97,9 +97,11 @@ def main() -> int:
         print(f"scratch repo {repo}")
         result = git(["init", "-q", "-b", "main"], repo)
         check(result.returncode == 0, "git init", result.stderr.strip())
+        git(["config", "user.email", "smoke@example"], repo)
+        git(["config", "user.name", "smoke"], repo)
         (repo / ".gitignore").write_text(".scratch/\n")
         git(["add", ".gitignore"], repo)
-        git(["-c", "user.email=smoke@example", "-c", "user.name=smoke", "commit", "-qm", "init"], repo)
+        git(["commit", "-qm", "init"], repo)
 
         spec_dir = repo / ".scratch" / "demo"
         spec_dir.mkdir(parents=True)
@@ -181,8 +183,7 @@ def main() -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(f"{task['id']}\n")
             git(["add", task["file"]], lane)
-            commit = git(["-c", "user.email=dev@example", "-c", "user.name=dev",
-                          "commit", "-qm", f"task {task['id']}"], lane)
+            commit = git(["commit", "-qm", f"task {task['id']}"], lane)
             check(commit.returncode == 0, f"task {task['id']} commits in its own lane", commit.stderr.strip()[:80])
 
         pr_branch = "pr/demo-1"
@@ -196,7 +197,7 @@ def main() -> int:
             check(present, f"merged lane content present on the PR branch ({task['file']})")
         writers = subprocess.run(["git", "log", "--format=%an", pr_branch], cwd=repo,
                                  capture_output=True, text=True).stdout.splitlines()
-        check(writers.count("dev") == 2, "PR branch has exactly the two dev commits", str(writers))
+        check(writers.count("smoke") == 5, "PR branch carries the init, two task, and two merge commits under repo-local identity", str(writers))
 
         program_ledger = repo / ".scratch" / "demo" / "program.md"
         feature_tsv = repo / ".scratch" / "demo" / "features" / "F1" / "tickets.tsv"
