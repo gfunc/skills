@@ -7,7 +7,7 @@
 7. No rebase, no merge, no retarget, no force-push, no out-of-scope fixes.
 8. One writer per branch.
 9. Exactly one stacker touches topology.
-10. Never push.
+10. The root never pushes. Owners push only their own branch.
 11. Never touch the main checkout or shared state, tracker and prod/UAT included.
 12. No `rm -rf`, precise-target deletion only.
 13. Stay under the verification ceiling.

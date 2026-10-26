@@ -5,8 +5,6 @@ import process from "node:process";
 const RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
 const LANES = /Ten lanes on `[^`<>]+` at the PR head/;
-const SURFACES = ["ui", "cli", "library", "backend"];
-const LANE_ARTIFACT = { ui: { re: /Save `[^`]+`/, name: "screenshot" }, cli: { re: /Log `[^`]+`/, name: "log" } };
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -19,10 +17,7 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_STATUS_MARKER = "status message";
-const REMOTE_READ_MARKER = "git show origin/main:";
-const PLUGIN_TOKEN = /`([^`\n]+)`/g;
-const PROGRAM_CONTINUATION = /\/loop|\/goal|CronCreate/;
+const PROGRAM_MARKERS = ["git show origin/main:", "/loop 1h", "status message"];
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -41,7 +36,6 @@ if (!file) {
 
 const raw = fs.readFileSync(file, "utf8").split(/\r?\n/);
 const problems = [];
-const notes = [];
 const fail = (line, message) => problems.push(`${file}:${line}: ${message}`);
 
 let start = 0;
@@ -83,8 +77,7 @@ for (let i = start; i < raw.length; i++) {
 		.replace(/\]\([^)]*\)/g, "]");
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
-	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text.trim());
-	if (/: \S/.test(prose) && !isSurfaceLine) fail(n, "mid-sentence colon");
+	if (/: \S/.test(prose)) fail(n, "mid-sentence colon");
 }
 
 const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
@@ -97,36 +90,6 @@ for (const l of lines) {
 const find = (title) => sections.find((s) => s.title === title);
 const bodyText = (s) => s.body.map((l) => l.text).join("\n");
 const boxes = (ls) => ls.filter((l) => !l.code && BOX.test(l.text)).map((l) => ({ n: l.n, text: l.text.match(BOX)[1] }));
-
-const installedPluginPaths = (text) => {
-	const tokens = [...text.matchAll(PLUGIN_TOKEN)].flatMap((match) => match[1].split(/\s+/));
-	return [...new Set(tokens.filter((token) =>
-		token.startsWith("/") &&
-		token.includes("/plugins/") &&
-		token.includes("/skills/") &&
-		token.endsWith(".md") &&
-		!token.includes("<") &&
-		!token.includes(">") &&
-		!token.includes("*")
-	))];
-};
-
-const validateInstalledPluginPaths = (paths, line) => {
-	for (const pluginPath of paths) {
-		const at = pluginPath.indexOf("/skills/");
-		const pluginDir = pluginPath.slice(0, at);
-		if (!fs.existsSync(pluginDir)) {
-			notes.push(`installed plugin root is not present, path not validated: ${pluginPath}`);
-			continue;
-		}
-		if (!fs.existsSync(pluginPath)) {
-			fail(line, `installed plugin file does not exist: ${pluginPath}`);
-			continue;
-		}
-		if (!fs.statSync(pluginPath).isFile())
-			fail(line, `installed plugin path is not a file: ${pluginPath}`);
-	}
-};
 
 const h1 = lines.findIndex((l) => !l.code && l.text.startsWith("# "));
 if (h1 === -1) fail(1, "no H1 title");
@@ -150,18 +113,9 @@ else {
 		if (at === -1) fail(program.n, `Program checklist lacks "### ${name}" in order`);
 		else cursor = at + 1;
 	}
-	const programText = bodyText(program);
-	if (!programText.includes(PROGRAM_STATUS_MARKER))
-		fail(program.n, `Program checklist lacks "${PROGRAM_STATUS_MARKER}"`);
-	const pluginPaths = installedPluginPaths(programText);
-	validateInstalledPluginPaths(pluginPaths, program.n);
-	const hasRemoteRead = programText.includes(REMOTE_READ_MARKER);
-	if (!hasRemoteRead && pluginPaths.length === 0)
-		fail(program.n, `Program checklist lacks a read source: "${REMOTE_READ_MARKER}" or an installed plugin path`);
-	if (!hasRemoteRead && pluginPaths.length && /Re-read the execution playbook from trunk/.test(programText))
-		fail(program.n, "tick prompt reads the playbook from trunk; name the installed plugin path");
-	if (!PROGRAM_CONTINUATION.test(programText))
-		fail(program.n, 'Program checklist lacks a continuation marker the profile names ("/loop", "/goal", or "CronCreate")');
+	for (const marker of PROGRAM_MARKERS) {
+		if (!bodyText(program).includes(marker)) fail(program.n, `Program checklist lacks "${marker}"`);
+	}
 }
 
 const close = find("Close the program");
@@ -188,15 +142,6 @@ for (const pr of prSections) {
 	const counts = {};
 	for (const h of heads) counts[h.name] = boxes(h.lines).length;
 
-	let surface = "ui";
-	const surfaceLines = pr.body.filter((l) => !l.code && /^Surface:/.test(l.text.trim()));
-	if (surfaceLines.length > 1) fail(surfaceLines[1].n, `${pr.title}: more than one Surface line`);
-	if (surfaceLines.length) {
-		const value = surfaceLines[0].text.trim().replace(/^Surface:\s*/, "");
-		if (!SURFACES.includes(value)) fail(surfaceLines[0].n, `${pr.title}: unknown Surface "${value}" (expected ${SURFACES.join("|")})`);
-		else surface = value;
-	}
-
 	const depends = block("Depends on.");
 	if (depends && depends.rest === "") fail(depends.n, `${pr.title}: Depends on names nothing`);
 	for (const name of ["Files.", "Build.", "You see.", "Verify, unit.", "Merge."]) {
@@ -210,19 +155,14 @@ for (const pr of prSections) {
 
 	const live = block("Verify, live.");
 	if (live) {
-		const artifact = LANE_ARTIFACT[surface];
-		if (artifact) {
-			if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Ten lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
-			const lanes = boxes(live.lines).map((b) => ({ ...b, m: b.text.match(/^Lane (\d+)\. /) }));
-			const numbers = lanes.filter((b) => b.m).map((b) => Number(b.m[1])).sort((a, b) => a - b);
-			if (numbers.join(",") !== "1,2,3,4,5,6,7,8,9,10") fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected 1 to 10`);
-			for (const lane of lanes) {
-				if (!lane.m) fail(lane.n, `${pr.title}: live box is not a lane`);
-				else if (!artifact.re.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no ${artifact.name}`);
-				else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
-			}
-		} else if (boxes(live.lines).length === 0) {
-			fail(live.n, `${pr.title}: Verify, live has no box`);
+		if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Ten lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
+		const lanes = boxes(live.lines).map((b) => ({ ...b, m: b.text.match(/^Lane (\d+)\. /) }));
+		const numbers = lanes.filter((b) => b.m).map((b) => Number(b.m[1])).sort((a, b) => a - b);
+		if (numbers.join(",") !== "1,2,3,4,5,6,7,8,9,10") fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected 1 to 10`);
+		for (const lane of lanes) {
+			if (!lane.m) fail(lane.n, `${pr.title}: live box is not a lane`);
+			else if (!/Save `[^`]+`/.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no screenshot`);
+			else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
 		}
 	}
 
@@ -234,9 +174,6 @@ for (const pr of prSections) {
 
 	const gate = block("Review gate.");
 	if (gate) {
-		if (!LANE_ARTIFACT[surface] && !gate.rest.startsWith("None.")) {
-			fail(gate.n, `${pr.title}: Review gate must be "None. <PR id> is not review-gated." for ${surface} surfaces`);
-		}
 		const gateBoxes = boxes(gate.lines);
 		if (gate.rest.startsWith("None.")) {
 			if (gateBoxes.length) fail(gate.n, `${pr.title}: Review gate says None but has boxes`);
@@ -265,5 +202,4 @@ if (closeIndex !== -1) {
 for (const line of report) console.log(line);
 console.log(`${prSections.length} PR sections, ${problems.length} problems`);
 for (const p of problems) console.error(p);
-for (const note of notes) console.error(`note: ${note}`);
 process.exit(problems.length ? 1 : 0);

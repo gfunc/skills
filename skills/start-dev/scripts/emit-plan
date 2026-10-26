@@ -12,9 +12,8 @@ const DEFAULT_MODEL = "magpie/bi-dev/group/auto-glm-5-3-flash";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.dirname(scriptDir);
-const repoRoot = path.dirname(path.dirname(skillDir));
 const skeletonPath = path.join(skillDir, "references", "plan-skeleton.md");
-const registerPath = path.join(repoRoot, "references", "standing-orders.md");
+const registerPath = path.join(skillDir, "references", "standing-orders.md");
 
 const args = process.argv.slice(2);
 const flags = { playbook: "autopilot-stack", force: false };
@@ -68,7 +67,7 @@ const register = fs.readFileSync(registerPath, "utf8").trimEnd();
 let plan = fs.readFileSync(skeletonPath, "utf8");
 
 const drift = (marker) => {
-	console.error(`emit-plan: skeleton is missing the ${marker} marker; re-sync ${path.relative(repoRoot, skeletonPath)}`);
+	console.error(`emit-plan: skeleton is missing the ${marker} marker; re-sync ${path.relative(skillDir, skeletonPath)}`);
 	process.exit(1);
 };
 const countMatches = (source, pattern) => {

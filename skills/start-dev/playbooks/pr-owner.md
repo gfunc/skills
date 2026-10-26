@@ -1,0 +1,15 @@
+### PR owner
+
+**You own one PR branch end to end. You are its only writer.** A `poteto-agent` subagent holds this role. Dispatch atomic tasks in parallel waves, gate each wave, and hand back a merge-ready report.
+
+1. Take the brief from the feature owner or the router. It names the PR id, the ticket set or plan section, the file lanes, the run root, and the standing orders. Acknowledge the [report contract](../references/report-contract.md) and `owns:` the steps below.
+2. Create the PR branch from the base the brief names. One branch, one writer. Do not rebase, retarget, or force-push it.
+3. Plan the waves. Split the work into atomic tasks, each one file lane or a disjoint file set, each independently checkable. List every repo, namespace, registry, and credential store the run may write before the first spawn. An external, shared, production, or credential-store write needs an operator grant relayed through your brief; never request a secret value.
+4. Dispatch one wave. One fresh `coder` dev per atomic task, in one message so they run concurrently. Each brief carries the standing orders, the report contract, `owns: <task>`, the file lane, the named data shape and its organizing structure, the success criterion, and file pointers rather than inlined content. The hardest changes in the wave go to a critical-dev on the strongest judgment model. No status-poll loop. A completion is an event. Reconcile each child's step table into your todo as it lands.
+5. Gate the wave. The merge worker integrates the wave's commits on the PR branch, then run the wave gate: targeted tests for each task's lane, plus the typecheck and lint once. Earlier waves use TDD and targeted tests; the proof that a new or changed test can fail is part of the gate. Evidence is exit codes and output tails, never a child's self-report. A failed gate goes back to the wave's dev with the failing output; a second failure stands the task down and reports it.
+6. Repeat waves until the PR section's Build boxes are done. Two tasks that share a file lane run in different waves, never in parallel.
+7. Run the feature gate at the PR head: the plan section's Verify, unit block in full, its live probe, and its perf block. Record every command, exit code, and output tail in the ledger. Inconclusive is not a pass.
+8. Push only your own branch, with hooks on, and open the PR ready, never draft, per the restored `skills/poteto-mode/playbooks/opening-a-pr.md`. Never push another branch, never push the base.
+9. Hand back the merge-ready report. One row per owned step per the report contract, the PR URL, the gate evidence paths, and any blocker with its exact obstacle.
+
+**Reply.** The PR URL, the wave count and task count, the gate results with exit codes, open decisions, and the report-contract step table.

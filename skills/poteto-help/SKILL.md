@@ -1,16 +1,16 @@
 ---
 name: poteto-help
-description: Guides users through workspace onboarding, focused pstack model setup, /poteto-mode, and picking a skill, playbook, or principle. Type /poteto-help with a question.
+description: Guides users through the gfunc pack, focused model setup, /poteto-mode, and picking a skill, playbook, or principle. Type /poteto-help with a question.
 disable-model-invocation: true
 ---
 
 # Poteto help
 
-Answer the user's question about the gfunc pack, give them a prompt they can send, and link the file the answer came from. For a help question, do not start setup or a task. Let the user send the prompt before work spends tokens or changes files.
+Answer the user's question about the pack, give them a prompt they can send, and link the file the answer came from. For a help question, do not start the work. Let them send the prompt before work spends tokens or changes files.
 
-A message that asks for work, such as "use pstack to fix this bug", is not a help question. Route repository onboarding to [`setup-workspace`](../setup-workspace/SKILL.md) and model-only configuration to [`setup-pstack`](../setup-pstack/SKILL.md). For a product task, read [`poteto-mode`](../poteto-mode/SKILL.md) and follow it. Mention Custom Modes only for Cursor.
+A message that asks for work, such as "use pstack to fix this bug", is not a help question. Read [`poteto-mode`](../poteto-mode/SKILL.md), do the work under it, and mention once that a Custom Mode keeps it on.
 
-This file maps questions to the skills and guide pages that own the answers. Read the owner before quoting it, and trust it when it disagrees with this map. Link the actual installed or cloned pack file. Establish this gfunc repository's URL and revision before giving a public link. Do not substitute an upstream pstack page for locally modified instructions.
+This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. Link the actual installed or cloned pack file. Establish this repository's URL and revision before giving a public link. Do not substitute an upstream pstack page for locally modified instructions.
 
 ## Find out what they need
 
@@ -25,28 +25,27 @@ Infer the need from the message and the conversation. A named situation, such as
 Check the state that changes the answer, and mention it only when it does:
 
 - Without `~/.agents/pstack-models.md`, roles use their skill defaults. This says nothing about native model availability. The active profile's Models section owns that gate.
-- Distinguish tests, an execution harness, and a project-local verification skill with launch, drive, and feature-map instructions. A harness without a skill still qualifies for the workspace flow's one generation offer. A usable stale skill qualifies for maintenance. Neither discovery nor file creation proves a real journey.
-- Formal verification is separate from workspace setup. Mention `/create-formal-verification-skill` for a race, invariant, or property question. If an existing formal skill is stale for the code in question, read `/maintain-formal-verification-skill` before recommending it.
+- No `verify-*` skill or other app harness in the project means agents have no scripted way to drive the app. Mention `/create-verification-skill` when the question is about proving a change works.
+- No formal verification skill in the project means no property is checked past what tests reach. Mention `/create-formal-verification-skill` when the question is about a race, an invariant, or another case tests rarely hit. When one exists and the code it covers changed after the commit it records as last in sync, mention `/maintain-formal-verification-skill` if the question touches that code.
 
-For repository onboarding, recommend `/setup-workspace`, including its one missing-model offer. For a question limited to model preferences or cost, recommend the focused `/setup-pstack` shortcut. Do not require both invocations. Answer a help question without starting either workflow.
+When the model rule is missing and it matters, ask whether the user wants to pick a model for each role and a reasoning budget now. It matters when the user is new, the question is about setup or cost, or the answer depends on which models run. Ask at most once per chat. If the need is also unclear, ask both questions together. Offer two choices:
+
+- Now: give them `/setup-pstack` to type, and answer their question too.
+- Later: answer their question, and add one line saying every role keeps its default model until they run `/setup-pstack`.
 
 ## Get set up
 
-1. Reuse the loaded gfunc plugin or use a plain clone without installing. The [setup guide](../../docs/guide/01-setup.md) covers invocation and clone selection.
-2. Run [`/setup-workspace`](../setup-workspace/SKILL.md) in the target repository. It discovers existing state, previews scoped changes, and completes approved phases. If model configuration is accepted, it runs the shared model owner and resumes onboarding. It does not hand the user another command to run.
-3. Choose optional verification work after its concrete preview. Generation is offered once when a project-local skill is absent, even with an existing harness. Maintenance is offered once for a usable stale skill. Multiple candidates require a target choice. The existing verification owners keep their real-journey proof requirements.
-4. Review the separate workspace, user and harness, and verification results. The report belongs in the target's ignored `.scratch/setup-workspace/<run-id>/report.md`. Unsaved reports and declined or blocked work stay visible. Setup does not start implementation.
-5. Start a separate task with `/wayfinder` for a large unclear goal, or `/poteto-mode` with a clear goal and a check.
+1. Install with `/add-plugin pstack` in chat, or from Customize in the sidebar. Outside Cursor, run `npx skills add backnotprop/pstack` and pick the skills.
+2. Run [`/setup-pstack`](../setup-pstack/SKILL.md). It asks for a reasoning budget, maps a model to each role, and writes a rule. The rule applies to new chats. Then it offers once each to generate a verification skill and a formal verification skill for the project, unless the project already has one.
+3. Start a real task with `/poteto-mode`, a goal, and a check that can pass or fail.
 
-Installation or update is a separate explicit request and approval. The [installer](../../scripts/install) owns native delivery. Kimi refuses replacement when the source resolves to its managed destination, so an update needs a separate source checkout. Do not stage a self-copy or bypass native trust. Use this pack's [adapter contract](../../references/adapters/README.md), not upstream pstack installation commands or an unsupported-host list.
+Installing changes nothing until the user invokes a skill. Only `/setup-pstack` loads from the user's words. The [README](../../README.md) and [guide page 1](../../docs/guide/01-setup.md) have the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
 
-Repository setup preserves custom tracker and agent guidance. Local Markdown remains the default without explicit tracker configuration, even with a remote. Setup does not create empty domain documents or write to remote trackers. Verification approval covers only the previewed local work. Dependencies, native repairs, paid calls, shared resources, product fixes, commits, and PRs need separate authorization. Declined or blocked verification does not stop unrelated onboarding.
+If cost is the worry, say where the tokens go and how to spend fewer. pstack spends extra tokens on subagents and review panels. Rerun `/setup-pstack` and pick a smaller budget or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which saves tokens when the chat runs on Auto or a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save `/poteto-mode` for work that needs rigor.
 
-For model preferences only, read [`setup-pstack`](../setup-pstack/SKILL.md). It reuses existing preferences unless reconfiguration is selected, validates availability, and writes only approved changes to the universal file. It does not install plugins, repair native settings, or offer verification work. That skill owns role defaults, budgets, inheritance, and delivery copies.
+pstack is built for Cursor, and it also installs in Claude Code with `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. There, each command takes a `pstack:` prefix, such as `/pstack:poteto-mode`. The [Claude Code profile](../../references/harnesses/claude.md) maps the Cursor names, and a step that needs a Cursor-only feature, such as Bugbot or Automations, is skipped with a one-line note.
 
-If cost is the concern, explain that subagents and panels consume extra tokens. Recommend an explicit budget or model change through `/setup-pstack`, or a shorter panel list. Use supported inheritance values when roles should run on the parent model. Save `/poteto-mode` for work that needs its checks.
-
-The [README](../../README.md) and [setup guide](../../docs/guide/01-setup.md) own the overview and procedure. The active profile owns native invocation and capability limits. Use the host's displayed skill spelling. For example, Kimi uses `/gfunc-skills:setup-workspace`. Offer to word a first task prompt per [`references/prompting.md`](references/prompting.md).
+This mirror's skills also work in other harnesses (Claude Code, Codex, Pi, OpenCode, and others) through `npx skills add backnotprop/pstack`. The Harness section of [`poteto-mode`](../poteto-mode/SKILL.md) maps Cursor's subagent, question, transcript, and settings paths to the harness's own. Custom Modes are a Cursor feature.
 
 ## Start a task with `/poteto-mode`
 
@@ -66,9 +65,6 @@ The default answer is `/poteto-mode`, which runs most of the others when its ste
 
 | The user wants to | Skill |
 |---|---|
-| Onboard a repository and complete approved setup phases | [`/setup-workspace`](../setup-workspace/SKILL.md) |
-| Plan a large unclear goal as decision tickets | [`/wayfinder`](../wayfinder/SKILL.md) |
-| Turn an agreed conversation into a spec | [`/to-spec`](../to-spec/SKILL.md) |
 | Do any non-trivial task with rigor | [`/poteto-mode`](../poteto-mode/SKILL.md) |
 | Check that the agent understood their goal and the problem before it starts | [`/in-your-own-words`](../in-your-own-words/SKILL.md) |
 | Aim a task higher before starting: more expert, more outcome-focused, not overspecified | [`/sharpen`](../sharpen/SKILL.md) |
@@ -87,7 +83,6 @@ The default answer is `/poteto-mode`, which runs most of the others when its ste
 | Strip comments before review, using a reviewer that didn't write them | [`/no-comments`](../no-comments/SKILL.md) |
 | Clean AI tells out of prose | [`/unslop`](../unslop/SKILL.md) |
 | Write docs, an RFC, a README, a PR description, or a commit message to a standard | [`/technical-writing`](../technical-writing/SKILL.md) |
-| Write skills, agent instructions, or context pointers | [`/writing-for-agents`](../writing-for-agents/SKILL.md) |
 | Hear the last reply again in plain words | [`/bro`](../bro/SKILL.md) |
 | Give agents a scripted way to drive the app and prove behavior | [`/create-verification-skill`](../create-verification-skill/SKILL.md) |
 | Bring a verification skill and its feature map back in line with the app | [`/maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
@@ -131,9 +126,9 @@ Playbooks are step lists inside `/poteto-mode`, not skills, so they have no slas
 - "full autopilot on this queue" runs Autopilot-full. "stack them, don't ship" runs Autopilot-stack.
 - "run the eval playbook" runs Eval.
 
-Without `/poteto-mode`, a phrase such as "babysit this pr" can start Cursor's own skill for the same job instead. The Playbooks section of [`poteto-mode`](../poteto-mode/SKILL.md) lists every playbook and when it applies. [Guide page 6](../../docs/guide/06-verify-and-ship.md) covers opening, babysitting, and landing a PR.
+Without `/poteto-mode`, a phrase such as "babysit this pr" can start the host's own skill for the same job instead. The Playbooks section of [`poteto-mode`](../poteto-mode/SKILL.md) lists every playbook and when it applies. [Guide page 6](../../docs/guide/06-verify-and-ship.md) covers opening, babysitting, and landing a PR.
 
-For a large unclear goal, use [`wayfinder`](../wayfinder/SKILL.md). [`to-spec`](../to-spec/SKILL.md) turns agreed discussion into a spec and continues to the [Multi-phase plan playbook](../poteto-mode/playbooks/multi-phase-plan.md). The operator confirms the spec and the execution plan before implementation. For a settled design, ask `/poteto-mode` for a plan directly. For an empirical design question, use the Prototype playbook or `/architect`.
+pstack has no planning skill. Cursor's Plan Mode works alongside it. For work that spans phases or stacked PRs, asking `/poteto-mode` for a plan runs the [Multi-phase plan playbook](../poteto-mode/playbooks/multi-phase-plan.md), which writes the plan and doesn't implement it. For a design question, the Prototype playbook or `/architect` settles it in code first.
 
 Principles are one-rule skills that `/poteto-mode` reads and cites in its replies. The user rarely invokes one. They steer with the names instead, as in "apply prove it works. show me the real output." Typing `/principle-<name>` still loads one on demand. [Guide page 8](../../docs/guide/08-principles.md) lists them.
 
@@ -145,7 +140,7 @@ Principles are one-rule skills that `/poteto-mode` reads and cites in its replie
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
 | A new model choice had no effect | Check the universal preference file and the active profile's availability gate. A preference does not provision a native model. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |
-| A skill didn't load on its own | Use the host's displayed skill command. `setup-workspace` and `setup-pstack` allow model invocation. Most other pack skills require explicit invocation or routing by `/poteto-mode`. |
+| A skill didn't load on its own | Only `/setup-pstack` loads from the user's words. The others load when the user types them or when `/poteto-mode` runs them, and it doesn't run every skill. |
 | Parallel agents overwrote each other | Give each agent its own worktree, or run them as cloud agents, which each get their own machine. |
 | An overnight run moved but finished nothing | `/loop` (Cursor and Claude) needs a check that can pass or fail, not a duration. See [guide page 7](../../docs/guide/07-overnight.md). |
 | The reply claims success from a green build | Ask for the real command, flow, stored value, or profile. That's the prove-it-works principle. |

@@ -7,13 +7,14 @@
 #   skills/writing-for-agents/SKILL.md and SKILL-MECHANICS.md: source metadata and harness-profile invocation.
 #   The full 13-adapted list is in .scratch/v0.3-start-dev/notes/01-modification-inventory.md.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
-# 0.3.0 adds the byte-identical handoff port; add its two rows when copied.
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
 skills/domain-modeling/GLOSSARY-FORMAT.md	21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801
 skills/domain-modeling/SKILL.md	7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3
 skills/domain-modeling/agents/openai.yaml	f6bf2aa996c6e6f53fdd0708e18a0d16a56aed8322cca59fedbe3c0d2c75f06b
 skills/grilling/SKILL.md	befdff1e27a1dfe2a294d5871169ac1afe16d983911daa4f32627514a48c1e15
 skills/grilling/agents/openai.yaml	1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b
+skills/handoff/SKILL.md	4cbb043950dad2ffd3662ff1a5a0b51ae676004b5cae10e3787e8ee7a4ee69d3
+skills/handoff/agents/openai.yaml	5c479fd562c691851690e8b18c8501045bef0943c10743d636b2fae26add1d28
 skills/learn/GLOSSARY-FORMAT.md	9b99859ec28437668130d8f2ce5a342938970f8a1ed4fd38c3eab4f4b5fff210
 skills/learn/LEARNING-RECORD-FORMAT.md	701fa34b6748aa89e6c960ffb815257f481a7d77fb2900f9028f7edf3fdd6052
 skills/learn/MISSION-FORMAT.md	8cacbb3c0644d3ae0ea4965564797099401a6930a23f7cf462918576587f2418

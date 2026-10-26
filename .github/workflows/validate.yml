@@ -63,6 +63,12 @@ jobs:
         run: |
           set -o pipefail
           python3 scripts/validate-pack --root .scratch/release-pipeline/source 2>&1 | tee .scratch/release-pipeline/logs/pack.log
+      - name: Run start-dev smoke from source HEAD
+        id: smoke
+        if: ${{ !cancelled() && steps.source.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 .scratch/release-pipeline/source/skills/start-dev/tests/smoke 2>&1 | tee .scratch/release-pipeline/logs/start-dev-smoke.log
       - name: Run all five keyless Docker hosts from source HEAD
         id: rig
         if: ${{ !cancelled() && steps.source.outcome == 'success' }}
@@ -76,6 +82,7 @@ jobs:
           TESTS_RESULT: ${{ steps.tests.outcome }}
           VERSION_RESULT: ${{ steps.version.outcome }}
           PACK_RESULT: ${{ steps.pack.outcome }}
+          SMOKE_RESULT: ${{ steps.smoke.outcome }}
           RIG_RESULT: ${{ steps.rig.outcome }}
         run: |
           python3 scripts/release --root .scratch/release-pipeline/source evidence --logs .scratch/release-pipeline/logs --github-output "$GITHUB_OUTPUT"

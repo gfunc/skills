@@ -1,6 +1,6 @@
 # gfunc-skills
 
-The operator's own stack: pstack vendored and modified, with the wayfinder → to-spec planning chain integrated and execution through poteto-mode's autopilot-stack. This glossary fixes the planning vocabulary, the execution vocabulary, and the seam where they meet.
+The operator's own stack: the original pstack vendored at upstream content, with the wayfinder → to-spec planning chain integrated and execution through start-dev's layered program, feature, and PR workflow. This glossary fixes the planning vocabulary, the execution vocabulary, and the seam where they meet.
 
 ## Language
 
@@ -39,7 +39,7 @@ The evidence vehicle for one feature; every unit of the feature lives in its sin
 _Avoid_: branch, changeset
 
 **Owner**:
-The agent that runs one PR end to end — all its units, its evidence, its merge-ready report. One owner per PR.
+The agent that runs one PR end to end — all its units, its evidence, its merge-ready report. One owner per PR. Always a `poteto-agent` subagent; the main agent orchestrates the program or feature above it.
 
 **Lane**:
 One verification scenario in a swarm: a gates lane, a live lane, the perf lane, or an audit lane.

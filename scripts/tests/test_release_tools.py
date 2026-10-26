@@ -306,7 +306,7 @@ class ReleaseTests(ScratchCase):
                         GH_STUB_LOG=str(self.log), RELEASE_TAG="v0.2.0", GITHUB_EVENT_NAME="push",
                         GITHUB_REF_TYPE="tag", GITHUB_REF_NAME="v0.2.0", GITHUB_REPOSITORY="fixture/pack",
                         VALIDATION_EVIDENCE=json.dumps({"source_commit": self.commit,
-                            "gates": {gate: "success" for gate in ("tests", "version", "pack", "rig")},
+                            "gates": {gate: "success" for gate in ("tests", "version", "pack", "smoke", "rig")},
                             "disclosures": ["MANUAL kimi plugin reload needs UI", "SKIPPED codex smoke no key"]}))
         self.state.write_text(json.dumps({"existing": None, "latest": None}))
 
@@ -441,7 +441,7 @@ class ReleaseTests(ScratchCase):
         (logs / "rig.log").write_text("\n".join(["OK kimi stage done", *expected, matrix, "MANUAL kimi reload UI"]) + "\n")
         output = self.root / ".scratch" / "outputs"
         summary = self.root / ".scratch" / "summary"
-        self.env.update(TESTS_RESULT="success", VERSION_RESULT="success", PACK_RESULT="failure", RIG_RESULT="success",
+        self.env.update(TESTS_RESULT="success", VERSION_RESULT="success", PACK_RESULT="failure", SMOKE_RESULT="success", RIG_RESULT="success",
                         GITHUB_STEP_SUMMARY=str(summary))
         result = self.cli("release", "evidence", "--logs", str(logs), "--github-output", str(output), env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
