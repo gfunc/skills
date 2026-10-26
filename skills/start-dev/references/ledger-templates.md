@@ -74,5 +74,5 @@ date	decision	evidence
 ## `agents.tsv`
 
 ```tsv
-id	role	state	stuck_after
+id	role	spawned_as	model	state	stuck_after
 ```

@@ -39,7 +39,7 @@ The evidence vehicle for one feature; every unit of the feature lives in its sin
 _Avoid_: branch, changeset
 
 **Owner**:
-The agent that runs one PR end to end — all its units, its evidence, its merge-ready report. One owner per PR. Always a `poteto-agent` subagent; the main agent orchestrates the program or feature above it.
+The agent that runs one PR end to end — all its units, its evidence, its merge-ready report. One owner per PR. The `dev-owner` agent where the profile reports nested spawn; otherwise the main agent under the PR-owner role prompt, disclosed.
 
 **Lane**:
 One verification scenario in a swarm: a gates lane, a live lane, the perf lane, or an audit lane.

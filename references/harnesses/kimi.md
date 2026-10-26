@@ -93,3 +93,17 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Skill folders:** project `.kimi-code/skills/` and `.agents/skills/`; user `$KIMI_CODE_HOME/skills/` (default `~/.kimi-code/skills/`) and `~/.agents/skills/`.
 - **HAS:** local subagents with background runs and a per-spawn model parameter when a pool is configured; `AgentSwarm` template fan-out with swarm-mode auto-approval; tower mode (`/tower on`); CronCreate; the wire.jsonl trail format; a plugin manifest (`kimi.plugin.json`) carrying skills, agents, hooks, and commands.
 - **LACKS:** per-agent `model:` frontmatter; `deslop` and the cursor-team-kit control skills; a built-in PR tool.
+
+## Role mapping
+
+start-dev resolves roles through this mapping. Resolution order: a named plugin agent, then the built-in types, then the main-agent fallback, then sequential/degraded with disclosure.
+
+- **PR owner (`dev-owner`):** the plugin agent from `agents/dev-owner.md`, registered through `kimi.plugin.json` `agents`. Its `subagents` allowlist (`poteto-agent, coder, explore, plan` plus itself where needed) is the nesting opt-in; without it the agent inherits only `coder`, `explore`, `plan` and cannot dispatch deeper chains.
+- **Dev, critical-dev, reviewer, fixer, merge worker, research:** `Agent` on the built-in `coder` (or `explore` for research) with the role prompts.
+- **Plan lead:** the main agent, or an `Agent` child on `coder` with the plan-lead prompt.
+- **Review lead:** a fresh `Agent` child on a different model family with the review-lead prompt.
+- **Nested spawn:** only with an explicit `subagents` allowlist on the custom agent. Chains always terminate; no depth number is documented.
+- **Parallel spawn:** yes; independent foreground `Agent` calls in one message run concurrently, and `AgentSwarm` fans out a template.
+- **Continuation:** `/goal` is native; CronCreate is the timed tick. There is no `/loop`. Under a goal, spawn children in the foreground and arm no audit tick.
+- **Frontmatter:** `background` no, `is_background` no, `subagents` yes, `tools` yes, `model` ignored (agent files cannot set a model).
+- **Fallback:** without the `subagents` allowlist, `dev-owner` is a leaf; the main orchestrator spawns the devs itself or runs the PR-owner role prompt directly, disclosed in the ledger.

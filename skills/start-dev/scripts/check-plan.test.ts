@@ -25,7 +25,25 @@ ${rule}
 ### PR mechanics
 ### Verdict and merge
 ### Boot recipe
-\`git show origin/main:\` /loop 1h status message
+\`git show origin/main:\` status message
+Continuation: /goal
+
+## Run graph
+\`\`\`mermaid
+graph TD
+  subgraph W1[Wave 1]
+    T1[task: a lane src/one/**]
+    T2[task: b lane src/two/**]
+  end
+  subgraph W2[Wave 2]
+    T3[task: c lane src/one/**]
+  end
+  T1 -->|blocks| T3
+  W1 -->|wave gate| W2
+  W2 -->|feature gate| FG[gate: feature]
+  FG -->|review| RL[gate: review]
+\`\`\`
+**Critical path.** W1 then W2 then the review gate.
 
 ## PR 1
 **Depends on.** None.
@@ -167,21 +185,15 @@ test("accepts an indented Surface line without a colon flag", () => {
 	runPlanText(plan, 0);
 });
 
-test("accepts a profile-named continuation in place of /loop 1h", () => {
-	const goalPlan = validPlan.replace(
-		"`git show origin/main:` /loop 1h status message",
-		"`git show origin/main:` CronCreate `/goal` status message",
-	);
-	runPlanText(goalPlan, 0);
+test("accepts a profile-named Continuation line", () => {
+	const cronPlan = validPlan.replace("Continuation: /goal", "  Continuation: CronCreate hourly tick");
+	runPlanText(cronPlan, 0);
 });
 
-test("rejects a program checklist with no continuation marker", () => {
-	const noTick = validPlan.replace(
-		"`git show origin/main:` /loop 1h status message",
-		"`git show origin/main:` status message",
-	);
+test("rejects a program checklist with no Continuation line", () => {
+	const noTick = validPlan.replace("Continuation: /goal\n", "");
 	const result = runPlanText(noTick, 1);
-	assert.ok(result.stderr.includes("continuation marker"));
+	assert.ok(result.stderr.includes("Continuation"));
 });
 
 test("accepts an installed plugin path when the file exists", () => {
@@ -231,13 +243,53 @@ test("rejects a plugin-sourced plan whose tick prompt reads from trunk", () => {
 		const file = join(home, "plugins", "managed", "gfunc-skills", "skills", "poteto-mode", "playbooks", "autopilot-stack.md");
 		mkdirSync(dirname(file), { recursive: true });
 		writeFileSync(file, "# playbook\n");
-		const line = `\`${file}\` /loop 1h status message`;
+		const line = `\`${file}\` status message`;
 		const plan = validPlan
-			.replace("`git show origin/main:` /loop 1h status message", line)
+			.replace("`git show origin/main:` status message", line)
 			.replace(line, `${line}\nRe-read the execution playbook from trunk.`);
 		const result = runPlanText(plan, 1);
 		assert.ok(result.stderr.includes("tick prompt"));
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
+});
+
+test("rejects a run graph missing a task lane", () => {
+	const plan = validPlan.replace("T2[task: b lane src/two/**]", "T2[task: b]");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("has no file lane"));
+});
+
+test("rejects a run graph missing the review gate", () => {
+	const plan = validPlan
+		.replace("  FG -->|review| RL[gate: review]\n", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('"[gate: review]"'));
+});
+
+test("rejects a run graph missing the feature gate", () => {
+	const plan = validPlan
+		.replace("  W2 -->|feature gate| FG[gate: feature]\n", "")
+		.replace("  FG -->|review| RL[gate: review]\n", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('"[gate: feature]"'));
+});
+
+test("rejects a cyclic run graph", () => {
+	const plan = validPlan.replace("  T1 -->|blocks| T3\n", "  T1 -->|blocks| T3\n  T3 -->|blocks| T1\n");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("cyclic"));
+});
+
+test("rejects a plan with no run graph section", () => {
+	const start = validPlan.indexOf("## Run graph");
+	const end = validPlan.indexOf("## PR 1");
+	const result = runPlanText(validPlan.slice(0, start) + validPlan.slice(end), 1);
+	assert.ok(result.stderr.includes("no \"## Run graph\" section"));
+});
+
+test("rejects a run graph with no wave subgraph", () => {
+	const plan = validPlan.replace("subgraph W1[Wave 1]", "subgraph Group[All]").replace("subgraph W2[Wave 2]", "subgraph Group2[All]");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("wave subgraph"));
 });

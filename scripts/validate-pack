@@ -172,6 +172,37 @@ def skill_metadata(path: Path) -> None:
             raise ReleaseError(f"{key} must be a nonempty string")
 
 
+def agent_parity(root: Path) -> list[str]:
+    # start-dev's owner agent ships as Markdown for Claude/Cursor/Kimi and TOML
+    # for Codex. The two must stay in step: same name, and the TOML exists.
+    # A pack that does not ship start-dev has no owner agent to check.
+    if not (root / "skills" / "start-dev" / "SKILL.md").is_file():
+        return []
+    problems = []
+    md = root / "agents" / "dev-owner.md"
+    toml = root / "codex-agents" / "dev-owner.toml"
+    if not md.is_file():
+        problems.append("agents/dev-owner.md: missing start-dev owner agent")
+        return problems
+    if not toml.is_file():
+        problems.append("codex-agents/dev-owner.toml: missing Codex port of the dev-owner agent")
+        return problems
+    md_text = md.read_text(encoding="utf-8")
+    toml_text = toml.read_text(encoding="utf-8")
+    md_name = next((line.split(":", 1)[1].strip() for line in md_text.splitlines() if line.startswith("name:")), "")
+    toml_name = next((line.split("=", 1)[1].strip().strip('"') for line in toml_text.splitlines() if line.startswith("name =")), "")
+    if md_name != toml_name:
+        problems.append(f"dev-owner name mismatch: agents/dev-owner.md has {md_name!r}, codex-agents/dev-owner.toml has {toml_name!r}")
+    for needle in ("skills/start-dev/SKILL.md", "references/roles/pr-owner.md"):
+        if needle not in md_text:
+            problems.append(f"agents/dev-owner.md: missing required read path {needle}")
+        if needle not in toml_text:
+            problems.append(f"codex-agents/dev-owner.toml: missing required read path {needle}")
+    if "subagents:" not in md_text:
+        problems.append("agents/dev-owner.md: missing the subagents allowlist (the Kimi nesting opt-in)")
+    return problems
+
+
 def profile_contract(root: Path) -> list[str]:
     # The Kimi profile alone carries the sections the adapter contract depends
     # on; other harness profiles keep their own shape. A pack with no Kimi
@@ -265,6 +296,7 @@ def check(root: Path) -> tuple[list[str], list[str]]:
         except (OSError, UnicodeError, ValueError, ReleaseError) as error:
             errors.append(f"{name}: {error}")
     errors.extend(profile_contract(root))
+    errors.extend(agent_parity(root))
     if (root / "references" / "frozen-skills.tsv").exists():
         errors.extend(check_frozen_skills(root))
     elif root.resolve() == Path(__file__).resolve().parents[1]:

@@ -35,15 +35,15 @@ Three front doors.
 
 - [`/poteto-mode`](skills/poteto-mode/SKILL.md) takes a goal and a check, selects a playbook, and runs it. This is the original pstack path, restored to upstream content.
 - [`/wayfinder`](skills/wayfinder/SKILL.md) discusses a loose idea with you and maps the decisions, resolved one per session. It also works standalone.
-- [`/start-dev`](skills/start-dev/SKILL.md) takes an approved spec and runs the execution workflow behind it: a program plan for several features, a feature ticket queue, or one PR with parallel atomic-task waves. Human-invoked, like wayfinder.
+- [`/start-dev`](skills/start-dev/SKILL.md) takes an approved spec and runs the full post-spec lifecycle behind it: an arena-led design phase, a dev-lead plan with a run graph, execution through the `dev-owner` agent in parallel waves under a worktree topology, and a confrontational review before you land. Human-invoked, like wayfinder.
 
 Auxiliary doors: [`/writing-for-agents`](skills/writing-for-agents/SKILL.md) guides skills, `AGENTS.md`, `CLAUDE.md`, and context pointers; [`/poteto-help`](skills/poteto-help/SKILL.md) helps you pick a skill or recover a run; [`/handoff`](skills/handoff/SKILL.md) compacts a conversation into a handoff document for a fresh agent.
 
-The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. `/start-dev` runs the spec from there, adapting to one PR, one feature, or a program. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
+The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. `/start-dev` runs the spec from there through design, plan, execution, and review, adapting to one PR, one feature, or a program. `dev-owner`, the execution agent, is gfunc-owned, not a pstack or Matt Pocock port. Each harness profile's `Role mapping` section resolves the roles and names the continuation mechanism. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
 
 ### Migrating from 0.2.x
 
-0.3.0 is breaking. The modified `/poteto-mode` behavior you may rely on, the execution-role orchestration, the plan emitter, and the checked plan format, moved to [`/start-dev`](skills/start-dev/SKILL.md). `/poteto-mode` is now the original pstack path. Move execution work to `/start-dev <spec>`; principles, playbooks, and the autopilot executors are unchanged.
+0.3.0 is breaking. The modified `/poteto-mode` behavior you may rely on, the execution-role orchestration, the plan emitter, and the checked plan format, moved to [`/start-dev`](skills/start-dev/SKILL.md). `/poteto-mode` is now the original pstack path. Move execution work to `/start-dev <spec>`; principles, playbooks, and the autopilot executors are unchanged. If you spawned `poteto-agent` from start-dev on a pre-release 0.3.0 checkout, switch those briefs to the `dev-owner` agent; `poteto-agent` is a restored pstack delegate again and carries no start-dev role.
 
 Contributors should read [`AGENTS.md`](AGENTS.md) for repository-specific writing, upstream, scratch, verification, and release guidance.
 

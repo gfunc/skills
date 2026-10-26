@@ -6,7 +6,7 @@ Claude Code: plugin-native install with namespaced skills, Markdown subagents wi
 
 - **Spawn tool and arguments:** `Agent` takes `description`, `prompt`, `subagent_type` (`general-purpose`, `Explore`, or a plugin agent name), `model` (alias, full ID, or `inherit`), `effort`, and `isolation: "worktree"` for a worktree child. Subagents run in the background by default and notify on completion. Cursor-only parameters (`environment`, `cloud_base_branch`, `readonly`) are not accepted.
 - **Parallel spawn:** yes. Independent `Agent` calls run concurrently.
-- **Fresh child inherits parent context:** no. A subagent does not inherit the parent's conversation or loaded skills; the parent passes the profile path, role-prompt path, and inputs explicitly. Subagents cannot spawn other subagents.
+- **Fresh child inherits parent context:** no. A subagent does not inherit the parent's conversation or loaded skills; the parent passes the profile path, role-prompt path, and inputs explicitly. Subagents can spawn their own subagents: nesting is on by default, up to three layers below main, and a subagent definition needs `Agent` in its `tools` to spawn.
 
 Plugin `agents/` at the plugin root loads and is namespaced under the plugin name at the lowest precedence; project `.claude/agents/` and user `~/.claude/agents/` override it. The pack's `agents/*.md` carry `background: true`.
 
@@ -30,7 +30,7 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 ## Scheduler
 
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
-- **No native goal mode.** For work that must continue across turns, carry the predicate in `/loop` or in a checked plan; subagents already notify on completion from either default mode.
+- **Goal mode:** `/goal <condition>` is native; a model evaluates the condition after each turn and starts another if it is unmet. `/loop` and `CronCreate` remain the timed surfaces.
 
 ## Plan mode
 
@@ -61,4 +61,18 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Structured question:** `AskUserQuestion`; it is absent in `-p` mode, so ask in plain text there.
 - **Skill folders:** project `.claude/skills/`; user `~/.claude/skills/`.
 - **HAS:** a plugin system (`.claude-plugin/plugin.json`, optional `marketplace.json`, `--plugin-dir` zero-install); namespaced skills `/gfunc-skills:<skill>`; Markdown subagents with model aliases and full IDs; plugin hooks (`hooks/claude-hooks.json`); headless `claude -p --output-format stream-json`; version-tolerant projects/JSONL audits.
-- **LACKS:** a stable transcript schema (write version-tolerant parsers); subagent-of-subagent spawning (deep orchestration nests at one level).
+- **LACKS:** a stable transcript schema (write version-tolerant parsers); a stable transcript schema (write version-tolerant parsers).
+
+## Role mapping
+
+start-dev resolves roles through this mapping. Resolution order: a named plugin agent, then the profile's general type, then the main-agent fallback, then sequential/degraded with disclosure.
+
+- **PR owner (`dev-owner`):** the plugin agent `dev-owner` from `agents/dev-owner.md`, namespaced at spawn as the plugin agent name. Nested spawn is on by default to three layers, so `dev-owner` spawns its devs and merge worker directly.
+- **Dev, critical-dev, reviewer, fixer, merge worker, research:** general subagents (`general-purpose`, or `Explore` for research) briefed with the role prompts under `skills/start-dev/references/roles/`.
+- **Plan lead:** the main agent, or a `general-purpose` subagent with the plan-lead prompt. A read-only `Plan` agent cannot write the plan.
+- **Review lead:** a fresh `general-purpose` subagent on a different model family with the review-lead prompt.
+- **Nested spawn:** yes by default, three layers below main (`CLAUDE_CODE_MAX_SUBAGENT_DEPTH` changes it; `1` disables). A subagent definition needs `Agent` in its `tools` to spawn. At the limit, the leaf does the work itself.
+- **Parallel spawn:** yes.
+- **Continuation:** `/goal` is native (condition-evaluated turns). `/loop` and `CronCreate` also exist; under a goal, no audit tick is armed.
+- **Frontmatter:** `background` yes, `is_background` no, `subagents` no (nesting is gated by `tools`), `tools` yes, `model` yes (alias, full ID, or `inherit`).
+- **Fallback:** at the depth limit or with nesting disabled, the main orchestrator runs the PR-owner role prompt itself and spawns devs directly, disclosed in the ledger.

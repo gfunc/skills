@@ -30,7 +30,7 @@ Append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the p
 ## Scheduler
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait that re-invokes the harness.
-- **No native goal mode.** `spawn_agent` calls run concurrently, but nothing carries a predicate across turns; use an external cron or a checked plan for that.
+- **Goal mode:** `/goal <objective>` is native (`features.goals` is stable and on by default). No CLI scheduler exists; timed ticks need external cron or a timed shell wait.
 
 ## Plan mode
 
@@ -62,3 +62,17 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Skill folders:** project `.agents/skills/` (scanned from the working directory up to the repo root); user `~/.codex/skills/` and `~/.agents/skills/`.
 - **HAS:** a plugin system (root portable `plugin.json` with the agent-plugins `$schema`, or `.codex-plugin/plugin.json` as the compatibility fallback; skills listed as `plugin:skill`); plugin hooks via `hooks/hooks.json` with a Claude-compatible event schema; `codex exec` headless mode (`--json`, `--ephemeral`); symlinked skill folders for a skills-only install; multi-agent tools enabled by default; custom agents installed as TOMLs by the installer.
 - **LACKS:** plugin-packaged subagents (the installer copies the TOMLs instead); a built-in scheduler (external cron); project-grouped transcripts (filter rollouts by `cwd`); automatic hook trust (non-managed hooks need a per-hash `/hooks` review); a plugin-writable `AGENTS.md` channel — it is operator-owned and the installer must not write it.
+
+## Role mapping
+
+start-dev resolves roles through this mapping. Resolution order: a named custom agent, then the built-in `worker`, then the main-agent fallback, then sequential/degraded with disclosure.
+
+- **PR owner (`dev-owner`):** the custom agent installed from `codex-agents/dev-owner.toml` into `$CODEX_HOME/agents/`, selected by `name` in a `spawn_agent` request. Codex nests: the spawn tool tells the child it can spawn its own subagents. Default depth is undocumented; treat a depth hit as unverified and fall back.
+- **Dev, critical-dev, reviewer, fixer, merge worker, research:** `spawn_agent` with the built-in `worker` (or `explorer` for research) and the role prompts.
+- **Plan lead:** the main agent, or a `spawn_agent` child with the plan-lead prompt.
+- **Review lead:** a fresh `spawn_agent` child on a different model family with the review-lead prompt.
+- **Nested spawn:** yes; no documented depth limit. `agents.enabled = false` disables the multi-agent tools entirely.
+- **Parallel spawn:** yes, bounded by `max_concurrent_threads_per_session`.
+- **Continuation:** `/goal` is native and on by default (`features.goals`). No CLI scheduler exists; timed ticks need external cron.
+- **Frontmatter (TOML):** `background` no, `is_background` no, `subagents` no, `tools` no (capabilities come from `features.*`), `model` yes.
+- **Fallback:** with multi-agent tools off or at a depth hit, the main orchestrator runs the PR-owner role prompt itself, disclosed in the ledger. The installer's TOML copy is a pack convention, not a Codex plugin feature.

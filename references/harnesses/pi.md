@@ -30,7 +30,7 @@ The file is a tree, not an append-only log: walk from the active leaf toward the
 ## Scheduler
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait.
-- **Goal mode:** unverified; a probe of the installed package found no `/goal` command or goal extension. Probe the host before relying on one, and record `unverified` rather than "not available" unless a probe confirms it.
+- **Goal mode:** none documented or installed. The installed 1.3.0 docs and package contain no `/goal`, `/loop`, or cron command; a third-party extension is out of scope. Use external cron or a timed shell wait for continuation.
 
 ## Plan mode
 
@@ -62,3 +62,17 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Skill folders:** project `.pi/skills/` and `.agents/skills/`; user `~/.pi/agent/skills/` and `~/.agents/skills/`.
 - **HAS:** native package install (`pi install <path>` or `pi install git:github.com/<owner>/<repo>@<ref>`; root `skills/` is discovered by convention, an optional `package.json` `pi.skills` pins it); headless `pi -p` and `--mode json`; `PI_CODING_AGENT_DIR` relocation for containers.
 - **LACKS:** built-in subagents (the first-party subagent route is an extension); skill namespacing (names are global and first-loaded wins, so a same-named user or project skill shadows the pack's); a `hooks.json` convention (hooks are TypeScript extension events); a built-in scheduler; packageable agents.
+
+## Role mapping
+
+start-dev resolves roles through this mapping. Pi has no stock subagents, so this is the degraded mapping and the disclosure is mandatory in the ledger.
+
+- **PR owner (`dev-owner`):** collapses to the main agent, which runs the PR-owner role prompt directly. With the first-party subagent extension installed, a separate `pi` process per agent is possible; agents are not package resources, so the pack ships no installable agent for Pi.
+- **Dev, critical-dev, reviewer, fixer, merge worker, research:** without the extension, the main agent does the work sequentially. With it, the extension's `tasks` (parallel, capped 8/4) or `chain` (sequential) modes carry the role prompts.
+- **Plan lead:** the main agent.
+- **Review lead:** the main agent in a fresh read, with the reduced independence disclosed; the operator is the independent review.
+- **Nested spawn:** none stock; recursion is extension-defined and unverified (the example child reloads extensions and has no depth guard).
+- **Parallel spawn:** only through the example extension, capped at 8 tasks and 4 concurrent.
+- **Continuation:** none built in; use external cron or a timed shell wait. The installed docs and package contain no goal command.
+- **Frontmatter (example loader):** `background` no, `is_background` no, `subagents` no, `tools` yes, `model` yes.
+- **Fallback:** the main agent executes the plan and review hats itself, sequentially, disclosed in the ledger as reduced independence.

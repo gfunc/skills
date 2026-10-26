@@ -144,6 +144,12 @@ def main() -> int:
         check("no \"swarm workers\" line" in fallback.stderr and "inherit-parent" in fallback.stderr,
               "fallback warns on stderr naming the models file and the stamped token")
 
+        emitted = (spec_dir / "plan.md").read_text()
+        check("## Run graph" in emitted, "emitted plan carries the Run graph section")
+        check("Continuation: " in emitted, "emitted plan carries the profile-named Continuation line")
+        check("[gate: feature]" in emitted and "[gate: review]" in emitted,
+              "emitted run graph names the feature and review gates")
+
         write_ledgers(repo, "demo")
 
         tasks = [
@@ -165,6 +171,9 @@ def main() -> int:
             "| date | gate | command | exit | evidence |\n|---|---|---|---|---|\n"
             "| t1 | wave-1 | targeted: ls src/alpha.txt src/beta.txt | 0 | logs/wave-1.log |\n"
             "| t2 | feature | full gate over the PR head | 0 | logs/feature-gate.log |\n\n"
+            "## Review\n\n"
+            "| round | lead | family | verdict | findings | fixed |\n|---|---|---|---|---|---|\n"
+            "| 1 | review-lead | different | PASS | 1 | 1 |\n\n"
             "## Review and fix\n\n"
             "| round | reviewer | findings | fixer | fixed | rechecked |\n|---|---|---|---|---|---|\n"
             "| 1 | reviewer-A (different family) | 1 | fixer-A | 1 | high-risk only |\n"
@@ -223,6 +232,7 @@ def main() -> int:
         for needle, label in [
             ("wave-1", "wave gate row"), ("| t2 | feature |", "feature gate row"),
             ("reviewer-A", "reviewer row"), ("fixer-A", "fixer row"),
+            ("| PASS |", "review-lead verdict row"),
         ]:
             check(needle in run_md, f"feature ledger carries the {label}")
 

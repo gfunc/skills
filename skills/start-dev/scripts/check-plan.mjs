@@ -22,7 +22,7 @@ const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict 
 const PROGRAM_STATUS_MARKER = "status message";
 const REMOTE_READ_MARKER = "git show origin/main:";
 const PLUGIN_TOKEN = /`([^`\n]+)`/g;
-const PROGRAM_CONTINUATION = /\/loop|\/goal|CronCreate/;
+const CONTINUATION_LINE = /^Continuation: \S/;
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -84,7 +84,8 @@ for (let i = start; i < raw.length; i++) {
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
 	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text.trim());
-	if (/: \S/.test(prose) && !isSurfaceLine) fail(n, "mid-sentence colon");
+	const isContinuationLine = /^Continuation: \S/.test(text.trim());
+	if (/: \S/.test(prose) && !isSurfaceLine && !isContinuationLine) fail(n, "mid-sentence colon");
 }
 
 const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
@@ -160,15 +161,66 @@ else {
 		fail(program.n, `Program checklist lacks a read source: "${REMOTE_READ_MARKER}" or an installed plugin path`);
 	if (!hasRemoteRead && pluginPaths.length && /Re-read the execution playbook from trunk/.test(programText))
 		fail(program.n, "tick prompt reads the playbook from trunk; name the installed plugin path");
-	if (!PROGRAM_CONTINUATION.test(programText))
-		fail(program.n, 'Program checklist lacks a continuation marker the profile names ("/loop", "/goal", or "CronCreate")');
+	if (!program.body.some((l) => !l.code && CONTINUATION_LINE.test(l.text.trim())))
+		fail(program.n, "Program checklist lacks a \"Continuation: <mechanism>\" line naming the active profile's continuation mechanism");
+}
+
+const runGraph = find("Run graph");
+if (!runGraph) fail(1, 'no "## Run graph" section');
+else {
+	const fence = runGraph.body.find((l) => l.code && l.text.trim().startsWith("```mermaid"));
+	if (!fence) fail(runGraph.n, 'Run graph lacks a ```mermaid block');
+	else {
+		const lines = runGraph.body.filter((l) => l.code);
+		const text = lines.map((l) => l.text).join("\n");
+		if (!/^\s*graph TD\s*$/m.test(text)) fail(fence.n, "Run graph must declare graph TD");
+		const tasks = [...text.matchAll(/\[(?:task|pr|feature): [^\]]+\]/g)].map((m) => m[0]);
+		if (tasks.length === 0) fail(fence.n, "Run graph has no task, pr, or feature node");
+		for (const task of tasks) {
+			if (!/ lane [^\]]+/.test(task)) fail(fence.n, `Run graph node ${task} has no file lane`);
+		}
+		const gates = [...text.matchAll(/\[gate: ([^\]]+)\]/g)].map((m) => m[1]);
+		if (!gates.includes("feature")) fail(fence.n, 'Run graph lacks the feature gate node "[gate: feature]"');
+		if (!gates.includes("review")) fail(fence.n, 'Run graph lacks the review gate node "[gate: review]"');
+		const waves = [...text.matchAll(/subgraph W\d+\[/g)];
+		if (waves.length === 0) fail(fence.n, "Run graph has no wave subgraph W<n>");
+		const nodes = new Set();
+		const edges = [];
+		for (const line of lines) {
+			const m = line.text.match(/^\s*([A-Za-z0-9_-]+)(?:\[[^\]]*\])?\s*-->(?:\|([^|]*)\|)?\s*([A-Za-z0-9_-]+)/);
+			if (m) {
+				nodes.add(m[1]); nodes.add(m[3]); edges.push([m[1], m[3]]);
+			} else {
+				const decl = line.text.match(/^\s*([A-Za-z0-9_-]+)\[/);
+				if (decl) nodes.add(decl[1]);
+			}
+		}
+		const color = new Map();
+		const stack = [...nodes];
+		const state = new Map();
+		let cyclic = false;
+		const visit = (id) => {
+			if (state.get(id) === 1) { cyclic = true; return; }
+			if (state.get(id) === 2) return;
+			state.set(id, 1);
+			for (const [from, to] of edges) if (from === id) visit(to);
+			state.set(id, 2);
+		};
+		for (const id of stack) visit(id);
+		if (cyclic) fail(fence.n, "Run graph is cyclic");
+		if (!runGraph.body.some((l) => !l.code && (/^\*\*Critical path\.\*\*/.test(l.text.trim()) || l.text.trim().startsWith("Critical path:"))))
+			fail(runGraph.n, 'Run graph section lacks a "Critical path" line');
+	}
 }
 
 const close = find("Close the program");
 if (!close) fail(1, 'no "## Close the program" section');
 const programIndex = sections.indexOf(program);
 const closeIndex = sections.indexOf(close);
-const prSections = programIndex === -1 || closeIndex === -1 ? [] : sections.slice(programIndex + 1, closeIndex);
+const runGraphIndex = sections.indexOf(runGraph);
+const prSections = programIndex === -1 || closeIndex === -1
+  ? []
+  : sections.slice(programIndex + 1, closeIndex).filter((s) => s !== runGraph);
 if (prSections.length === 0) fail(1, "no PR sections between Program checklist and Close the program");
 
 const report = [];

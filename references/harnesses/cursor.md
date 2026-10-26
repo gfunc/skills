@@ -30,7 +30,7 @@ Read only the active workspace's `agent-transcripts/` tree; the system prompt na
 ## Scheduler
 
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
-- **No native goal mode.** Background `Task` completions arrive as notifications. For work that must continue across turns, carry the predicate in `/loop` or in a checked plan.
+- **Goal mode:** `/goal <objective>` is native. `/loop` is a built-in skill, and cloud agents support timer subscriptions.
 
 ## Plan mode
 
@@ -62,3 +62,17 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Skill folders:** project `.cursor/skills/`; user `~/.cursor/skills/`.
 - **HAS:** cloud agents (`environment: "cloud"`), local agents, the dashboard and Origin as liveness surfaces, `/loop`, the cursor-team-kit skills (`deslop`, `control-ui`, `control-cli`), `AskQuestion`, `/visualize`, and the `.cursor-plugin/` manifest.
 - **LACKS:** a pinned version floor (rolling release); token usage in transcripts (`usageData` empty); a documented user-level rules file path (User Rules are UI-managed).
+
+## Role mapping
+
+start-dev resolves roles through this mapping. Resolution order: a named plugin agent, then the profile's general type, then the main-agent fallback, then sequential/degraded with disclosure. Every Cursor row is documented only; `cursor-agent` was not installed for the research.
+
+- **PR owner (`dev-owner`):** the plugin agent from the `.cursor-plugin/plugin.json` `agents` path, selected as a `Task` type. Nesting reaches one extra level since Cursor 2.5, so `dev-owner` spawns its devs as grandchildren; the grandchildren are leaves.
+- **Dev, critical-dev, reviewer, fixer, merge worker, research:** `Task` subagents with the role prompts; the first-party subagent extension for parallel research work.
+- **Plan lead:** the main agent, or a `Task` subagent with the plan-lead prompt.
+- **Review lead:** a fresh `Task` subagent on a different model family with the review-lead prompt.
+- **Nested spawn:** one extra level (main -> child -> grandchild-leaf). The documented fallback at the limit is the leaf doing the work or the main agent making more direct `Task` calls; treat that as inference, not a documented contract.
+- **Parallel spawn:** yes.
+- **Continuation:** `/goal` is native. `/loop` is a built-in skill; cloud timer subscriptions exist.
+- **Frontmatter:** `background` no, `is_background` yes, `subagents` no, `tools` no (subagents inherit the parent's tools), `model` yes (`inherit` default).
+- **Fallback:** when a grandchild would need to spawn, the main orchestrator runs the PR-owner role prompt itself and spawns devs directly, disclosed in the ledger.
