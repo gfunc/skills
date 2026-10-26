@@ -4,6 +4,8 @@
 
 ## Shape
 
+Principles: apply the `Dev-lead plan` row in [§ Principles](../SKILL.md#principles) of the skill.
+
 | Path | Level | Holds |
 |---|---|---|
 | `.scratch/<effort>/program.md` | Program | The program plan, feature states, the audit cadence, the standing-order record. |

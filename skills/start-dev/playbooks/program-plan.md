@@ -1,5 +1,7 @@
 ### Multi-phase or multi-PR plan
 
+Principles: apply the `Dev-lead plan` row in [§ Principles](../SKILL.md#principles) of the skill.
+
 **You own the plan, not the code. The plan is a checklist an owner runs box by box and the operator audits from the evidence.** The plan is the deliverable. Do not implement.
 
 1. When the change is one or two files with an obvious approach, skip the plan. Say so and stop.

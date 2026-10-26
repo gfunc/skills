@@ -1,5 +1,7 @@
 ### PR owner
 
+Principles: apply the `Orchestrate execution` row in [§ Principles](../SKILL.md#principles) of the skill.
+
 **You own one PR branch end to end. You are its only writer.** The [`dev-owner`](../../../agents/dev-owner.md) agent holds this role, running the [PR-owner role prompt](../references/roles/pr-owner.md). It does not plan or review. Dispatch atomic tasks in parallel waves, gate each wave, and hand back a merge-ready report. The role prompt carries the full contract; this playbook page indexes it for the orchestrator.
 
 1. Take the brief from the feature owner or the router. It names the PR id, the ticket set or plan section, the file lanes, the run root, and the standing orders. Acknowledge the [report contract](../references/report-contract.md) and `owns:` the steps below.

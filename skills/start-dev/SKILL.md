@@ -18,6 +18,19 @@ The lifecycle is spec intake → architect → dev-lead plan → orchestrate →
 
 **Stop conditions.** Blocked design, blocked plan, a failed review after the loop limit, missing credentials or permissions, or a product call no experiment settles.
 
+## Principles
+
+The full restored [poteto-mode Principles index](../poteto-mode/SKILL.md) applies in every phase. The table names each phase's **primary** principles; it is an emphasis, not an exhaustive limit. Every phase still applies the full index, and the design phase keeps its explicit full-index read and review check. The leaf `principle-*` skill is the authority for each; read the leaf for any principle that shapes a decision and name it with the choice it changed.
+
+| Phase | Primary principles |
+|---|---|
+| Spec intake | `never-block-on-the-human`, `model-the-domain`, `minimize-reader-load`, `attack-the-premise`, `laziness-protocol`, `experience-first` |
+| Architect / design | The full index; the design-critical: `foundational-thinking`, `redesign-from-first-principles`, `subtract-before-you-add`, `outcome-oriented-execution`, `exhaust-the-design-space`, `fix-root-causes`, `model-the-domain`, `boundary-discipline`, `type-system-discipline`, `make-operations-idempotent`, `separate-before-serializing-shared-state`, `prove-it-works` |
+| Dev-lead plan | `sequence-verifiable-units`, `separate-before-serializing-shared-state`, `guard-the-context-window`, `never-block-on-the-human`, `prove-it-works`, `minimize-reader-load`, `encode-lessons-in-structure`, `foundational-thinking` |
+| Orchestrate execution | `prove-it-works`, `test-behavior-not-implementation`, `fix-root-causes`, `sequence-verifiable-units`, `model-the-domain`, `boundary-discipline`, `type-system-discipline`, `make-operations-idempotent`, `laziness-protocol`, `guard-the-context-window`, `minimize-reader-load`, `encode-lessons-in-structure` |
+| Confrontational review | `prove-it-works`, `attack-the-premise`, `fix-root-causes`, `redesign-from-first-principles`, `test-behavior-not-implementation`, `explain-the-number`, `minimize-reader-load`, `guard-the-context-window`, `never-block-on-the-human` |
+| Operator land | `prove-it-works`, `sequence-verifiable-units`, `never-block-on-the-human`, `encode-lessons-in-structure` |
+
 ## Hats
 
 | Hat | Who | Notes |
@@ -60,15 +73,21 @@ The design artifact is the Phase B synthesized package, its types, signatures, m
 
 ## Plan
 
+Principles: apply the phase row in § Principles.
+
 The [plan lead](references/roles/plan-lead.md) charts the [run graph](references/run-graph.md) before execution: nodes are PRs or features and the atomic tasks, edges are blocking dependencies and file-lane collisions, groups are waves, plus the critical path and the gates. The plan carries staffing (the role-to-model map, confirmed with the operator outside auto mode), risk with a fallback per risk, the worktree topology, and the review plan. The plan review by a fresh subagent or the operator precedes the operator's go. A design or spec change re-charts and re-approves. See [`playbooks/program-plan.md`](playbooks/program-plan.md).
 
 ## Execution
+
+Principles: apply the phase row in § Principles.
 
 The main agent turns the approved graph into waves that maximize parallel atomic tasks by file lane; lane collisions are serialized. [`playbooks/pr-owner.md`](playbooks/pr-owner.md) and [`references/worktree-topology.md`](references/worktree-topology.md) carry the flow: one feature worktree holds the PR branch; each parallel wave gets a wave worktree with task worktrees branching from it and the merge worker integrating task branches there, with the full gate on the wave worktree after the wave; a serial wave runs in the feature worktree; after all waves, merge into the feature worktree, run the full gate and the fixer loop, and open the PR from the feature branch.
 
 On a harness with `/goal`, run execution under goal mode with the merge-ready PR as the completion criterion, foreground children or passive completion waits, and no background polling and no audit tick. On a harness without it, normal mode with the same no-polling rule. The profile's Role mapping names which applies.
 
 ## Review
+
+Principles: apply the phase row in § Principles.
 
 The [review lead](references/roles/review-lead.md) runs the confrontational review of the PR head against the spec, the design, the plan, and the evidence. It files findings, the fixer resolves them, the main agent orchestrates, and the review lead gives PASS, FIX, or BLOCK plus a merge recommendation. At most three loops. The operator lands.
 

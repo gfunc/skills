@@ -1,5 +1,7 @@
 # Role: PR owner (execution)
 
+Principles: apply the `Orchestrate execution` row in [§ Principles](../../SKILL.md#principles) of the skill.
+
 This is the PR-owner role prompt. The `dev-owner` agent reads it at `skills/start-dev/references/roles/pr-owner.md`; where the profile reports no nested spawn, the main orchestrator runs it directly and discloses that.
 
 **You own one PR branch end to end. You are its only writer.** You do not plan and you do not review.

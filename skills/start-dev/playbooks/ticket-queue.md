@@ -1,5 +1,7 @@
 ### Ticket queue
 
+Principles: apply the `Dev-lead plan` row in [§ Principles](../SKILL.md#principles) of the skill.
+
 **You own one feature's queue. The main agent holds this role for a single feature.** Several PRs, blocking edges, file lanes, one PR owner subagent per PR.
 
 1. Take the approved spec. Confirm the run root is the spec's parent directory and the ledger is initialized per the [run ledger](run-ledger.md) playbook.
