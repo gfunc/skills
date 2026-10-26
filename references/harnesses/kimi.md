@@ -98,7 +98,7 @@ None is required by the pack. A missing runtime stops only the step or lane that
 
 start-dev resolves roles through this mapping. Resolution order: a named plugin agent, then the built-in types, then the main-agent fallback, then sequential/degraded with disclosure.
 
-- **PR owner (`dev-owner`):** the plugin agent from `agents/dev-owner.md`, registered through `kimi.plugin.json` `agents`. Its `subagents` allowlist (`coder, explore`) is the nesting opt-in and matches the execution-only boundary: devs, critical-dev, reviewer, fixer, and the merge worker spawn on `coder`, research on `explore`. Without the allowlist the agent inherits only `coder`, `explore`, `plan` and cannot dispatch deeper chains.
+- **PR owner (`dev-owner`):** the plugin agent from `agents/dev-owner.md`, registered through `kimi.plugin.json` `agents`. Its `subagents` allowlist (`coder, explore`) is the nesting opt-in and matches the execution-only boundary: devs, critical-dev, reviewer, fixer, and the merge worker spawn on `coder`, research on `explore`. Without the allowlist the agent is a leaf; the main orchestrator spawns the devs.
 - **Dev, critical-dev, reviewer, fixer, merge worker, research:** `Agent` on the built-in `coder` (or `explore` for research) with the role prompts.
 - **Plan lead:** the main agent, or an `Agent` child on `coder` with the plan-lead prompt.
 - **Review lead:** a fresh `Agent` child on a different model family with the review-lead prompt.
