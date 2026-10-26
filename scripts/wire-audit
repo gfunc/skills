@@ -2,14 +2,17 @@
 """Audit one Kimi agent's wire.jsonl trail for orchestration-contract violations.
 
 The parent in a delegated run plans, briefs, reviews, and records; children
-author. This tool reads one agent's wire (protocol 1.5) and reports the two
-ways that contract breaks, both deterministic:
+author. This tool reads one agent's wire (protocol 1.5) and reports the three
+ways that contract breaks, all deterministic:
 
   poll              The parent polls for state with repeated Bash calls
                     (`git status`, `git log`, or a timed `sleep`) while a
                     background child is still running. A completion is an
                     event, not something to poll for.
   parent-authoring  The parent edits product files itself with Edit/Write.
+  goal-mode         The parent spawns a background child or adds a cron job
+                    while a goal is active. A goal continues the turn as soon
+                    as one ends, so the next turn has nothing to do but poll.
 
 Parsed event schema. Every wire line is one JSON object; `type` selects the
 record. Only these records are consumed, everything else is ignored:
@@ -21,6 +24,9 @@ record. Only these records are consumed, everything else is ignored:
                   runInBackground
   child end       type in {"subagent.completed", "subagent.cancelled",
                   "subagent.failed"}; field subagentId
+  goal start      type == "goal.create"
+  goal update     type == "goal.update"; field status
+  cron add        type == "cron.add"
 
 The wire is append-only, so file order is event order. Background children
 are correlated by subagentId: live from a spawned event with
@@ -69,6 +75,21 @@ class ChildEnded:
     subagent_id: str
 
 
+@dataclass(frozen=True)
+class GoalStarted:
+    pass
+
+
+@dataclass(frozen=True)
+class GoalUpdated:
+    status: str
+
+
+@dataclass(frozen=True)
+class CronAdded:
+    pass
+
+
 CHILD_ENDED_TYPES = ("subagent.completed", "subagent.cancelled", "subagent.failed")
 
 POLL_COMMAND = re.compile(
@@ -79,7 +100,9 @@ EXCLUDED_PATH_MARKERS = ("/.scratch/", "/.kimi-code/")
 EXCLUDED_PATH_PREFIXES = (".scratch/", ".kimi-code/")
 
 
-def parse_wire(lines: Sequence[str]) -> Iterator[ToolCall | ChildSpawned | ChildEnded]:
+def parse_wire(
+    lines: Sequence[str],
+) -> Iterator[ToolCall | ChildSpawned | ChildEnded | GoalStarted | GoalUpdated | CronAdded]:
     for number, line in enumerate(lines, 1):
         line = line.strip()
         if not line:
@@ -107,6 +130,14 @@ def parse_wire(lines: Sequence[str]) -> Iterator[ToolCall | ChildSpawned | Child
             )
         elif rtype in CHILD_ENDED_TYPES:
             yield ChildEnded(subagent_id=str(record.get("subagentId", "")))
+        elif rtype == "goal.create":
+            yield GoalStarted()
+        elif rtype == "goal.update":
+            status = record.get("status")
+            if isinstance(status, str) and status:
+                yield GoalUpdated(status=status)
+        elif rtype == "cron.add":
+            yield CronAdded()
 
 
 def is_poll_command(command: object) -> bool:
@@ -133,9 +164,14 @@ class Report:
     poll_runs: list[list[ToolCall]]
     authoring_calls: int
     authoring_paths: list[str]
+    goal_background_spawns: int
+    goal_background_ids: list[str]
+    goal_cron_adds: int
 
 
-def audit(events: Iterator[ToolCall | ChildSpawned | ChildEnded]) -> Report:
+def audit(
+    events: Iterator[ToolCall | ChildSpawned | ChildEnded | GoalStarted | GoalUpdated | CronAdded],
+) -> Report:
     live: set[str] = set()
     background_spawns = 0
     tool_calls = 0
@@ -143,6 +179,9 @@ def audit(events: Iterator[ToolCall | ChildSpawned | ChildEnded]) -> Report:
     runs: list[list[ToolCall]] = []
     current_run: list[ToolCall] = []
     authoring: list[ToolCall] = []
+    goal_active = False
+    goal_background_ids: list[str] = []
+    goal_cron_adds = 0
 
     def end_run() -> None:
         nonlocal current_run
@@ -151,10 +190,19 @@ def audit(events: Iterator[ToolCall | ChildSpawned | ChildEnded]) -> Report:
             current_run = []
 
     for event in events:
-        if isinstance(event, ChildSpawned):
+        if isinstance(event, GoalStarted):
+            goal_active = True
+        elif isinstance(event, GoalUpdated):
+            goal_active = event.status == "active"
+        elif isinstance(event, CronAdded):
+            if goal_active:
+                goal_cron_adds += 1
+        elif isinstance(event, ChildSpawned):
             if event.background:
                 background_spawns += 1
                 live.add(event.subagent_id)
+                if goal_active:
+                    goal_background_ids.append(event.subagent_id)
         elif isinstance(event, ChildEnded):
             live.discard(event.subagent_id)
         else:
@@ -184,6 +232,9 @@ def audit(events: Iterator[ToolCall | ChildSpawned | ChildEnded]) -> Report:
         authoring_paths=sorted({
             str(call.args.get("path")) for call in authoring if isinstance(call.args, dict)
         }),
+        goal_background_spawns=len(goal_background_ids),
+        goal_background_ids=goal_background_ids,
+        goal_cron_adds=goal_cron_adds,
     )
 
 
@@ -216,6 +267,12 @@ def print_text(report: Report, wire_name: str) -> None:
         print(f"  {path}")
     if len(report.authoring_paths) > 10:
         print(f"  ... and {len(report.authoring_paths) - 10} more files")
+    print(
+        f"goal-mode: {report.goal_background_spawns} background spawns and "
+        f"{report.goal_cron_adds} cron adds while a goal was active"
+    )
+    for subagent_id in report.goal_background_ids[:10]:
+        print(f"  background child {subagent_id}")
 
 
 def report_json(report: Report) -> dict:
@@ -233,6 +290,9 @@ def report_json(report: Report) -> dict:
         ],
         "authoring_calls": report.authoring_calls,
         "authoring_paths": report.authoring_paths,
+        "goal_background_spawns": report.goal_background_spawns,
+        "goal_background_ids": report.goal_background_ids,
+        "goal_cron_adds": report.goal_cron_adds,
     }
 
 
@@ -241,6 +301,8 @@ def selected_finding(report: Report, fail_on: str) -> bool:
         return report.poll_run_count > 0
     if fail_on == "parent-authoring":
         return report.authoring_calls > 0
+    if fail_on == "goal-mode":
+        return report.goal_background_spawns > 0 or report.goal_cron_adds > 0
     return False
 
 
@@ -297,6 +359,18 @@ def envelope_end(subagent_id: str, kind: str = "subagent.completed", time: int =
     return json.dumps({"type": kind, "subagentId": subagent_id, "time": time})
 
 
+def envelope_goal_create(time: int = 0) -> str:
+    return json.dumps({"type": "goal.create", "agentId": "main", "goalId": "goal-1", "time": time})
+
+
+def envelope_goal_update(status: str, time: int = 0) -> str:
+    return json.dumps({"type": "goal.update", "agentId": "main", "status": status, "time": time})
+
+
+def envelope_cron(time: int = 0) -> str:
+    return json.dumps({"type": "cron.add", "agentId": "main", "task": {"cron": "17 * * * *"}, "time": time})
+
+
 METADATA = json.dumps({"type": "metadata", "protocol_version": "1.5", "created_at": 1})
 
 POLLING_WIRE = [
@@ -342,6 +416,25 @@ AUTHORING_WIRE = [
     envelope_tool("t5", "Write", {"path": ".kimi-code/skills/foo.md"}, 104),
 ]
 
+GOAL_BACKGROUND_WIRE = [
+    METADATA,
+    envelope_goal_create(100),
+    envelope_spawn("agent-1", True, 101),
+    envelope_cron(102),
+    envelope_spawn("agent-2", False, 103),
+    envelope_goal_update("paused", 104),
+    envelope_spawn("agent-3", True, 105),
+]
+
+GOAL_CLEAN_WIRE = [
+    METADATA,
+    envelope_goal_create(100),
+    envelope_spawn("agent-1", False, 101),
+    envelope_goal_update("complete", 102),
+    envelope_spawn("agent-2", True, 103),
+    envelope_cron(104),
+]
+
 MALFORMED_WIRE = [METADATA, '{"type": "subagent.spawned", ']
 
 
@@ -374,6 +467,8 @@ def self_test() -> int:
             "polling.jsonl": POLLING_WIRE,
             "clean.jsonl": CLEAN_WIRE,
             "authoring.jsonl": AUTHORING_WIRE,
+            "goal-background.jsonl": GOAL_BACKGROUND_WIRE,
+            "goal-clean.jsonl": GOAL_CLEAN_WIRE,
             "malformed.jsonl": MALFORMED_WIRE,
         }
         for name, records in cases.items():
@@ -417,6 +512,23 @@ def self_test() -> int:
         code, _ = scan(root / "authoring.jsonl", "--fail-on", "poll")
         ok &= check("exit --fail-on poll", code, 0)
 
+        print("goal-background.jsonl: background spawns and cron adds under an active goal")
+        code, data = scan(root / "goal-background.jsonl")
+        ok &= check("exit --fail-on none", code, 0)
+        assert data is not None
+        ok &= check("goal_background_spawns", data["goal_background_spawns"], 1)
+        ok &= check("goal_background_ids", data["goal_background_ids"], ["agent-1"])
+        ok &= check("goal_cron_adds", data["goal_cron_adds"], 1)
+        code, _ = scan(root / "goal-background.jsonl", "--fail-on", "goal-mode")
+        ok &= check("exit --fail-on goal-mode", code, 1)
+
+        print("goal-clean.jsonl: background and cron outside an active goal")
+        code, data = scan(root / "goal-clean.jsonl", "--fail-on", "goal-mode")
+        ok &= check("exit --fail-on goal-mode", code, 0)
+        assert data is not None
+        ok &= check("goal_background_spawns", data["goal_background_spawns"], 0)
+        ok &= check("goal_cron_adds", data["goal_cron_adds"], 0)
+
         print("malformed.jsonl: input errors exit 2")
         code, _ = scan(root / "malformed.jsonl")
         ok &= check("exit on malformed wire", code, 2)
@@ -428,12 +540,12 @@ def self_test() -> int:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="wire-audit",
-        description="Audit one agent's Kimi wire.jsonl for polling and parent authoring.",
+        description="Audit one agent's Kimi wire.jsonl for polling, parent authoring, and goal-mode breaches.",
     )
     parser.add_argument("wire", nargs="?", help="path to one agent's wire.jsonl")
     parser.add_argument(
         "--fail-on",
-        choices=["poll", "parent-authoring", "none"],
+        choices=["poll", "parent-authoring", "goal-mode", "none"],
         default="none",
         help="exit non-zero when this check has findings (default: none)",
     )

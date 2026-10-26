@@ -96,7 +96,7 @@ The contract above drives one task to one finish condition. Some nights hold mor
 
 A [Cursor Project](https://cursor.com/blog/projects) gives one coordinator agent a persistent thread. The coordinator doesn't write code. It directs subagents, which run in the cloud by default, so the work continues when your laptop is closed. That's the shape the Orchestrate playbook expects. Start your prompts to the coordinator with `/poteto-mode`, and the subagents it spawns follow the playbooks.
 
-The cloud default is a Cursor Projects behavior. On Kimi the same shape runs locally. Give the coordinator one git worktree per worker and start a `/goal` on the coordinator to carry the program across turns. Subagents run on your machine, so the program pauses when the laptop does.
+The cloud default is a Cursor Projects behavior. On Kimi the same shape runs locally. Give the coordinator one git worktree per worker and start a `/goal` on the coordinator to carry the program across turns. Subagents run on your machine, so the program pauses when the laptop does. Run those workers in the foreground. A goal continues the turn as soon as one ends, so a background worker leaves the next turn with nothing to do but poll. Keep the hourly audit tick off while the goal runs.
 
 A few habits help:
 

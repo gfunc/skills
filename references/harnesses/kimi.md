@@ -50,6 +50,9 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 - A goal stops as `complete`, `paused`, or `blocked`. `/goal status`, `pause`, `resume`, `cancel`, `replace`, and `next` manage it.
 - Budgets exist for time, turns, and tokens; `/goal status` reports progress. `SetGoalBudget` is the main-agent tool where it is exposed.
 - Use `/goal` for autonomous-run predicates. Use CronCreate for timed audit ticks. There is no `/loop`.
+- Under a goal, spawn every child in the foreground. Foreground calls in one message still run concurrently. A goal continues the turn as soon as one ends, so a background child leaves the next turn with nothing to do but poll.
+- Outside a goal, a background child covers work the parent does not need now. After dispatch, end the turn; the completion notification is the wakeup. `TaskOutput`, `TaskList`, `WaitFor`, and repeated `git status` are not.
+- A timed audit tick and a goal are mutually exclusive. The goal is the continuation. Delete an armed tick on pause, completion, or cancel.
 
 ## Plan mode
 
