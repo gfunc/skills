@@ -1,6 +1,6 @@
 ---
 name: start-dev
-description: Human-invoked front door for the full post-spec lifecycle. Accepts a to-spec spec, architects the design arena-led, plans with a run graph like a dev lead, orchestrates execution through the dev-owner agent in parallel waves, and runs a confrontational review before the operator lands. Use for /start-dev, "run the spec", "start development".
+description: Human-invoked front door for the full post-spec lifecycle. Accepts a to-spec spec, runs the restored architect skill's Phase A+B for the design, plans with a run graph like a dev lead, orchestrates execution through the dev-owner agent in parallel waves, and runs a confrontational review before the operator lands. Use for /start-dev, "run the spec", "start development".
 disable-model-invocation: true
 ---
 
