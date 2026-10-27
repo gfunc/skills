@@ -55,6 +55,7 @@ One flat `skills/` root — every skill a peer:
 - `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
 - `skills/grilling`, `skills/domain-modeling`, `skills/research`, `skills/prototype` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
 - [`skills/writing-for-agents`](skills/writing-for-agents/SKILL.md) is Matt Pocock's reference for agent-facing writing, with host-neutral skill mechanics. Root [`AGENTS.md`](AGENTS.md) uses its task-specific context pointers.
+- [`skills/playwright-expert`](skills/playwright-expert/SKILL.md) — Playwright E2E test authoring, fixtures, CI, and flake debugging, vendored from Jeffallan (MIT); [`skills/playwright-cli`](skills/playwright-cli/SKILL.md) remains the CLI browser driver.
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
 - `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs mirror@base→HEAD per path and reports what needs a three-way merge.
 - `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
