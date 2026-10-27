@@ -22,6 +22,7 @@
 22. Run subagent commands in the foreground with a timeout; no detached fire-and-forget.
 23. Prove new or changed tests can fail. Run them against the pre-change code or a known-bad state (negative control).
 24. Briefs point at files and paths; never inline bulk content (sparse context pointers).
-25. Reach the human only for irreversible actions, genuine product or preference calls no experiment settles, a standing order contradicting observed reality, missing credentials or permissions, a dependency cycle, a required re-slice, or a dead end that survived a replan.
-26. Never reach the human for retries, CI flake triage, frontier nudges, format fixes, in-scope refusals, or "should I keep going".
-27. Models are per-plan, named at authoring time; standing orders carry no role-to-alias mapping. Role names are feature, refactoring, bug-fix, judgment and prose, swarm workers; harness aliases are chosen per plan.
+25. Every brief carries one `Model: <role>=<model>` line per role named in the active harness profile's `### Role model table`, drawn from the profile's harness-native model store, and requires each child to pass its line's model on every spawn; a missing role line falls back to `~/.agents/pstack-models.md`, then the skill's stated default.
+26. Reach the human only for irreversible actions, genuine product or preference calls no experiment settles, a standing order contradicting observed reality, missing credentials or permissions, a dependency cycle, a required re-slice, or a dead end that survived a replan.
+27. Never reach the human for retries, CI flake triage, frontier nudges, format fixes, in-scope refusals, or "should I keep going".
+28. Models are per-plan, named at authoring time; standing orders carry no role-to-alias mapping. Role names are feature, refactoring, bug-fix, judgment and prose, swarm workers; harness aliases are chosen per plan.
