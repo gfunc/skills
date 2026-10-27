@@ -177,7 +177,7 @@ def verification_edits() -> list[tuple[str, str]]:
          "- [ ] `git fetch origin main && git checkout <head SHA>`."),
         ("- [ ] <Start the backend and the surface through the verify skill's launch or e2e recipe. Wait for its ready signal.>",
          "- [ ] Start the surface through the verify skill's launch recipe and wait for its ready signal."),
-        ("- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses Playwright (`skills/playwright-cli`) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>",
+        ("- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses the detected UI driver (an existing Playwright harness or `playwright-cli` (`skills/playwright-cli`)) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>",
          "- [ ] Deliver the feature entry's journey under the lane's condition through the verify skill. Name the read-only diagnostics."),
         ("Save every screenshot to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png`",
          "Save every screenshot to `.scratch/demo/shots/<pr-id>/worker-<n>/<slug>.png`"),

@@ -42,7 +42,7 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 
 ## UI Driver
 
-- **UI driver:** `playwright-cli` (`skills/playwright-cli`).
+- **UI driver:** Playwright, or `playwright-cli` (`skills/playwright-cli`) when the repo selects it.
 
 ## Store
 

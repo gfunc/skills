@@ -42,7 +42,7 @@ The file is a tree, not an append-only log: walk from the active leaf toward the
 
 ## UI Driver
 
-- **UI driver:** `playwright-cli` (`skills/playwright-cli`).
+- **UI driver:** Playwright, or `playwright-cli` (`skills/playwright-cli`) when the repo selects it.
 
 ## Store
 

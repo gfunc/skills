@@ -132,7 +132,7 @@ GitHub Releases hold the release notes and provide tag source archives. Workflow
 - Python 3.11 or later, for version and pack checks without additional packages.
 - Docker, for the existing five-harness validation rig.
 - A forge CLI for execution: `gh` (GitHub) or `glab` (GitLab remotes).
-- Playwright via the `playwright-cli` skill (`skills/playwright-cli`), for UI-surface live lanes.
+- An existing Playwright harness or the `playwright-cli` skill (`skills/playwright-cli`), detected for UI-surface live lanes.
 
 ## Stances
 
