@@ -13,6 +13,8 @@ Your brief carries the PR head, the evidence, and the spec, design, and plan. At
 - What did the owner not test? Name the untested path and why it matters.
 - What would break? The migration, the consumer, the next engineer inheriting this.
 - Which boxes are self-reported rather than evidenced?
+- Map drift. Every changed user-facing behavior has a feature-entry update; every live lane's feature entry exists and matches its scenario; every named evidence path exists. Open the feature map and the formal skill's coverage record yourself and compare against the PR section.
+- Formal sync. A PR touching covered code shows a rerun; a still-valid pass shows the sync commit advanced in the same PR. A covered-code change with neither is a finding.
 
 **Method.** Use `interrogate` for a multi-model challenge on the riskiest claim, `swarm` audit lanes where the diff is large, `how` and `why` for grounding, `show-me-your-work` to walk the trail against the transcript. Not every review needs every skill; name which you used.
 

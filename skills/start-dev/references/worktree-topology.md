@@ -21,6 +21,7 @@ One feature worktree, one wave worktree per parallel wave, one task worktree per
 - One writer per branch. The task branch belongs to its dev; the wave branch to the merge worker during integration; the feature branch to the merge worker at wave integration and to the fixer inside the review loop.
 - A conflict goes back to `dev-owner` named with the two tasks and the files. It is a lane-split defect, not a merge-worker judgment call.
 - Task and wave worktrees are removed after their wave's gate passes and the review has the evidence it needs. The feature worktree stays until the operator lands.
+- A folded creation task commits and merges its artifacts — the verify skill's files and the feature map entry — before its task worktree is removed. Unmerged skill files are lost work, not a later PR's problem. Evidence stays under `.scratch/<effort>/verification/<pr-id>/`, which the run root owns, not the task worktree.
 
 ## Capability gating
 
