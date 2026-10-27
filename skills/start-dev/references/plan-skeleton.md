@@ -23,7 +23,10 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 | Map | `<features/ path>` |
 | Formal | `not-required` |
 | Formal property | `none` |
+| Maintenance route | `none` |
 | Owner | `<role>` |
+
+Fill `Maintenance route` only when the app `Decision` or `Formal` is `exists-stale`: name the `maintain-verification-skill` and/or `maintain-formal-verification-skill` route the stale decision routes to. Keep `none` otherwise.
 
 ## Program checklist
 
@@ -144,9 +147,12 @@ Change: user-facing
 
 **Verify, formal.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
-<Keep the Formal run box for `Formal: create`, `exists`, or `exists-stale`. For `exists-stale`, name the `maintain-formal-verification-skill` route and owner in `## Verification readiness`, then run the maintained check. For `Formal: not-required`, keep only the Not covered box.>
+<Keep the four formal boxes for `Formal: create`, `exists`, or `exists-stale`. For `exists-stale`, name the `maintain-formal-verification-skill` route and owner in `## Verification readiness`, then run the maintained check in the Run box. For `Formal: not-required`, keep only the Not covered box. Delete whichever branch the PR's Formal decision does not use.>
 
-- [ ] Formal run. Run `<command>`. Property. <One-sentence property.> Covered files/functions. <Paths and symbols.> Save `<output evidence path>`. Pass when <predicate>. Advance the formal sync commit when the passing model still describes the code.
+- [ ] Command. `<command>`.
+- [ ] Property. <One-sentence property.>
+- [ ] Covered. <Paths and symbols.>
+- [ ] Run. Save `<output evidence path>`. Pass when <predicate>. Advance the formal sync commit when the passing model still describes the code.
 - [ ] Not covered.
 
 **Verify, perf.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
