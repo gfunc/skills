@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "gfunc-skills",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "gfunc's own agent stack: original pstack vendored, with the wayfinder planning chain and a start-dev execution front door. Three front doors (/poteto-mode, /wayfinder, /start-dev).",
   "author": {
     "name": "gfunc"
