@@ -8,7 +8,7 @@
 
 ## The answer in one paragraph
 
-All four skills ship on `origin/main`. The two formal-verification skills are byte-identical to pstack. `create-verification-skill` and `maintain-verification-skill` each differ from pstack in exactly one file, `SKILL.md`, and only in the harness-profile adaptation: gfunc adds a `**Harness profile.**` paragraph and replaces pstack's hardcoded harness-folder list with the active profile's `Skill folders` field. `vendor-manifest.txt` lists all four as vendored paths; its header explicitly declares the two non-formal skills as intended local modifications, while the formal pair is not declared. `scripts/sync-upstream` confirms this classification today: formal pair `clean/clean → ok`, the other two `clean/mod → local modification (intended)`, because pstack HEAD equals the manifest BASE. Editing a gfunc copy therefore creates no pstack diff and no conflict now; it becomes a `3-WAY MERGE` row only after pstack advances and also touches that path. `origin/main`'s `setup-pstack` still offers both generators in optional steps 7 and 8, and `origin/main`'s `setup-workspace` offers verification generation and maintenance and routes to the two non-formal skills. The installed plugin is version **0.2.2**, not 0.2.1, and contains all four skills byte-identical to `origin/main` — none is missing.
+All four skills ship on `origin/main`. The two formal-verification skills are byte-identical to pstack. `create-verification-skill` and `maintain-verification-skill` each differ from pstack in exactly one file, `SKILL.md`, and only in the harness-profile adaptation: gfunc adds a `**Harness profile.**` paragraph and replaces pstack's hardcoded harness-folder list with the active profile's `Skill folders` field. `vendor-manifest.txt` lists all four as vendored paths; its header explicitly declares the two non-formal skills as intended local modifications, while the formal pair is not declared. `scripts/sync-upstream` confirms this classification today: formal pair `clean/clean → ok`, the other two `clean/mod → local modification (intended)`, because pstack HEAD equals the manifest BASE. Editing a gfunc copy does not touch pstack. Against the mirror as-is, three paths would stay local-only; but the mirror's already-fetched `origin/main` is 9 commits ahead and changes `create-formal-verification-skill/SKILL.md`, so an edit there becomes a `3-WAY MERGE` row as soon as the mirror is fast-forwarded. The other three have no upstream change in those commits. `origin/main`'s `setup-pstack` still offers both generators in optional steps 7 and 8, and `origin/main`'s `setup-workspace` offers verification generation and maintenance and routes to the two non-formal skills. The installed plugin is version **0.2.2**, not 0.2.1, and contains all four skills byte-identical to `origin/main` — none is missing.
 
 ## a. Do the four skills exist on `origin/main`?
 
@@ -149,13 +149,40 @@ skills/maintain-verification-skill                      clean     mod    local m
 
 Command: `cd /home/jason/projects/skills && scripts/sync-upstream | grep -E 'verification|^PATH|^-----'`.
 
+### The mirror's fetched `origin/main` is 9 commits ahead
+
+The mirror's own status is `main...origin/main [behind 9]`. No fetch was run, but the already-present remote-tracking ref is readable:
+
+```bash
+git -C /home/jason/projects/pstack log --oneline HEAD..origin/main
+git -C /home/jason/projects/pstack diff --name-status HEAD origin/main -- \
+  skills/create-verification-skill skills/maintain-verification-skill \
+  skills/create-formal-verification-skill skills/maintain-formal-verification-skill
+```
+
+Only one of the four paths appears:
+
+```text
+M	skills/create-formal-verification-skill/SKILL.md
+```
+
+Commit `eed1440 upstream: cursor/plugins/pstack @ e73df47` adds one paragraph to that file (`pstack origin/main:35`), telling the next agent to read TLA+ check results with pstack's [`/statechart`](../statechart/SKILL.md) skill. This is the only verification-path change in the fetched 9 commits.
+
+Consequences:
+
+- On the mirror as it stands, `sync-upstream` still reports `create-formal-verification-skill` as `clean/clean → ok`.
+- Once the mirror is fast-forwarded to its fetched `origin/main`, `create-formal-verification-skill` becomes `upstream=changed`, `local=clean` → `fast-forward copy from mirror`. That is a safe lift **only if gfunc has not edited the file**.
+- If gfunc edits `create-formal-verification-skill` before that sync, the same row becomes `upstream=changed`, `local=mod` → `3-WAY MERGE` (`scripts/sync-upstream:61-64`). **This is the one path where a local edit now can collide with an already-fetched upstream change.**
+- The other three paths have no change in the fetched 9 commits, so their current classification stands.
+
 ### Would editing them create an upstream diff or a sync conflict?
 
-- **Editing a gfunc copy now:** no pstack diff, because the mirror is untouched. `sync-upstream` reports `local=mod`/`upstream=clean`; for the two non-formal skills that is the declared, expected state. For the formal pair, an edit would also show as `local modification (intended)` — the script does not parse the header's intended list — but the edit would be undeclared in the manifest comment, i.e. visible drift a reviewer must judge.
-- **No conflict today:** every row has `upstream=clean`, so no row can be `3-WAY MERGE`.
-- **Conflict later:** if pstack advances past BASE and its history touches a path that is also locally modified, `sync-upstream` reports `3-WAY MERGE` and requires a human merge (`scripts/sync-upstream:61-64`). For the formal pair, a future upstream change with no local edit would instead be `fast-forward copy from mirror` (`:65-66`), so keeping them byte-identical preserves a clean fast-forward path.
-- **Editing pstack itself:** that would create an upstream diff by definition. For the formal pair (local clean) the report would be fast-forward; for `create-verification-skill` and `maintain-verification-skill` (already local mod) the same edit would force a `3-WAY MERGE`.
+- **Editing a gfunc copy:** no pstack diff, because the mirror is untouched. Against the mirror as-is, `sync-upstream` reports `local=mod`/`upstream=clean`; for the two non-formal skills that is the declared, expected state. For `create-formal-verification-skill`, an edit would show as `local modification (intended)` today but become `3-WAY MERGE` once the fetched upstream paragraph lands. For `maintain-formal-verification-skill`, an edit would also show as `local modification (intended)` — the script does not parse the header's intended list — but it would be undeclared in the manifest comment, i.e. visible drift a reviewer must judge.
+- **No conflict against the mirror as-is:** every row has `upstream=clean`, so no row can be `3-WAY MERGE` today.
+- **Conflict against the fetched upstream:** advancing the mirror to its `origin/main` makes `create-formal-verification-skill` `upstream=changed`; a concurrent local edit is a `3-WAY MERGE`. With no local edit, it is a clean `fast-forward copy from mirror` (`:65-66`).
+- **Editing pstack itself:** that would create an upstream diff by definition. For `create-formal-verification-skill` (local clean) the report would be fast-forward; for `create-verification-skill` and `maintain-verification-skill` (already local mod) the same edit would force a `3-WAY MERGE`.
 - README states the policy: local modifications are intended, "but they stay visible per path through the manifest and git history" (`README.md:83-85`), and the manifest's job is to name every pstack-origin path and its base SHA (`README.md:52`).
+- Repo policy narrows what a local diff may be: "Vendored pstack paths keep upstream content; harness-adapter hunks and the `.scratch` store convention are the only allowed local diffs" (`AGENTS.md:6`). The existing create/maintain divergences are harness-adapter hunks and fit that rule. An edit to either formal skill that is not a harness-adapter hunk would violate the policy even where `sync-upstream` merely reports it as a local modification.
 
 ## d. What `setup-workspace` and `setup-pstack` say on `origin/main`
 
@@ -216,7 +243,7 @@ No write, install, or update was performed against the plugin.
 
 ## Evidence limits
 
-- The pstack mirror's own status is `main...origin/main [behind 9]`. Its remote is 9 commits ahead of the local mirror. `sync-upstream` compares `mirror@BASE..mirror HEAD`, so "upstream clean" means "unchanged in the local mirror", not "unchanged on `backnotprop/pstack` HEAD". No fetch was run, by design (pstack is read-only here).
+- The pstack mirror's own status is `main...origin/main [behind 9]`. Its already-fetched remote-tracking ref is 9 commits ahead of the local mirror, and that ref changes `skills/create-formal-verification-skill/SKILL.md` (section c). `sync-upstream` compares `mirror@BASE..mirror HEAD`, so its "upstream clean" output means "unchanged in the local mirror", not "unchanged on the mirror's `origin/main`" and not "unchanged on `backnotprop/pstack` GitHub HEAD". No fetch was run, by design (pstack is read-only here); the true upstream may be further ahead than the local tracking ref.
 - The four gfunc skills in the `ci/version-bump` working tree matched `origin/main`; `setup-pstack` and `setup-workspace` did not. All gfunc line citations come from `git archive origin/main`, not the checkout.
 - The installed plugin is 0.2.2, an update from the ticket's 0.2.1 premise; presence and byte equality were checked, but nothing was executed from it.
 - This is textual evidence. No skill was invoked, and no generated verification skill was run.
@@ -232,6 +259,9 @@ diff -r --exclude=.git <exported>/skills/<name> /home/jason/projects/pstack/skil
 sha256sum <files on both sides>
 scripts/sync-upstream | grep -E 'verification|^PATH|^-----'
 git -C /home/jason/projects/pstack rev-parse HEAD
+git -C /home/jason/projects/pstack log --oneline HEAD..origin/main
+git -C /home/jason/projects/pstack diff --name-status HEAD origin/main -- skills/<four>
+git -C /home/jason/projects/pstack diff HEAD origin/main -- skills/create-formal-verification-skill/SKILL.md
 ls -d /home/jason/.kimi-code/plugins/managed/gfunc-skills/skills/*verification*
 diff -r <exported>/skills/<name> /home/jason/.kimi-code/plugins/managed/gfunc-skills/skills/<name>
 ```
