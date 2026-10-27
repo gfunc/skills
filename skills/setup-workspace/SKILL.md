@@ -55,6 +55,8 @@ Establish which aliases are available before proposing a value. Apply the profil
 
 Preview the role-to-model table with current and proposed values, confirmed aliases, fallbacks, and the exact differences. Obtain approval for those differences, then write only them to `~/.agents/pstack-models.md`, preserving every untouched line. Read the write back against the preview. Do not write a harness-specific rule file from an older setup, repair native configuration, silently substitute model families, or install a plugin. Preferences do not provision models.
 
+**Native alias write.** When the active profile binds subagent models through a native pool the brief's `Model:` lines must name — on Kimi, the `[secondary_model.models]` table in `~/.kimi-code/config.toml` — the approved alias additions are a separate write with their own preview and approval, distinct from the `~/.agents/pstack-models.md` differences. Preview the exact alias lines to add under `[secondary_model.models]` and the `[models]` entry each resolves to, and confirm each alias passes the profile's availability gate before proposing it. On approval, add only those alias lines through the native config surface, preserving every other line, table, and key, and never touching provider auth or credential keys. Read the write back against the preview. A declined or blocked native write leaves `~/.agents/pstack-models.md` untouched and the affected roles recorded as needing a choice; a role line that names an alias absent from the pool cannot be honored, so do not write it.
+
 ## 5. Install only when separately requested
 
 Reuse an already-loaded plugin. A plain clone is usable without installation. Otherwise record installation as not requested and continue.

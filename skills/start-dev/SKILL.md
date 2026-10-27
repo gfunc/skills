@@ -18,6 +18,8 @@ The lifecycle is spec intake → architect → verification readiness → dev-le
 
 **Stop conditions.** Blocked design, blocked plan, a failed review after the loop limit, missing credentials or permissions, or a product call no experiment settles.
 
+**Maintenance.** Verification drift is routed by cause and scope: in-PR correction when the current PR caused it, a standalone maintain run when it is confined to the verify skill's directory with no product code, a planned feature or its own run when product code or several features are involved. See § Maintenance.
+
 ## Principles
 
 The full Principles index lives in [`references/principles.md`](references/principles.md), the start-dev copy of the pstack index, and applies in every phase. The table names each phase's **primary** principles; it is an emphasis, not an exhaustive limit. Every phase still applies the full index, and the design phase keeps its explicit full-index read and review check. The leaf `principle-*` skills remain the authority; read the leaf for any principle that shapes a decision and name it with the choice it changed.
@@ -65,7 +67,7 @@ The main agent runs the design phase inside the restored [`architect`](../archit
 
 **Phase A, Ground.** Run `how` over the affected subsystems and produce the architectural understanding it prescribes. When the design redefines ownership or layering, also run `why` so the existing rationale becomes a constraint. Skip Phase A only for genuine greenfield with no surrounding system.
 
-**Phase B, Sketch.** Run `architect` Phase B exactly: `arena` with the design-sketch task and the Phase A grounding, each runner taking `architect`'s `references/runner-prompt.md`, the runners drawn from the `architect runners` line in `~/.agents/pstack-models.md`. At least two structurally distinct candidates before synthesis, whole-shape alternatives rather than point fixes. Screen every candidate against `architect`'s [`references/design-red-flags.md`](../architect/references/design-red-flags.md). Compare the viable candidates on interface depth and prefer the design that hides more complexity behind a smaller public surface. Arena returns one synthesized design package, and its synthesis decision fills the rationale's synthesis section.
+**Phase B, Sketch.** Run `architect` Phase B exactly: `arena` with the design-sketch task and the Phase A grounding, each runner taking `architect`'s `references/runner-prompt.md`, the runners drawn from the brief's `Model: architect runners=` line, then the active profile's `### Role model table`, then `~/.agents/pstack-models.md`, then the skill's stated default. At least two structurally distinct candidates before synthesis, whole-shape alternatives rather than point fixes. Screen every candidate against `architect`'s [`references/design-red-flags.md`](../architect/references/design-red-flags.md). Compare the viable candidates on interface depth and prefer the design that hides more complexity behind a smaller public surface. Arena returns one synthesized design package, and its synthesis decision fills the rationale's synthesis section.
 
 **Stop before Phase C.** The mandatory design review, a fresh subagent on a different model family or the operator, replaces `architect`'s Agree checkpoint, and the operator's plan approval follows it. The design review checks the design artifact and its rationale against the full Principles index in [`references/principles.md`](references/principles.md), not a subset. It also checks the formal signal and one-sentence property, including a `none` claim against the closed signal list. Phase D, Implement, is `dev-owner`'s execution phase; the synthesized sketch is the contract the plan carries and the implementation fills in against. Phase E, Scrap, is the re-design route: when execution or review shows the sketch is wrong as a pattern, re-run Phase A and B and re-chart the plan rather than bolting fixes onto a wrong design.
 
@@ -90,6 +92,22 @@ Record one drivability state:
 **Formal.** Decide `exists`, `exists-stale`, `create`, or `not-required`. Route `exists-stale` to `maintain-formal-verification-skill`. For `not-required`, record the checked signal list and `none`; the design review can challenge it.
 
 **Recording.** Hand the decision and evidence to the plan lead. The plan records them in `## Verification readiness` between `## How to read this` and `## Program checklist`, and the run root gains one append-only `decisions.tsv` row referencing that section.
+
+## Maintenance
+
+Signals: a feature entry is wrong, missing, or dead; the formal sync commit is stale; the harness cannot drive a working feature. A live lane contradicting the map is the detection event. A product regression is a separate finding. Detection is layered: readiness catches stale artifacts as `exists-stale`; the plan checker catches a missing map-update box; the PR owner catches lane contradictions and harness gaps; the review lead catches drift at the head.
+
+Route by cause and scope:
+
+- In-PR correction when the current PR caused the drift: the map update or the formal sync advance lands in that PR.
+- Standalone maintain run when the drift is confined to the verify skill's directory and no product code is involved. At most one PR.
+- Planned feature or its own `/start-dev` run when product code, scope, bounds, or several features are involved. A coupled change joins the current graph; an independent large one gets its own run. A one-PR maintenance feature uses the PR-owner layer, not the full design phase.
+
+Record a finding with evidence plus a `decisions.tsv` row naming signal, evidence, route, and owner. The main agent routes; the operator sees the route in the plan or review handback and can override it.
+
+Executor: the maintain skills stay operator-invocable. Inside start-dev, the main agent or `dev-owner` follows their text by path; `disable-model-invocation: true` blocks auto-invocation, not reading.
+
+Edit scope: the verification skill's own directory only. A product regression becomes a separate bug-fix effort. The map or property is never weakened to match a broken app.
 
 ## Plan
 

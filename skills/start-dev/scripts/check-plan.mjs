@@ -9,11 +9,20 @@ const LANES = /Ten lanes on `[^`<>]+` at the PR head/;
 const SURFACES = ["ui", "cli", "library", "backend"];
 const DECISIONS = ["exists", "exists-stale", "create-after-first-drivable-batch", "create-before-amendment", "not-required"];
 const FORMAL_DECISIONS = ["exists", "exists-stale", "create", "not-required"];
-const READINESS_FIELDS = ["Decision", "Surface", "Drivability", "Boundary", "Evidence", "Skill", "Map", "Formal", "Formal property", "Owner"];
+const READINESS_FIELDS = ["Decision", "Surface", "Drivability", "Boundary", "Evidence", "Skill", "Map", "Formal", "Formal property", "Maintenance route", "Owner"];
+const DRIVABILITY_STATES = ["drivable", "drivable-with-boundary", "not-drivable"];
 const FEATURE_ENTRY = /`[A-Za-z0-9][A-Za-z0-9_-]*#[A-Za-z0-9][A-Za-z0-9_-]*`/;
-const MAP_UPDATE = /\bmap[- ]update\b|\bupdate(?:s|d|ing)?\b[^.\n]*\bfeature (?:map|entry)\b|\bfeature (?:map|entry)\b[^.\n]*\bupdate(?:s|d|ing)?\b/i;
+const MAP_UPDATE = /^\s*map update\b/i;
+const MAP_UPDATE_NEGATED = /\b(?:no|not|never|without)\b/i;
 const CREATION_TASK = /\bcreate-verification-skill\b/i;
 const LANE_ARTIFACT = { ui: { re: /Save `[^`]+`/, name: "screenshot" }, cli: { re: /Log `[^`]+`/, name: "log" } };
+const FORMAL_ITEMS = ["Command.", "Property.", "Covered.", "Run."];
+const FORMAL_ITEM_BODY = {
+	"Command.": { re: /`[^`]+`/, name: "backticked command" },
+	"Property.": { re: /\S+/, name: "one-sentence property" },
+	"Covered.": { re: /`[^`]+`/, name: "backticked covered files or functions" },
+	"Run.": { re: /`[^`]+`/, name: "evidence path" },
+};
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -142,6 +151,20 @@ if (readiness && readinessSurface && !SURFACES.includes(readinessSurface))
 	fail(readinessLine("Surface"), `unknown Verification readiness Surface "${readinessSurface}" (expected ${SURFACES.join("|")})`);
 if (readiness && formalDecision && !FORMAL_DECISIONS.includes(formalDecision))
 	fail(readinessLine("Formal"), `unknown Verification readiness Formal "${formalDecision}" (expected ${FORMAL_DECISIONS.join("|")})`);
+const drivability = readinessValue("Drivability");
+if (readiness && drivability && !DRIVABILITY_STATES.includes(drivability))
+	fail(readinessLine("Drivability"), `unknown Verification readiness Drivability "${drivability}" (expected ${DRIVABILITY_STATES.join("|")})`);
+const evidence = readinessValue("Evidence");
+if (readiness && evidence) {
+	if (!/`[^`]+`/.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must name the launch or e2e command in backticks");
+	if (!/\bready\b/i.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must name the ready signal");
+	if (!/\bjourneys?\b/i.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must name one driven journey");
+	if (!/\d{4}-\d{2}-\d{2}/.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must carry the timestamp");
+}
 if (decision === "exists") {
 	for (const name of ["Skill", "Map"]) {
 		const value = readinessValue(name);
@@ -347,6 +370,12 @@ for (const pr of prSections) {
 		fail(changeLines[0]?.n ?? pr.n, `${pr.title}: Change user-facing requires a map-update box`);
 	if (change === "internal" && mapUpdates.length > 0)
 		fail(mapUpdates[0].n, `${pr.title}: Change internal must not carry a map-update box`);
+	for (const box of mapUpdates) {
+		if (MAP_UPDATE_NEGATED.test(box.text))
+			fail(box.n, `${pr.title}: map-update box is negated; a Change user-facing PR updates its feature entries`);
+		if (!/`[^`]*features\/[^`]*`/.test(box.text))
+			fail(box.n, `${pr.title}: map-update box names no backticked features/ entry path`);
+	}
 
 	const depends = block("Depends on.");
 	if (depends && depends.rest === "") fail(depends.n, `${pr.title}: Depends on names nothing`);
@@ -395,10 +424,19 @@ for (const pr of prSections) {
 			if (!notCovered) fail(formal.n, `${pr.title}: Formal not-required requires "Not covered." only`);
 		} else if (!notCovered) {
 			formalCovered = true;
-			const items = formalBoxes.map((b) => b.text.split(" ")[0]);
-			for (const name of ["Command.", "Property.", "Covered.", "Run."]) {
-				if (!items.includes(name)) fail(formal.n, `${pr.title}: Verify, formal lacks "${name}" box`);
+			const formalBoxItems = new Map(formalBoxes.map((b) => [b.text.split(" ")[0], b]));
+			for (const name of FORMAL_ITEMS) {
+				const box = formalBoxItems.get(name);
+				if (!box) fail(formal.n, `${pr.title}: Verify, formal lacks "${name}" box`);
+				else if (box.text.trim() === name)
+					fail(box.n, `${pr.title}: Verify, formal "${name}" box is empty; it must name ${FORMAL_ITEM_BODY[name].name}`);
+				else if (!FORMAL_ITEM_BODY[name].re.test(box.text))
+					fail(box.n, `${pr.title}: Verify, formal "${name}" box names no ${FORMAL_ITEM_BODY[name].name}`);
 			}
+			if (formalDecision === "exists-stale" && !maintenanceRoute.includes("maintain-formal-verification-skill"))
+				fail(formal.n, `${pr.title}: Formal exists-stale requires a maintain-formal-verification-skill route in Verification readiness`);
+			if (formalBoxItems.get("Run.") && !/pass when/i.test(formalBoxItems.get("Run.").text))
+				fail(formalBoxItems.get("Run.").n, `${pr.title}: Verify, formal "Run." box names no pass predicate`);
 		}
 	}
 
@@ -457,8 +495,19 @@ if (["create-after-first-drivable-batch", "create-before-amendment"].includes(de
 	const carrierNode = carrier ? graphPrNode(carrier.pr) : null;
 	if (carrier && creationTasks.length > 0 && !carrierNode)
 		fail(carrier.pr.n, `${carrier.pr.title}: creation carrier has no pr or feature node in Run graph`);
-	else if (carrierNode && creationTasks.length > 0 && !creationTasks.some((task) => task.wave === carrierNode.wave))
-		fail(readinessLine("Decision"), `${decision} requires a folded create-verification-skill task in ${carrier.pr.title}'s wave`);
+	else if (carrierNode && creationTasks.length > 0) {
+		const folded = creationTasks.filter((task) => task.wave === carrierNode.wave && hasEdge(task.id, carrierNode.id));
+		if (!creationTasks.some((task) => task.wave === carrierNode.wave))
+			fail(readinessLine("Decision"), `${decision} requires a folded create-verification-skill task in ${carrier.pr.title}'s wave`);
+		if (folded.length === 0)
+			fail(readinessLine("Decision"), `${decision} requires the create-verification-skill task to fold into carrier ${carrier.pr.title} with an edge into its node`);
+		for (const task of creationTasks) {
+			if (task.wave === carrierNode.wave && !hasEdge(task.id, carrierNode.id))
+				fail(task.n, `create-verification-skill task does not fold into carrier ${carrier.pr.title}`);
+			if (task.wave !== carrierNode.wave)
+				fail(task.n, `create-verification-skill task must sit in carrier ${carrier.pr.title}'s wave`);
+		}
+	}
 
 	if (decision === "create-before-amendment") {
 		const verificationGate = graph?.nodes.find((node) => node.kind === "gate" && node.label === "gate: verification");
