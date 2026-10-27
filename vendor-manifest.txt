@@ -9,6 +9,12 @@
 #   skills/figure-it-out/  skills/how/  skills/interrogate/  skills/maintain-verification-skill/
 #   skills/no-comments/  skills/poteto-help/  skills/poteto-mode/  skills/recall/  skills/reflect/  skills/setup-pstack/
 #   skills/show-me-your-work/  skills/swarm/  skills/why/  agents/  docs/  .cursor-plugin/
+# Intended local modifications beyond the harness-adapter hunks, one reason per path:
+#   skills/architect/ — honors a brief `Model: architect runners=` line before the pstack models file
+#   skills/arena/ — honors brief `Model: arena runners=` and `arena cross-judge pool=` lines before the pstack models file
+#   skills/how/ — honors brief `Model: how explorer=` and `how explainer=` lines before the pstack models file
+#   skills/swarm/ — honors a brief `Model: swarm workers=` line before the pstack models file
+#   skills/why/ — honors brief `Model: why investigators=` and `why synthesizer=` lines before the pstack models file
 BASE e44668c2aad92eacf4e84df47984121fefb11b82
 skills/architect/
 skills/arena/
