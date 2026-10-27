@@ -40,8 +40,8 @@ id	title	state	owner	updated
 
 ## Tickets
 
-| id | title | file lane | edges | surface | state |
-|---|---|---|---|---|---|
+| id | title | file lane | edges | surface | feature entry | state |
+|---|---|---|---|---|---|---|
 
 ## PRs
 
@@ -62,7 +62,7 @@ id	title	state	owner	updated
 ## `features/<id>/tickets.tsv`
 
 ```tsv
-id	title	file_lane	edges	surface	state
+id	title	file_lane	edges	surface	feature_entry	state
 ```
 
 ## `decisions.tsv`

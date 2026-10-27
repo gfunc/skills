@@ -10,14 +10,58 @@ const rule =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
 const laneBlock = Array.from(
 	{ length: 10 },
-	(_, i) => `- [ ] Lane ${i + 1}. Save \`lane-${i + 1}.png\`. Pass when evidence exists.`,
+	(_, i) => `- [ ] Lane ${i + 1}. ${i === 0 ? "Regression lane against trunk and head for the load-bearing journey " : ""}\`checkout#journey-${i + 1}\`. Save \`lane-${i + 1}.png\`. Pass when evidence exists.`,
 ).join("\n");
+const mapUpdateBox = (id: number) => `- [ ] Map update. Update \`features/checkout.md\` for PR ${id}.`;
+const formalBlock = (id: number) => `**Verify, formal.**
+- [ ] Command. Run \`npm run check:formal\`.
+- [ ] Property. Concurrent checkouts preserve inventory.
+- [ ] Covered. \`src/${id === 1 ? "one" : "two"}/**\` and \`checkout()\`.
+- [ ] Run. Save \`formal-${id}.log\`. Pass when the check exits 0.`;
+const prSection = (id: number) => `## PR ${id}
+**Depends on.** ${id === 1 ? "None." : "PR 1."}
+Change: ${id === 1 ? "user-facing" : "internal"}
+**Files.**
+- [ ] Edit \`src/${id === 1 ? "one" : "two"}/thing.ts\`.
+**Build.**
+- [ ] Do the thing.
+${id === 1 ? `${mapUpdateBox(id)}\n` : ""}**You see.**
+- [ ] Do the thing.
+**Verify, unit.** ${rule}
+- [ ] Check the thing.
+**Verify, live.** ${rule} Ten lanes on \`example-model\` at the PR head
+${laneBlock}
+${formalBlock(id)}
+**Verify, perf.** ${rule}
+- [ ] Metric. Recorded.
+- [ ] Probe. Recorded.
+- [ ] Baseline. Recorded.
+- [ ] Rule. Recorded.
+**Review gate.** None.
+**Merge.**
+- [ ] Merge when approved.
+`;
 
 const validPlan = `# Demo
 
 ## How to read this
 One box is one unit of work and names the evidence. Check a box only when its evidence exists. See playbooks/.
 ${rule}
+
+## Verification readiness
+| Field | Value |
+|---|---|
+| Decision | \`exists\` |
+| Surface | \`ui\` |
+| Drivability | \`drivable\` |
+| Boundary | \`none\` |
+| Evidence | \`npm run dev\` ready on port 3000 with the checkout journey at 2026-10-27 |
+| Skill | \`.agents/skills/verify-demo/SKILL.md\` |
+| Map | \`.agents/skills/verify-demo/features/\` |
+| Formal | \`create\` |
+| Formal property | Concurrent checkouts preserve inventory |
+| Maintenance route | \`none\` |
+| Owner | \`main-agent\` |
 
 ## Program checklist
 ### Arm the program
@@ -34,40 +78,30 @@ graph TD
   subgraph W1[Wave 1]
     T1[task: a lane src/one/**]
     T2[task: b lane src/two/**]
+    C1[task: create-verification-skill PR 1 lane .agents/skills/verify-demo/**]
+    P1[pr: PR 1 lane src/one/**]
   end
   subgraph W2[Wave 2]
     T3[task: c lane src/one/**]
+    P2[pr: PR 2 lane src/two/**]
   end
   T1 -->|blocks| T3
+  C1 -->|folds into| P1
+  P1 -->|verification| VG[gate: verification]
+  VG -->|blocks| P2
+  P1 -->|formal| FM[gate: formal]
+  FM -->|blocks| P2
   W1 -->|wave gate| W2
   W2 -->|feature gate| FG[gate: feature]
   FG -->|review| RL[gate: review]
 \`\`\`
 **Critical path.** W1 then W2 then the review gate.
 
-## PR 1
-**Depends on.** None.
-**Files.**
-- [ ] Do the thing.
-**Build.**
-- [ ] Do the thing.
-**You see.**
-- [ ] Do the thing.
-**Verify, unit.** ${rule}
-- [ ] Check the thing.
-**Verify, live.** ${rule} Ten lanes on \`example-model\` at the PR head
-${laneBlock}
-**Verify, perf.** ${rule}
-- [ ] Metric. Recorded.
-- [ ] Probe. Recorded.
-- [ ] Baseline. Recorded.
-- [ ] Rule. Recorded.
-**Review gate.** None.
-**Merge.**
-- [ ] Merge when approved.
-
+${prSection(1)}
+${prSection(2)}
 ## Close the program
-Close.
+- [ ] The verification skill exists and the prove-once transcript is recorded.
+- [ ] Every map update is merged.
 
 ## Appendix Prototype evidence
 Recorded.
@@ -77,8 +111,12 @@ const runPlanText = (text: string, expectedExit: number, env: Record<string, str
 	const directory = mkdtempSync(join(tmpdir(), "check-plan-test-"));
 	const file = join(directory, "plan.md");
 	writeFileSync(file, text);
+	mkdirSync(join(directory, ".agents", "skills", "verify-demo", "features"), { recursive: true });
+	writeFileSync(join(directory, ".agents", "skills", "verify-demo", "SKILL.md"), "# verify-demo\n");
+	writeFileSync(join(directory, ".agents", "skills", "verify-demo", "features", "checkout.md"), "# checkout\n");
 	try {
 		const result = spawnSync("node", [checker, file], {
+			cwd: directory,
 			encoding: "utf8",
 			env: { ...process.env, ...env },
 		});
@@ -126,7 +164,7 @@ test("rejects backtick info strings containing a backtick", () => {
 test("accepts a cli plan with Log lanes", () => {
 	const cliPlan = validPlan
 		.replace("## PR 1\n**Depends on.**", "## PR 1\nSurface: cli\n**Depends on.**")
-		.replaceAll("Save `", "Log `");
+		.replace(laneBlock, laneBlock.replaceAll("Save `", "Log `"));
 	runPlanText(cliPlan, 0);
 });
 
@@ -149,10 +187,7 @@ test("rejects a library plan with a gated review form", () => {
 });
 
 test("rejects a ui plan missing lanes", () => {
-	const uiPlan = validPlan.replace(
-		"- [ ] Lane 1. Save `lane-1.png`. Pass when evidence exists.",
-		"- [ ] Check the thing.",
-	);
+	const uiPlan = validPlan.replace(laneBlock.split("\n")[0], "- [ ] Check the thing.");
 	const result = runPlanText(uiPlan, 1);
 	assert.ok(result.stderr.includes("live box is not a lane"));
 });
@@ -292,4 +327,236 @@ test("rejects a run graph with no wave subgraph", () => {
 	const plan = validPlan.replace("subgraph W1[Wave 1]", "subgraph Group[All]").replace("subgraph W2[Wave 2]", "subgraph Group2[All]");
 	const result = runPlanText(plan, 1);
 	assert.ok(result.stderr.includes("wave subgraph"));
+});
+
+test("accepts the verification readiness positive fixture and creation placements", () => {
+	const existing = runPlanText(validPlan, 0);
+	assert.match(existing.stdout, /2 PR sections, 0 problems/);
+
+	const before = validPlan.replace("| Decision | `exists` |", "| Decision | `create-before-amendment` |");
+	const amendment = runPlanText(before, 0);
+	assert.match(amendment.stdout, /2 PR sections, 0 problems/);
+
+	const after = validPlan
+		.replace("| Decision | `exists` |", "| Decision | `create-after-first-drivable-batch` |")
+		.replace("    C1[task: create-verification-skill PR 1 lane .agents/skills/verify-demo/**]\n", "")
+		.replace(
+			"    P2[pr: PR 2 lane src/two/**]\n",
+			"    C1[task: create-verification-skill PR 2 lane .agents/skills/verify-demo/**]\n    P2[pr: PR 2 lane src/two/**]\n",
+		)
+		.replace("  C1 -->|folds into| P1\n", "  C1 -->|folds into| P2\n");
+	const batch = runPlanText(after, 0);
+	assert.match(batch.stdout, /2 PR sections, 0 problems/);
+});
+
+test("rejects a missing verification readiness section", () => {
+	const start = validPlan.indexOf("## Verification readiness");
+	const end = validPlan.indexOf("## Program checklist");
+	const result = runPlanText(validPlan.slice(0, start) + validPlan.slice(end), 1);
+	assert.ok(result.stderr.includes('no "## Verification readiness" section'));
+});
+
+test("rejects an invalid readiness decision token", () => {
+	const plan = validPlan.replace("| Decision | `exists` |", "| Decision | `recreate` |");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('unknown Verification readiness Decision "recreate"'));
+});
+
+test("rejects exists without resolving skill and map paths", () => {
+	const plan = validPlan
+		.replace("| Skill | `.agents/skills/verify-demo/SKILL.md` |", "| Skill | `.agents/skills/missing/SKILL.md` |")
+		.replace("| Map | `.agents/skills/verify-demo/features/` |", "| Map | `.agents/skills/missing/features/` |");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("Verification readiness Skill path does not resolve"));
+	assert.ok(result.stderr.includes("Verification readiness Map path does not resolve"));
+});
+
+test("rejects exists-stale without a maintenance route", () => {
+	const plan = validPlan.replace("| Decision | `exists` |", "| Decision | `exists-stale` |");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("exists-stale requires a maintenance route"));
+});
+
+test("rejects create decisions without a folded creation task", () => {
+	for (const decision of ["create-before-amendment", "create-after-first-drivable-batch"]) {
+		const plan = validPlan
+			.replace("| Decision | `exists` |", `| Decision | \`${decision}\` |`)
+			.replace("    C1[task: create-verification-skill PR 1 lane .agents/skills/verify-demo/**]\n", "")
+			.replace("  C1 -->|folds into| P1\n", "");
+		const result = runPlanText(plan, 1);
+		assert.ok(result.stderr.includes("requires a folded create-verification-skill task"));
+	}
+});
+
+test("rejects create-before-amendment without a verification gate", () => {
+	const plan = validPlan
+		.replace("| Decision | `exists` |", "| Decision | `create-before-amendment` |")
+		.replace("  P1 -->|verification| VG[gate: verification]\n", "")
+		.replace("  VG -->|blocks| P2\n", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('Run graph lacks the verification gate node "[gate: verification]"'));
+});
+
+test("rejects not-required on a ui surface", () => {
+	const plan = validPlan.replace("| Decision | `exists` |", "| Decision | `not-required` |");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("Verification readiness not-required is only allowed for library/backend surfaces"));
+});
+
+test("rejects Formal create without a formal gate", () => {
+	const plan = validPlan
+		.replace("  P1 -->|formal| FM[gate: formal]\n", "")
+		.replace("  FM -->|blocks| P2\n", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('Run graph lacks the formal gate node "[gate: formal]"'));
+});
+
+test("rejects a missing Verify formal block when formal exists or creates", () => {
+	for (const decision of ["create", "exists"]) {
+		const plan = validPlan
+			.replace("| Formal | `create` |", `| Formal | \`${decision}\` |`)
+			.replace(formalBlock(1), "");
+		const result = runPlanText(plan, 1);
+		assert.ok(result.stderr.includes(`PR 1: Formal ${decision} requires a Verify, formal block`));
+	}
+});
+
+test("rejects a live lane without a feature-entry token", () => {
+	const plan = validPlan.replace("`checkout#journey-1`", "the checkout journey");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("PR 1: lane 1 names no backticked <feature-id>#<sub-id> feature entry"));
+});
+
+test("rejects lane 1 without the regression marker", () => {
+	const plan = validPlan.replace("Regression lane against trunk and head", "Journey on trunk and head");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("PR 1: lane 1 does not name the regression journey on trunk and head"));
+});
+
+test("rejects map-update boxes that do not match the Change line", () => {
+	const missing = runPlanText(validPlan.replace(mapUpdateBox(1), ""), 1);
+	assert.ok(missing.stderr.includes("PR 1: Change user-facing requires a map-update box"));
+
+	const internal = runPlanText(validPlan.replace("Change: user-facing", "Change: internal"), 1);
+	assert.ok(internal.stderr.includes("PR 1: Change internal must not carry a map-update box"));
+});
+
+test("rejects Formal not-required with a non-none design signal", () => {
+	const plan = validPlan
+		.replace("| Formal | `create` |", "| Formal | `not-required` |")
+		.replace("| Formal property | Concurrent checkouts preserve inventory |", "| Formal property | `parser/serializer` |");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('Formal not-required requires Formal property "none"'));
+});
+
+test("rejects a creation task with no lane", () => {
+	const plan = validPlan
+		.replace("| Decision | `exists` |", "| Decision | `create-before-amendment` |")
+		.replace(
+			"C1[task: create-verification-skill PR 1 lane .agents/skills/verify-demo/**]",
+			"C1[task: create-verification-skill PR 1]",
+		);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("create-verification-skill task has no file lane"));
+});
+
+test("rejects a verification gate without an edge into a later ui PR", () => {
+	const plan = validPlan
+		.replace("| Decision | `exists` |", "| Decision | `create-before-amendment` |")
+		.replace("  VG -->|blocks| P2\n", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("verification gate has no edge into later ui/cli PR 2"));
+});
+
+test("rejects a creation task folded into a PR other than the carrier", () => {
+	const plan = validPlan
+		.replace("| Decision | `exists` |", "| Decision | `create-before-amendment` |")
+		.replace("  C1 -->|folds into| P1\n", "  C1 -->|folds into| P2\n");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("create-verification-skill task does not fold into carrier PR 1"));
+	assert.ok(!result.stderr.includes("requires a folded create-verification-skill task in"));
+});
+
+test("rejects a creation task sitting outside the carrier's wave", () => {
+	const plan = validPlan
+		.replace("| Decision | `exists` |", "| Decision | `create-before-amendment` |")
+		.replace("    C1[task: create-verification-skill PR 1 lane .agents/skills/verify-demo/**]\n", "")
+		.replace(
+			"    T3[task: c lane src/one/**]\n",
+			"    T3[task: c lane src/one/**]\n    C1[task: create-verification-skill PR 1 lane .agents/skills/verify-demo/**]\n",
+		);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("create-verification-skill task must sit in carrier PR 1's wave"));
+});
+
+test("rejects bare formal labels with no content", () => {
+	const bare = `**Verify, formal.**
+- [ ] Command.
+- [ ] Property.
+- [ ] Covered.
+- [ ] Run.`;
+	const plan = validPlan.replace(formalBlock(1), bare);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('PR 1: Verify, formal "Command." box is empty'));
+	assert.ok(result.stderr.includes('PR 1: Verify, formal "Property." box is empty'));
+	assert.ok(result.stderr.includes('PR 1: Verify, formal "Covered." box is empty'));
+	assert.ok(result.stderr.includes('PR 1: Verify, formal "Run." box is empty'));
+});
+
+test("rejects a formal Run box with no evidence path or pass predicate", () => {
+	const plan = validPlan.replace(
+		"- [ ] Run. Save `formal-1.log`. Pass when the check exits 0.",
+		"- [ ] Run. Execute the formal check and record the outcome.",
+	);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('PR 1: Verify, formal "Run." box names no evidence path'));
+	assert.ok(result.stderr.includes('PR 1: Verify, formal "Run." box names no pass predicate'));
+});
+
+test("rejects a readiness table without a Maintenance route row", () => {
+	const plan = validPlan.replace("| Maintenance route | `none` |\n", "");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('Verification readiness lacks table field "Maintenance route"'));
+});
+
+test("rejects a Drivability value outside the three states", () => {
+	const plan = validPlan.replace("| Drivability | `drivable` |", "| Drivability | `banana` |");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes('unknown Verification readiness Drivability "banana"'));
+});
+
+test("rejects Evidence that names no command, ready signal, journey, or timestamp", () => {
+	const plan = validPlan.replace(
+		"| Evidence | `npm run dev` ready on port 3000 with the checkout journey at 2026-10-27 |",
+		"| Evidence | none |",
+	);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("Evidence must name the launch or e2e command in backticks"));
+	assert.ok(result.stderr.includes("Evidence must name the ready signal"));
+	assert.ok(result.stderr.includes("Evidence must name one driven journey"));
+	assert.ok(result.stderr.includes("Evidence must carry the timestamp"));
+});
+
+test("rejects an unrelated box in place of a map-update box", () => {
+	const plan = validPlan.replace(
+		mapUpdateBox(1),
+		"- [ ] Assert that no feature entry update is required.",
+	);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("PR 1: Change user-facing requires a map-update box"));
+});
+
+test("rejects a bare map-update label with no features path", () => {
+	const plan = validPlan.replace(mapUpdateBox(1), "- [ ] Map update.");
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("map-update box names no backticked features/ entry path"));
+});
+
+test("rejects a negated map-update box", () => {
+	const plan = validPlan.replace(
+		mapUpdateBox(1),
+		"- [ ] Map update. Assert that no feature entry update is required for PR 1.",
+	);
+	const result = runPlanText(plan, 1);
+	assert.ok(result.stderr.includes("map-update box is negated"));
 });

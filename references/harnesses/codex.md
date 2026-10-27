@@ -76,3 +76,16 @@ start-dev resolves roles through this mapping. Resolution order: a named custom 
 - **Continuation:** `/goal` is native and on by default (`features.goals`). No CLI scheduler exists; timed ticks need external cron.
 - **Frontmatter (TOML):** `background` no, `is_background` no, `subagents` no, `tools` no (capabilities come from `features.*`), `model` yes.
 - **Fallback:** with multi-agent tools off or at a depth hit, the main orchestrator runs the PR-owner role prompt itself, disclosed in the ledger. The installer's TOML copy is a pack convention, not a Codex plugin feature.
+
+### Role model table
+
+start-dev carries one `Model: <role>=<model>` line per role in each brief; the pstack design skills read it before `~/.agents/pstack-models.md`. On Codex the value is a provider catalog model string, passed as `spawn_agent` `model`.
+
+| Role line | Meaning |
+|---|---|
+| `Model: dev=<model>` | dev, critical-dev, reviewer, fixer, merge worker, research — pass as `model` on each spawn |
+| `Model: plan-lead=<model>` | plan lead when it is a child; the main agent ignores it |
+| `Model: review-lead=<model>` | review lead — a different model family from the parent's |
+| `Model: how explorer=<model>` / `how explainer=<model>` / `why investigators=<model>` / `why synthesizer=<model>` / `architect runners=<model>` / `arena runners=<model>` / `arena cross-judge pool=<model>` / `swarm workers=<model>` | the pstack skill role lines, consumed by that skill |
+
+**Per-harness limit.** `spawn_agent.model` is exposed only under `[features.multi_agent_v2]` (the `expose_spawn_agent_model_overrides` flag; verify the argument exists on the installed version before passing it), and a custom agent TOML `model` outranks an explicit spawn value, so a role file defeats the brief's line. When the gate is off or the chosen agent TOML pins a different model, fall back to `[agents].default_subagent_model` or the parent's model, record the model the run actually used, and disclose the mismatch in the reply and ledger. No automatic fallback is documented: a model the provider, account, or workspace does not offer stops that spawn.

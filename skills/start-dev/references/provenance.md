@@ -26,6 +26,30 @@ These hunks were removed from pstack-owned files and re-homed here. The restored
 | Approved-plan and standing-order audit duties | `skills/show-me-your-work/SKILL.md` | `playbooks/run-ledger.md` step 4. |
 | Resend cost, stable model and effort, route bulk to children | `skills/principle-guard-the-context-window/SKILL.md` | `playbooks/run-ledger.md` step 2. |
 
+## Declared hunks in vendored pstack paths
+
+The verification wiring needs the caller's brief to carry the model source, so five pstack-owned skills gained one hunk each. Each is declared in `vendor-manifest.txt` and keeps its upstream attribution; the four verification skills and `setup-pstack` stay untouched.
+
+| Vendored path | Hunk |
+|---|---|
+| `skills/how/SKILL.md` | A brief `Model: how explorer=` / `Model: how explainer=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
+| `skills/why/SKILL.md` | A brief `Model: why investigators=` / `Model: why synthesizer=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
+| `skills/architect/SKILL.md` | A brief `Model: architect runners=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
+| `skills/arena/SKILL.md` | Brief `Model: arena runners=` and `Model: arena cross-judge pool=` lines win before `~/.agents/pstack-models.md`, then the file, then the stated default. |
+| `skills/swarm/SKILL.md` | A brief `Model: swarm workers=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
+
+Each hunk also states that a brief line does not make a model available: the profile's availability check still runs, and a value the profile cannot express is substituted, recorded, and disclosed.
+
+## Profile role model tables
+
+Every harness profile's Role mapping gained a **Role model table** subsection naming the `Model: <role>=<model>` brief lines start-dev carries (`dev`, `plan-lead`, `review-lead`, and the pstack skill role lines) and the per-harness limit on honoring them:
+
+- **kimi:** the value is a `[secondary_model.models]` alias passed as the spawn's `model`; a configured pool is required, and `force = true` — which removes the parameter and pins every spawn — is reserved for single-model runs.
+- **claude:** the per-call `model` argument overrides an agent file's `model:`, so the brief wins; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` and account-blocked substitutions are the limits.
+- **cursor:** the `Task` `model` argument; precedence against a subagent file is undocumented, so the run records the model used and discloses a mismatch.
+- **codex:** `spawn_agent.model` is gated by `[features.multi_agent_v2]` and a custom agent TOML `model` outranks an explicit spawn; when the gate is off or a file pins otherwise, fall back and disclose.
+- **pi:** no per-spawn parameter exists; the agent file's `model:` is the only child control, so use the skill default or the parent's model, record it, and disclose.
+
 ## Preserved but not owned by start-dev
 
 The scratch-listing safety fix from `skills/poteto-mode/scripts/worktree-audit.sh` and `skills/poteto-mode/playbooks/worktree-cleanup.md` (upstream reference cursor/plugins#449) is worth offering to pstack upstream. It was reverted here with the rest of those files because the pack does not modify restored pstack paths. Until upstream takes it, the guard lives in this note.

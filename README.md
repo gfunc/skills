@@ -51,7 +51,7 @@ Contributors should read [`AGENTS.md`](AGENTS.md) for repository-specific writin
 
 One flat `skills/` root — every skill a peer:
 
-- pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror at upstream content; only harness adapters and the `.scratch` store convention differ, per `vendor-manifest.txt`.
+- pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror at upstream content; only harness adapters, the `.scratch` store convention, and the five declared model-override hunks differ, per `vendor-manifest.txt`; no other workflow modification remains.
 - `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
 - `skills/grilling`, `skills/domain-modeling`, `skills/research`, `skills/prototype` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
 - [`skills/writing-for-agents`](skills/writing-for-agents/SKILL.md) is Matt Pocock's reference for agent-facing writing, with host-neutral skill mechanics. Root [`AGENTS.md`](AGENTS.md) uses its task-specific context pointers.
@@ -75,7 +75,7 @@ A native adapter or an explicit clone selection supplies the active profile. Ski
 Start repository onboarding with [`/setup-workspace`](skills/setup-workspace/SKILL.md). This local gfunc skill works with a loaded native plugin or a plain clone. It discovers existing configuration, previews scoped changes, and completes the phases you approve. The [setup guide](docs/guide/01-setup.md) covers invocation and permissions.
 
 - Repository wiring preserves custom tracker and agent guidance. `docs/issue-tracker.md` is the canonical tracker document when configuration is needed. Without explicit configuration, local Markdown under `.scratch/` remains the default, even with a Git remote. Setup does not create empty domain documents or write to remote trackers.
-- Model preferences belong to `~/.agents/pstack-models.md`. Existing preferences stay unchanged unless you select reconfiguration. If you accept missing model setup, the workspace flow completes it through [`/setup-pstack`](skills/setup-pstack/SKILL.md) and resumes onboarding. That skill owns role defaults, budgets, and availability checks. Preferences do not provision native models.
+- Model preferences belong to `~/.agents/pstack-models.md`. Existing preferences stay unchanged unless you select reconfiguration. The workspace flow owns the model phase: it completes missing model setup itself, previewing and writing the approved role lines, plus the native alias pool a harness needs for per-spawn models (on Kimi, the `[secondary_model.models]` table in `~/.kimi-code/config.toml`, as a separate approved write). It runs the role defaults, budgets, and availability checks. Preferences do not provision native models.
 - Installation or update requires a separate explicit request and approval. Reuse an installed plugin or use a clone without installing. The [installer](scripts/install) owns native delivery. A Kimi replacement install refuses a source that resolves to its managed destination before deletion or copying. Use a separate source checkout for an update.
 - Verification work is optional. Setup offers generation once when a project-local verification skill is absent, even if a harness exists. It offers maintenance for a usable stale skill. Only accepted work runs the owner's required real journeys and retains evidence. Discovered tests or a harness are not verified execution.
 

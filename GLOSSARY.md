@@ -44,6 +44,30 @@ The agent that runs one PR end to end — all its units, its evidence, its merge
 **Lane**:
 One verification scenario in a swarm: a gates lane, a live lane, the perf lane, or an audit lane.
 
+**Live lane**:
+One of the ten live verification scenarios in a `ui` or `cli` PR's Verify, live block; it names a feature entry, states one condition, and carries one artifact and one pass predicate.
+_Avoid_: drive, test case
+
+**File lane**:
+A disjoint file glob assigned to a task or PR for parallel implementation. Always qualified; bare "lane" is a verification scenario.
+_Avoid_: lane
+
+**Drive**:
+The act of exercising the running app through its surface driver along one journey, capturing evidence. A live lane is driven; it is not itself a drive.
+_Avoid_: lane
+
+**Feature map**:
+The verify skill's `features/` directory: the maintained source of user journeys for live verification.
+_Avoid_: test suite, wayfinder map
+
+**Feature entry**:
+One feature file in a feature map, holding the sub-features, user entry points, driving recipe, and gotchas for one feature.
+_Avoid_: map entry, test file
+
+**Journey**:
+One user path within a feature entry; a live lane drives one journey under one condition.
+_Avoid_: flow, scenario
+
 **Swarm**:
 The fan-out of lanes at a PR head whose reports aggregate into a verdict.
 

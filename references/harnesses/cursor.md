@@ -76,3 +76,16 @@ start-dev resolves roles through this mapping. Resolution order: a named plugin 
 - **Continuation:** `/goal` is native. `/loop` is a built-in skill; cloud timer subscriptions exist.
 - **Frontmatter:** `background` no, `is_background` yes, `subagents` no, `tools` no (subagents inherit the parent's tools), `model` yes (`inherit` default).
 - **Fallback:** when a grandchild would need to spawn, the main orchestrator runs the PR-owner role prompt itself and spawns devs directly, disclosed in the ledger.
+
+### Role model table
+
+start-dev carries one `Model: <role>=<model>` line per role in each brief; the pstack design skills read it before `~/.agents/pstack-models.md`. On Cursor the value is a catalog model ID, passed as the `Task` `model` argument; it may carry `[effort=...,context=...]`.
+
+| Role line | Meaning |
+|---|---|
+| `Model: dev=<id>` | dev, critical-dev, reviewer, fixer, merge worker, research — pass as `model` on each spawn |
+| `Model: plan-lead=<id>` | plan lead when it is a child; the main agent ignores it |
+| `Model: review-lead=<id>` | review lead — a different model family from the parent's |
+| `Model: how explorer=<id>` / `how explainer=<id>` / `why investigators=<id>` / `why synthesizer=<id>` / `architect runners=<id>` / `arena runners=<id>` / `arena cross-judge pool=<id>` / `swarm workers=<id>` | the pstack skill role lines, consumed by that skill |
+
+**Per-harness limit.** Precedence between a Task `model` argument and a subagent file's `model:` is undocumented; the docs do not state which wins. So: prefer the brief line by passing `model` on the Task and not relying on a role file, record the model the run actually used (the subagent task card shows it), and disclose any mismatch with the brief's line in the reply and ledger. Plan, team, or region restrictions substitute a compatible model; report the substitution rather than accepting it silently.

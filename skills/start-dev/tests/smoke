@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,234 @@ PACK_ROOT = Path(__file__).resolve().parents[3]
 SKILL = PACK_ROOT / "skills" / "start-dev"
 
 FAILURES: list[str] = []
+
+RULE = (
+    "Tests alone are not sufficient verification. A PR is verified only when its "
+    "unit, live, and perf boxes are all checked."
+)
+SWARM_MODEL = "smoke-worker-model"
+FEATURES_MAP = ".scratch/verify-demo/features/"
+
+
+def author_plan(text: str, edits: list[tuple[str, str]]) -> tuple[str, list[str]]:
+    """Apply anchored skeleton edits; report any anchor that no longer resolves."""
+
+    missing = []
+    for old, new in edits:
+        if old not in text:
+            missing.append(old)
+            continue
+        text = text.replace(old, new)
+    return text, missing
+
+
+def cli_pr_section() -> str:
+    """The second PR section: a cli surface the verification gate unblocks."""
+
+    lanes = [
+        "- [ ] Lane 1. `cli-checkout#cart-total`. Regression lane against trunk. "
+        "Drive the entry's load-bearing journey under a loaded cart at trunk and head. "
+        "Log `lane-1.log`. Pass when the totals match."
+    ]
+    for i in range(2, 11):
+        lanes.append(
+            f"- [ ] Lane {i}. `cli-checkout#journey-{i}`. Drive the entry's journey "
+            f"under condition {i}. Log `lane-{i}.log`. Pass when the journey evidence exists."
+        )
+    lane_text = "\n".join(lanes)
+    return f"""## Add the checkout CLI (PR 2)
+
+Surface: cli
+Change: user-facing
+
+**Depends on.** PR 1.
+
+**Files.**
+
+- [ ] Edit `src/cli/checkout.ts`.
+
+**Build.**
+
+- [ ] Add `renderCart()` in `src/cli/checkout.ts`.
+- [ ] Map update. For this `Change: user-facing` PR, add or update the feature entry for every changed user-facing behavior under `{FEATURES_MAP}` in the same PR. Give each changed user-facing feature at least one live lane. Omit this box for `Change: internal`.
+
+**You see.**
+
+- [ ] The CLI prints the cart total.
+
+**Verify, unit.** {RULE}
+
+- [ ] `src/cli/checkout.test.ts` gains the render case. Run `npm test`.
+
+**Verify, live.** {RULE} Ten lanes on `{SWARM_MODEL}` at the PR head, per the boot recipe. Each lane names one feature entry and drives one of its journeys under one condition. Cover every changed user-facing feature at least once. Use extra conditions on existing entries for PR-specific probes; add a genuinely new journey's feature entry in the same PR.
+
+{lane_text}
+
+**Verify, formal.** {RULE}
+
+Runs the check created in PR 1 against this PR's covered CLI code.
+
+- [ ] Command. Run `npx fast-check src/cli/property.test.ts`.
+- [ ] Property. Concurrent checkouts preserve the inventory count.
+- [ ] Covered. `src/cli/**` and `renderCart()`.
+- [ ] Run. Save `.scratch/demo/verification/PR-2/formal.log`. Pass when the check exits 0. Advance the formal sync commit when the passing model still describes the code.
+
+**Verify, perf.** {RULE}
+
+- [ ] Metric. CLI render time at trunk and head.
+- [ ] Probe. Run `npm run bench:cli` at trunk and head, interleaved.
+- [ ] Baseline. Record the trunk 90 ms first.
+- [ ] Rule. Head stays within 110 percent of trunk; 189 ms fails.
+
+**Review gate.** The operator reviews before merge.
+
+- [ ] Copy lane 1 logs into `.scratch/demo/media/PR-2-review-cart.log`.
+- [ ] Record a 30 to 60 second video of the change on a lane VM. Save it as `.scratch/demo/media/PR-2-review.mp4`.
+- [ ] Check map and formal drift. Open the feature map and the formal skill's coverage record independently. Every changed user-facing behavior has a feature-entry update, every lane's feature entry exists and matches its scenario, every named evidence path exists, and the formal sync commit covers the current covered code. A covered-code change without a rerun or sync update is a finding.
+- [ ] Post the screenshots and the video in chat. Stop at merge-ready. Wait for the operator's click.
+
+**Merge.**
+
+- [ ] Root's clean verdict at the exact head SHA.
+- [ ] Bugbot triage done.
+- [ ] Formal-covered code has its required run and current sync commit; a missing run or model mismatch blocks merge.
+- [ ] Rebased onto current trunk after the verdict, patch-id unchanged.
+- [ ] The owner squash-merges its own PR.
+
+"""
+
+
+def verification_edits() -> list[tuple[str, str]]:
+    """Author the emitted ui skeleton into a plan the checker accepts.
+
+    Decision `create-before-amendment` folds the creation task into PR 1's wave and
+    charts both gates; `Formal: create` gives every PR the four-box formal block.
+    """
+
+    edits = [
+        ("<Under ten lines. What changes, for whom, the rule the program enforces, and the PR ids in order.>",
+         "Add the checkout journeys behind the project verify skill and its formal property. PR 1 then PR 2."),
+        ("<Who merges, and which PR ids are the operator's items that stop at merge-ready.>",
+         "The root merges both PRs. PR 1 and PR 2 stop at merge-ready."),
+        ("| Decision | `exists` |", "| Decision | `create-before-amendment` |"),
+        ("| Evidence | `<launch command, ready signal, one journey, timestamp>` |",
+         "| Evidence | `npm run dev` ready on port 3000, checkout journey driven, 2026-10-27 |"),
+        ("| Skill | `<verify-<app> path>` |", "| Skill | `.scratch/verify-demo/SKILL.md` |"),
+        ("| Map | `<features/ path>` |", f"| Map | `{FEATURES_MAP}` |"),
+        ("| Formal | `not-required` |", "| Formal | `create` |"),
+        ("| Formal property | `none` |", "| Formal property | Concurrent checkouts preserve the inventory count |"),
+        ("| Owner | `<role>` |", "| Owner | `main agent` |"),
+        ("Fill `Maintenance route` only when the app `Decision` or `Formal` is `exists-stale`: name the `maintain-verification-skill` and/or `maintain-formal-verification-skill` route the stale decision routes to. Keep `none` otherwise.",
+         "Fill `Maintenance route` only when the app `Decision` or `Formal` is `exists-stale`; name the maintain route it takes and keep `none` otherwise."),
+        ("`git show origin/main:<control skill path>`", "`git show origin/main:skills/playwright-cli/SKILL.md`"),
+        ("`git show origin/main:<verify-<app> skill path>`", "`git show origin/main:.scratch/verify-demo/SKILL.md`"),
+        ("`git show origin/main:<verify-<app> features/ map path>`", f"`git show origin/main:{FEATURES_MAP}`"),
+        ("`git show origin/main:skills/<each other leaf skill the program uses>`", "`git show origin/main:skills/how/SKILL.md`"),
+        ("Continuation: <the profile's continuation mechanism, named from the active profile's Role mapping; a goal where the profile has `/goal`, a scheduler tick where it has one and no goal, an external cron where it has neither>. Where a goal exists, the merge-ready PR is the completion criterion; no background polling and no audit tick run under it.",
+         "Continuation: goal mode with the merge-ready PR as the completion criterion and no background polling under it."),
+        ("  - [ ] <PR id> and <PR id> are independent and first. Both branch from `main`.",
+         "  - [ ] PR 1 branches from `main` first and carries the folded creation task."),
+        ("  - [ ] <PR id> after <PR id>.", "  - [ ] PR 2 after PR 1's verification gate."),
+        ("fold <creation task id> into the first wave", "fold C1 into the first wave"),
+        ("whose lane is the project skill folder glob `<project skill folder glob>`.",
+         "whose lane is the project skill folder glob `.scratch/verify-demo/**`."),
+        ("chart <carrier PR id> --> `[gate: verification]` --> <later `ui`/`cli` PR ids>.",
+         "chart PR 1 --> `[gate: verification]` --> PR 2."),
+        ("chart <first covered-code PR id> --> `[gate: formal]` --> <later covered-code PR ids>.",
+         "chart PR 1 --> `[gate: formal]` --> PR 2."),
+        ("- [ ] Hold the file boundaries. <PR id or class> touches only `<glob>`.",
+         "- [ ] Hold the file boundaries. PR 1 touches only `src/checkout/**` and PR 2 only `src/cli/**`."),
+        ("- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.",
+         "- [ ] Hold the review gate. PR 1 and PR 2 change an interaction. They wait for the operator's review in chat with screenshots and a video before merge."),
+        ("- [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `skills/poteto-mode/playbooks/shipping.md`.>",
+         "- [ ] The owner squash-merges its own PR under the patch-id rule in `skills/poteto-mode/playbooks/shipping.md`."),
+        ("Surface: library", "Surface: ui"),
+        ("- [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.",
+         "- [ ] `git fetch origin main && git checkout <head SHA>`."),
+        ("- [ ] <Start the backend and the surface through the verify skill's launch or e2e recipe. Wait for its ready signal.>",
+         "- [ ] Start the surface through the verify skill's launch recipe and wait for its ready signal."),
+        ("- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses Playwright (`skills/playwright-cli`) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>",
+         "- [ ] Deliver the feature entry's journey under the lane's condition through the verify skill. Name the read-only diagnostics."),
+        ("Save every screenshot to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png`",
+         "Save every screenshot to `.scratch/demo/shots/<pr-id>/worker-<n>/<slug>.png`"),
+        ("""  subgraph W1[Wave 1]
+    T1[task: <id> lane <glob>]
+    T2[task: <id> lane <glob>]
+  end
+  subgraph W2[Wave 2]
+    T3[task: <id> lane <glob>]
+  end
+  T1 -->|blocks| T3
+  W1 -->|wave gate| W2
+  W2 -->|feature gate| FG[gate: feature]
+  FG -->|review| RL[gate: review]""",
+         f"""  subgraph W1[Wave 1]
+    T1[task: checkout-core lane src/checkout/core/**]
+    C1[task: create-verification-skill PR 1 lane .scratch/verify-demo/**]
+    P1[pr: PR 1 lane src/checkout/**]
+  end
+  subgraph W2[Wave 2]
+    T2[task: checkout-cli lane src/cli/**]
+    P2[pr: PR 2 lane src/cli/**]
+  end
+  T1 -->|blocks| P1
+  C1 -->|folds into| P1
+  W1 -->|wave gate| W2
+  P1 -->|verification| VG[gate: verification]
+  VG -->|blocks| P2
+  P1 -->|formal| FM[gate: formal]
+  FM -->|blocks| P2
+  P2 -->|feature gate| FG[gate: feature]
+  FG -->|review| RL[gate: review]"""),
+        ("**Critical path.** <The longest blocking chain, named with its gates.>",
+         "**Critical path.** Wave 1, PR 1, the verification and formal gates, PR 2, then the feature and review gates."),
+        ("**Staffing.** <role-to-model map per unit; critical-dev and reviewer independence; the model-family diversity rule. Outside auto mode this map is presented to the operator before the first wave.>",
+         f"**Staffing.** swarm workers on `{SWARM_MODEL}`, with critical-dev and reviewer from different model families."),
+        ("**Risk.** <the risk register with a fallback per risk and the verification ceiling.>",
+         "**Risk.** A failed lane falls back to a single verifier at the new head."),
+        ("## <Task as a verb phrase> (1)", "## Add the checkout flow (PR 1)"),
+        ("**Depends on.** <PR id, or None.>", "**Depends on.** None."),
+        ("- [ ] Edit `<path>`.", "- [ ] Edit `src/checkout/flow.ts`."),
+        ("- [ ] Create `<path>`.", "- [ ] Create `src/checkout/journeys.ts`."),
+        ("- [ ] Delete `<path>`.\n", ""),
+        ("- [ ] <One change. Name the symbol and the file.>", "- [ ] Add `driveJourney()` in `src/checkout/flow.ts`."),
+        ("under `<features/ path>` in the same PR", f"under `{FEATURES_MAP}` in the same PR"),
+        ("- [ ] <One observable result, with the exact log line or screen state.>",
+         "- [ ] The checkout screen renders the cart total within one second."),
+        ("- [ ] <Test file and the case it gains.> Run `<command>`.",
+         "- [ ] `src/checkout/flow.test.ts` gains the journey case. Run `npm test`."),
+        ("- [ ] Lane 1. `<feature-id>#<sub-id>`. Regression lane against trunk. Drive the entry's load-bearing journey under <condition> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.",
+         "- [ ] Lane 1. `checkout#cart-total`. Regression lane against trunk. Drive the entry's load-bearing journey under a loaded cart at trunk and head. Save `lane-1.png`. Pass when the totals match."),
+        ("<Keep the four formal boxes for `Formal: create`, `exists`, or `exists-stale`. For `exists-stale`, name the `maintain-formal-verification-skill` route and owner in `## Verification readiness`, then run the maintained check in the Run box. For `Formal: not-required`, keep only the Not covered box. Delete whichever branch the PR's Formal decision does not use.>",
+         "Created with this PR by folding `create-formal-verification-skill` after the code is built and before the gate."),
+        ("- [ ] Command. `<command>`.", "- [ ] Command. Run `npx fast-check src/checkout/property.test.ts`."),
+        ("- [ ] Property. <One-sentence property.>", "- [ ] Property. Concurrent checkouts preserve the inventory count."),
+        ("- [ ] Covered. <Paths and symbols.>", "- [ ] Covered. `src/checkout/**` and `driveJourney()`."),
+        ("- [ ] Run. Save `<output evidence path>`. Pass when <predicate>. Advance the formal sync commit when the passing model still describes the code.",
+         "- [ ] Run. Save `.scratch/demo/verification/PR-1/formal.log`. Pass when the check exits 0. Advance the formal sync commit when the passing model still describes the code."),
+        ("\n- [ ] Not covered.", ""),
+        ("- [ ] Metric. <What is measured at both trunk and head. If trunk lacks the feature, also name the diff-added work and the end-to-end state the user waits for.>",
+         "- [ ] Metric. Cart render time at trunk and head."),
+        ("- [ ] Probe. <The command or procedure, run at trunk and at the head, interleaved. Both sides must produce the metric.>",
+         "- [ ] Probe. Run `npm run bench:render` at trunk and head, interleaved."),
+        ("- [ ] Baseline. Record the trunk <value> first.", "- [ ] Baseline. Record the trunk 120 ms first."),
+        ("- [ ] Rule. <Head against trunk, with the number that fails. If the scenarios differ, add absolute budgets for the diff-added work and the user-visible end state instead of an invalid ratio.>",
+         "- [ ] Rule. Head stays within 110 percent of trunk; 132 ms fails."),
+        ("- [ ] Copy lane <n> screenshots into `<media path>/<pr-id>-review-<slug>.png`.",
+         "- [ ] Copy lane 1 screenshots into `.scratch/demo/media/PR-1-review-cart.png`."),
+        ("Save it as `<media path>/<pr-id>-review.mp4`.", "Save it as `.scratch/demo/media/PR-1-review.mp4`."),
+        ("- [ ] <The owner squash-merges its own PR, or the root appends it to the base-branch stack and the operator lands it bottom-up.>",
+         "- [ ] The owner squash-merges its own PR."),
+        ("`.scratch/<effort>/verification/<pr-id>/`", "`.scratch/demo/verification/PR-1/`"),
+    ]
+    for i in range(2, 11):
+        edits.append((
+            f"- [ ] Lane {i}. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.",
+            f"- [ ] Lane {i}. `checkout#journey-{i}`. Drive the entry's journey under condition {i}. "
+            f"Save `lane-{i}.png`. Pass when the journey evidence exists.",
+        ))
+    return edits
+
 
 
 def check(condition: bool, label: str, detail: str = "") -> None:
@@ -120,7 +349,7 @@ def main() -> int:
         check((spec_dir / "plan.md").is_file(), "plan.md exists at the run root")
         plan_text = (spec_dir / "plan.md").read_text()
         check("The root never pushes. Owners push only their own branch." in plan_text,
-              "stamped standing order 10 carries the clarified push rule")
+              "stamped standing order 12 carries the clarified push rule")
 
         checker = subprocess.run(
             ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(spec_dir / "plan.md")],
@@ -149,6 +378,46 @@ def main() -> int:
         check("Continuation: " in emitted, "emitted plan carries the profile-named Continuation line")
         check("[gate: feature]" in emitted and "[gate: review]" in emitted,
               "emitted run graph names the feature and review gates")
+
+        authored, unresolved = author_plan(emitted, verification_edits())
+        check(not unresolved, "every skeleton anchor resolves against the emitted plan",
+              "; ".join(unresolved[:3]))
+        verify_skill = repo / ".scratch" / "verify-demo"
+        verify_skill.mkdir(parents=True, exist_ok=True)
+        (verify_skill / "SKILL.md").write_text("# verify-demo\n")
+        features_dir = verify_skill / "features"
+        features_dir.mkdir(exist_ok=True)
+        (features_dir / "checkout.md").write_text("# checkout\n")
+        (features_dir / "cli-checkout.md").write_text("# cli-checkout\n")
+        close_at = authored.index("## Close the program")
+        authored = authored[:close_at] + cli_pr_section() + authored[close_at:]
+        for needle, label in [
+            ("## Verification readiness", "the readiness H2"),
+            ("| Maintenance route | `none` |", "the Maintenance route row"),
+            ("| Decision | `create-before-amendment` |", "the creation decision"),
+            ("| Formal | `create` |", "the formal decision"),
+            ("Change: user-facing", "the Change line"),
+            ("task: create-verification-skill PR 1", "the folded creation task"),
+            ("[gate: verification]", "the verification gate node"),
+            ("[gate: formal]", "the formal gate node"),
+            ("- [ ] Command. Run `npx fast-check", "the formal Command box"),
+            ("- [ ] Property. Concurrent checkouts", "the formal Property box"),
+            ("- [ ] Covered. `src/checkout/**`", "the formal Covered box"),
+            ("- [ ] Run. Save `.scratch/demo/verification/PR-1/formal.log`", "the formal Run box"),
+            ("`checkout#cart-total`", "a ui feature-entry lane"),
+            ("`cli-checkout#cart-total`", "a cli feature-entry lane"),
+        ]:
+            check(needle in authored, f"authored plan carries {label}")
+        authored_path = spec_dir / "plan-authored.md"
+        authored_path.write_text(authored)
+        checker2 = subprocess.run(
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(authored_path)],
+            cwd=repo, capture_output=True, text=True,
+        )
+        check(checker2.returncode == 0, "check-plan exits 0 on the authored plan",
+              checker2.stderr.strip()[:200])
+        summary = next((ln for ln in checker2.stdout.splitlines() if "PR sections" in ln), "")
+        check("2 PR sections, 0 problems" in summary, "checker reports two clean PR sections", summary)
 
         write_ledgers(repo, "demo")
 

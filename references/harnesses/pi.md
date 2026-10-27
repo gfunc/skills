@@ -76,3 +76,16 @@ start-dev resolves roles through this mapping. Pi has no stock subagents, so thi
 - **Continuation:** none built in; use external cron or a timed shell wait. The installed docs and package contain no goal command.
 - **Frontmatter (example loader):** `background` no, `is_background` no, `subagents` no, `tools` yes, `model` yes.
 - **Fallback:** the main agent executes the plan and review hats itself, sequentially, disclosed in the ledger as reduced independence.
+
+### Role model table
+
+start-dev carries one `Model: <role>=<model>` line per role in each brief; the pstack design skills read it before `~/.agents/pstack-models.md`. Pi has no per-spawn model parameter — the example extension's tool schema carries none — so the brief's line cannot be honored directly; it selects which model the run records as intended.
+
+| Role line | Meaning |
+|---|---|
+| `Model: dev=<model>` | dev, critical-dev, reviewer, fixer, merge worker, research — intended model; recorded and disclosed |
+| `Model: plan-lead=<model>` | plan lead (always the main agent on Pi) — no effect |
+| `Model: review-lead=<model>` | review lead (the main agent in a fresh read) — intended model, recorded and disclosed |
+| `Model: how explorer=<model>` / `how explainer=<model>` / `why investigators=<model>` / `why synthesizer=<model>` / `architect runners=<model>` / `arena runners=<model>` / `arena cross-judge pool=<model>` / `swarm workers=<model>` | the pstack skill role lines, consumed by that skill |
+
+**Per-harness limit.** With the subagent extension installed, the per-agent `model:` frontmatter (`~/.pi/agent/agents/*.md`, `.pi/agents/*.md`) is the only child model control; an agent file without `model` runs the parent's active `provider/modelId`. To honor a line, write it into that agent file before the run. Otherwise use the skill's stated default or the parent's model, record the model each role actually ran on, and disclose the mismatch with the brief's line in the reply and ledger. Without the extension there is no spawn mechanism at all; the degraded Role mapping applies and every line is recorded as unmet.

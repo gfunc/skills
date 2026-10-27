@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import { dirname, resolve } from "node:path";
 import process from "node:process";
 
 const RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
 const LANES = /Ten lanes on `[^`<>]+` at the PR head/;
 const SURFACES = ["ui", "cli", "library", "backend"];
+const DECISIONS = ["exists", "exists-stale", "create-after-first-drivable-batch", "create-before-amendment", "not-required"];
+const FORMAL_DECISIONS = ["exists", "exists-stale", "create", "not-required"];
+const READINESS_FIELDS = ["Decision", "Surface", "Drivability", "Boundary", "Evidence", "Skill", "Map", "Formal", "Formal property", "Maintenance route", "Owner"];
+const DRIVABILITY_STATES = ["drivable", "drivable-with-boundary", "not-drivable"];
+const FEATURE_ENTRY = /`[A-Za-z0-9][A-Za-z0-9_-]*#[A-Za-z0-9][A-Za-z0-9_-]*`/;
+const MAP_UPDATE = /^\s*map update\b/i;
+const MAP_UPDATE_NEGATED = /\b(?:no|not|never|without)\b/i;
+const CREATION_TASK = /\bcreate-verification-skill\b/i;
 const LANE_ARTIFACT = { ui: { re: /Save `[^`]+`/, name: "screenshot" }, cli: { re: /Log `[^`]+`/, name: "log" } };
+const FORMAL_ITEMS = ["Command.", "Property.", "Covered.", "Run."];
+const FORMAL_ITEM_BODY = {
+	"Command.": { re: /`[^`]+`/, name: "backticked command" },
+	"Property.": { re: /\S+/, name: "one-sentence property" },
+	"Covered.": { re: /`[^`]+`/, name: "backticked covered files or functions" },
+	"Run.": { re: /`[^`]+`/, name: "evidence path" },
+};
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -14,6 +30,7 @@ const SUB_BLOCKS = [
 	"You see.",
 	"Verify, unit.",
 	"Verify, live.",
+	"Verify, formal.",
 	"Verify, perf.",
 	"Review gate.",
 	"Merge.",
@@ -84,8 +101,9 @@ for (let i = start; i < raw.length; i++) {
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
 	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text.trim());
+	const isChangeLine = /^Change:\s*(user-facing|internal)\s*$/.test(text.trim());
 	const isContinuationLine = /^Continuation: \S/.test(text.trim());
-	if (/: \S/.test(prose) && !isSurfaceLine && !isContinuationLine) fail(n, "mid-sentence colon");
+	if (/: \S/.test(prose) && !isSurfaceLine && !isChangeLine && !isContinuationLine) fail(n, "mid-sentence colon");
 }
 
 const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
@@ -98,6 +116,72 @@ for (const l of lines) {
 const find = (title) => sections.find((s) => s.title === title);
 const bodyText = (s) => s.body.map((l) => l.text).join("\n");
 const boxes = (ls) => ls.filter((l) => !l.code && BOX.test(l.text)).map((l) => ({ n: l.n, text: l.text.match(BOX)[1] }));
+
+const readiness = find("Verification readiness");
+if (!readiness) fail(1, 'no "## Verification readiness" section');
+const readinessFields = new Map();
+const cellValue = (text) => {
+	const value = text.trim();
+	const ticked = value.match(/^`([^`]+)`$/);
+	return (ticked ? ticked[1] : value).trim();
+};
+if (readiness) {
+	for (const l of readiness.body) {
+		if (l.code) continue;
+		const match = l.text.match(/^\s*\|([^|]+)\|([^|]+)\|\s*$/);
+		if (!match) continue;
+		const name = match[1].trim();
+		const value = cellValue(match[2]);
+		if (name === "Field" || /^-+$/.test(name)) continue;
+		if (readinessFields.has(name)) fail(l.n, `Verification readiness repeats table field "${name}"`);
+		readinessFields.set(name, { value, n: l.n });
+	}
+	for (const name of READINESS_FIELDS) {
+		if (!readinessFields.get(name)?.value) fail(readiness.n, `Verification readiness lacks table field "${name}"`);
+	}
+}
+const readinessValue = (name) => readinessFields.get(name)?.value ?? "";
+const readinessLine = (name) => readinessFields.get(name)?.n ?? readiness?.n ?? 1;
+const decision = readinessValue("Decision");
+const readinessSurface = readinessValue("Surface");
+const formalDecision = readinessValue("Formal");
+if (readiness && decision && !DECISIONS.includes(decision))
+	fail(readinessLine("Decision"), `unknown Verification readiness Decision "${decision}" (expected ${DECISIONS.join("|")})`);
+if (readiness && readinessSurface && !SURFACES.includes(readinessSurface))
+	fail(readinessLine("Surface"), `unknown Verification readiness Surface "${readinessSurface}" (expected ${SURFACES.join("|")})`);
+if (readiness && formalDecision && !FORMAL_DECISIONS.includes(formalDecision))
+	fail(readinessLine("Formal"), `unknown Verification readiness Formal "${formalDecision}" (expected ${FORMAL_DECISIONS.join("|")})`);
+const drivability = readinessValue("Drivability");
+if (readiness && drivability && !DRIVABILITY_STATES.includes(drivability))
+	fail(readinessLine("Drivability"), `unknown Verification readiness Drivability "${drivability}" (expected ${DRIVABILITY_STATES.join("|")})`);
+const evidence = readinessValue("Evidence");
+if (readiness && evidence) {
+	if (!/`[^`]+`/.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must name the launch or e2e command in backticks");
+	if (!/\bready\b/i.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must name the ready signal");
+	if (!/\bjourneys?\b/i.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must name one driven journey");
+	if (!/\d{4}-\d{2}-\d{2}/.test(evidence))
+		fail(readinessLine("Evidence"), "Verification readiness Evidence must carry the timestamp");
+}
+if (decision === "exists") {
+	for (const name of ["Skill", "Map"]) {
+		const value = readinessValue(name);
+		const candidates = [resolve(process.cwd(), value), resolve(dirname(file), value)];
+		if (value && !candidates.some((candidate) => fs.existsSync(candidate)))
+			fail(readinessLine(name), `Verification readiness ${name} path does not resolve: ${value}`);
+	}
+}
+const maintenanceRoute = readinessValue("Maintenance route");
+if (decision === "exists-stale" && (!maintenanceRoute || !maintenanceRoute.includes("maintain-verification-skill")))
+	fail(readinessLine("Maintenance route"), "exists-stale requires a maintenance route");
+if (formalDecision === "exists-stale" && (!maintenanceRoute || !maintenanceRoute.includes("maintain-formal-verification-skill")))
+	fail(readinessLine("Maintenance route"), "Formal exists-stale requires a maintenance route");
+if (formalDecision === "not-required" && readinessValue("Formal property") !== "none")
+	fail(readinessLine("Formal property"), 'Formal not-required requires Formal property "none" so the design signal is none');
+if (decision === "not-required" && readinessSurface && !["library", "backend"].includes(readinessSurface))
+	fail(readinessLine("Decision"), "Verification readiness not-required is only allowed for library/backend surfaces");
 
 const installedPluginPaths = (text) => {
 	const tokens = [...text.matchAll(PLUGIN_TOKEN)].flatMap((match) => match[1].split(/\s+/));
@@ -165,6 +249,12 @@ else {
 		fail(program.n, "Program checklist lacks a \"Continuation: <mechanism>\" line naming the active profile's continuation mechanism");
 }
 
+if (readiness && program && sections.indexOf(readiness) > sections.indexOf(program))
+	fail(readiness.n, 'Verification readiness must precede "## Program checklist"');
+if (readiness && howToRead && sections.indexOf(readiness) < sections.indexOf(howToRead))
+	fail(readiness.n, 'Verification readiness must follow "## How to read this"');
+
+let graph = null;
 const runGraph = find("Run graph");
 if (!runGraph) fail(1, 'no "## Run graph" section');
 else {
@@ -185,8 +275,23 @@ else {
 		const waves = [...text.matchAll(/subgraph W\d+\[/g)];
 		if (waves.length === 0) fail(fence.n, "Run graph has no wave subgraph W<n>");
 		const nodes = new Set();
+		const graphNodes = new Map();
 		const edges = [];
+		let currentWave = null;
 		for (const line of lines) {
+			const subgraph = line.text.match(/^\s*subgraph\s+([A-Za-z0-9_-]+)(?:\[[^\]]*\])?/);
+			if (subgraph) currentWave = subgraph[1];
+			else if (/^\s*end\s*$/.test(line.text)) currentWave = null;
+			for (const match of line.text.matchAll(/([A-Za-z0-9_-]+)\[((?:task|pr|feature|gate): [^\]]+)\]/g)) {
+				const previous = graphNodes.get(match[1]);
+				graphNodes.set(match[1], {
+					id: match[1],
+					label: match[2],
+					kind: match[2].slice(0, match[2].indexOf(":")),
+					n: line.n,
+					wave: previous?.wave ?? currentWave,
+				});
+			}
 			const m = line.text.match(/^\s*([A-Za-z0-9_-]+)(?:\[[^\]]*\])?\s*-->(?:\|([^|]*)\|)?\s*([A-Za-z0-9_-]+)/);
 			if (m) {
 				nodes.add(m[1]); nodes.add(m[3]); edges.push([m[1], m[3]]);
@@ -195,6 +300,7 @@ else {
 				if (decl) nodes.add(decl[1]);
 			}
 		}
+		graph = { nodes: [...graphNodes.values()], edges };
 		const color = new Map();
 		const stack = [...nodes];
 		const state = new Map();
@@ -224,6 +330,7 @@ const prSections = programIndex === -1 || closeIndex === -1
 if (prSections.length === 0) fail(1, "no PR sections between Program checklist and Close the program");
 
 const report = [];
+const prInfo = [];
 for (const pr of prSections) {
 	const heads = [];
 	for (const l of pr.body) {
@@ -249,6 +356,27 @@ for (const pr of prSections) {
 		else surface = value;
 	}
 
+	const changeLines = pr.body.filter((l) => !l.code && /^Change:/.test(l.text.trim()));
+	let change = LANE_ARTIFACT[surface] ? "user-facing" : "internal";
+	if (changeLines.length > 1) fail(changeLines[1].n, `${pr.title}: more than one Change line`);
+	if (changeLines.length === 0) fail(pr.n, `${pr.title}: no Change line`);
+	else {
+		const value = changeLines[0].text.trim().replace(/^Change:\s*/, "");
+		if (!["user-facing", "internal"].includes(value)) fail(changeLines[0].n, `${pr.title}: unknown Change "${value}" (expected user-facing|internal)`);
+		else change = value;
+	}
+	const mapUpdates = boxes(pr.body).filter((b) => MAP_UPDATE.test(b.text));
+	if (change === "user-facing" && mapUpdates.length === 0)
+		fail(changeLines[0]?.n ?? pr.n, `${pr.title}: Change user-facing requires a map-update box`);
+	if (change === "internal" && mapUpdates.length > 0)
+		fail(mapUpdates[0].n, `${pr.title}: Change internal must not carry a map-update box`);
+	for (const box of mapUpdates) {
+		if (MAP_UPDATE_NEGATED.test(box.text))
+			fail(box.n, `${pr.title}: map-update box is negated; a Change user-facing PR updates its feature entries`);
+		if (!/`[^`]*features\/[^`]*`/.test(box.text))
+			fail(box.n, `${pr.title}: map-update box names no backticked features/ entry path`);
+	}
+
 	const depends = block("Depends on.");
 	if (depends && depends.rest === "") fail(depends.n, `${pr.title}: Depends on names nothing`);
 	for (const name of ["Files.", "Build.", "You see.", "Verify, unit.", "Merge."]) {
@@ -272,9 +400,43 @@ for (const pr of prSections) {
 				if (!lane.m) fail(lane.n, `${pr.title}: live box is not a lane`);
 				else if (!artifact.re.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no ${artifact.name}`);
 				else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
+				if (lane.m && !FEATURE_ENTRY.test(lane.text))
+					fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no backticked <feature-id>#<sub-id> feature entry`);
+				if (lane.m?.[1] === "1" && !(["regression", "trunk", "head", "load-bearing"].every((marker) => lane.text.toLowerCase().includes(marker))))
+					fail(lane.n, `${pr.title}: lane 1 does not name the regression journey on trunk and head`);
 			}
 		} else if (boxes(live.lines).length === 0) {
 			fail(live.n, `${pr.title}: Verify, live has no box`);
+		}
+	}
+
+	let formalCovered = false;
+	const formal = block("Verify, formal.");
+	if (!formal) {
+		if (["create", "exists"].includes(formalDecision)) fail(pr.n, `${pr.title}: Formal ${formalDecision} requires a Verify, formal block`);
+		else fail(pr.n, `${pr.title}: Verify, formal block is required`);
+	} else {
+		const formalBoxes = boxes(formal.lines);
+		const notCovered =
+			(formal.rest === "Not covered." && formalBoxes.length === 0) ||
+			(formal.rest === "" && formalBoxes.length === 1 && formalBoxes[0].text === "Not covered.");
+		if (formalDecision === "not-required") {
+			if (!notCovered) fail(formal.n, `${pr.title}: Formal not-required requires "Not covered." only`);
+		} else if (!notCovered) {
+			formalCovered = true;
+			const formalBoxItems = new Map(formalBoxes.map((b) => [b.text.split(" ")[0], b]));
+			for (const name of FORMAL_ITEMS) {
+				const box = formalBoxItems.get(name);
+				if (!box) fail(formal.n, `${pr.title}: Verify, formal lacks "${name}" box`);
+				else if (box.text.trim() === name)
+					fail(box.n, `${pr.title}: Verify, formal "${name}" box is empty; it must name ${FORMAL_ITEM_BODY[name].name}`);
+				else if (!FORMAL_ITEM_BODY[name].re.test(box.text))
+					fail(box.n, `${pr.title}: Verify, formal "${name}" box names no ${FORMAL_ITEM_BODY[name].name}`);
+			}
+			if (formalDecision === "exists-stale" && !maintenanceRoute.includes("maintain-formal-verification-skill"))
+				fail(formal.n, `${pr.title}: Formal exists-stale requires a maintain-formal-verification-skill route in Verification readiness`);
+			if (formalBoxItems.get("Run.") && !/pass when/i.test(formalBoxItems.get("Run.").text))
+				fail(formalBoxItems.get("Run.").n, `${pr.title}: Verify, formal "Run." box names no pass predicate`);
 		}
 	}
 
@@ -301,9 +463,97 @@ for (const pr of prSections) {
 		}
 	}
 
+	prInfo.push({ pr, surface, change, formalCovered });
 	const total = boxes(pr.body).length;
 	const cells = SUB_BLOCKS.filter((s) => s !== "Depends on.").map((s) => `${s.replace(/[ ,.]+/g, "-").replace(/-$/, "").toLowerCase()}=${counts[s] ?? 0}`);
 	report.push(`${pr.title}  boxes=${total}  ${cells.join(" ")}`);
+}
+
+const prKey = (text) => {
+	const clean = text.replace(/^(?:pr|feature):\s*/, "").trim();
+	const match = clean.match(/\bPR[ -]?([A-Za-z0-9_-]+)/i);
+	return (match ? match[1] : clean).toLowerCase();
+};
+const graphPrNode = (pr) => graph?.nodes.find((node) =>
+	["pr", "feature"].includes(node.kind) && prKey(node.label) === prKey(pr.title),
+) ?? null;
+const hasEdge = (from, to) => Boolean(graph?.edges.some(([source, target]) => source === from && target === to));
+for (const info of prInfo) info.graphNode = graphPrNode(info.pr);
+const livePrs = prInfo.filter((info) => ["ui", "cli"].includes(info.surface));
+if (decision === "not-required" && livePrs.length > 0 && !["ui", "cli"].includes(readinessSurface))
+	fail(readinessLine("Decision"), "Verification readiness not-required is only allowed for library/backend surfaces");
+
+if (["create-after-first-drivable-batch", "create-before-amendment"].includes(decision)) {
+	const carrier = decision === "create-before-amendment" ? livePrs[0] : livePrs.at(-1);
+	const creationTasks = graph?.nodes.filter((node) => node.kind === "task" && CREATION_TASK.test(node.label)) ?? [];
+	if (!carrier) fail(readinessLine("Decision"), `${decision} requires a ui/cli carrier PR`);
+	if (creationTasks.length === 0)
+		fail(readinessLine("Decision"), `${decision} requires a folded create-verification-skill task`);
+	for (const task of creationTasks) {
+		if (!/\slane\s+\S+/.test(task.label)) fail(task.n, "create-verification-skill task has no file lane");
+	}
+	const carrierNode = carrier ? graphPrNode(carrier.pr) : null;
+	if (carrier && creationTasks.length > 0 && !carrierNode)
+		fail(carrier.pr.n, `${carrier.pr.title}: creation carrier has no pr or feature node in Run graph`);
+	else if (carrierNode && creationTasks.length > 0) {
+		const folded = creationTasks.filter((task) => task.wave === carrierNode.wave && hasEdge(task.id, carrierNode.id));
+		if (!creationTasks.some((task) => task.wave === carrierNode.wave))
+			fail(readinessLine("Decision"), `${decision} requires a folded create-verification-skill task in ${carrier.pr.title}'s wave`);
+		if (folded.length === 0)
+			fail(readinessLine("Decision"), `${decision} requires the create-verification-skill task to fold into carrier ${carrier.pr.title} with an edge into its node`);
+		for (const task of creationTasks) {
+			if (task.wave === carrierNode.wave && !hasEdge(task.id, carrierNode.id))
+				fail(task.n, `create-verification-skill task does not fold into carrier ${carrier.pr.title}`);
+			if (task.wave !== carrierNode.wave)
+				fail(task.n, `create-verification-skill task must sit in carrier ${carrier.pr.title}'s wave`);
+		}
+	}
+
+	if (decision === "create-before-amendment") {
+		const verificationGate = graph?.nodes.find((node) => node.kind === "gate" && node.label === "gate: verification");
+		if (!verificationGate)
+			fail(runGraph?.n ?? readinessLine("Decision"), 'Run graph lacks the verification gate node "[gate: verification]"');
+		else {
+			if (carrierNode && !hasEdge(carrierNode.id, verificationGate.id))
+				fail(verificationGate.n, `verification gate does not follow carrier ${carrier.pr.title}`);
+			const carrierIndex = livePrs.indexOf(carrier);
+			for (const later of livePrs.slice(carrierIndex + 1)) {
+				const laterNode = graphPrNode(later.pr);
+				if (!laterNode) fail(later.pr.n, `${later.pr.title}: later ui/cli PR has no pr or feature node in Run graph`);
+				else if (!hasEdge(verificationGate.id, laterNode.id))
+					fail(verificationGate.n, `verification gate has no edge into later ui/cli ${later.pr.title}`);
+			}
+		}
+	}
+}
+
+if (decision === "create-after-first-drivable-batch" && close) {
+	const closeBoxes = boxes(close.body);
+	const skillPath = readinessValue("Skill");
+	if (!closeBoxes.some((b) => (b.text.includes(skillPath) || /verification skill/i.test(b.text)) && /\bexists?\b/i.test(b.text)))
+		fail(close.n, "create-after-first-drivable-batch requires Close the program to assert that the verification skill exists");
+	if (!closeBoxes.some((b) => /\b(?:prove[- ]once|proved once|proven once)\b/i.test(b.text)))
+		fail(close.n, "create-after-first-drivable-batch requires Close the program to assert prove-once evidence");
+}
+
+if (["create", "exists"].includes(formalDecision)) {
+	const formalGate = graph?.nodes.find((node) => node.kind === "gate" && node.label === "gate: formal");
+	if (!formalGate) fail(runGraph?.n ?? readinessLine("Formal"), 'Run graph lacks the formal gate node "[gate: formal]"');
+	const coveredPrs = prInfo.filter((info) => info.formalCovered);
+	if (coveredPrs.length === 0)
+		fail(readinessLine("Formal"), `Formal ${formalDecision} requires at least one covered-code PR to run the formal check`);
+	else if (formalGate) {
+		const firstNode = graphPrNode(coveredPrs[0].pr);
+		if (!firstNode) fail(coveredPrs[0].pr.n, `${coveredPrs[0].pr.title}: formal covered-code PR has no pr or feature node in Run graph`);
+		else if (!hasEdge(firstNode.id, formalGate.id))
+			fail(formalGate.n, `formal gate does not follow first covered-code ${coveredPrs[0].pr.title}`);
+		for (const later of coveredPrs.slice(1)) {
+			const laterNode = graphPrNode(later.pr);
+			if (!laterNode) fail(later.pr.n, `${later.pr.title}: later formal covered-code PR has no pr or feature node in Run graph`);
+			else if (!hasEdge(formalGate.id, laterNode.id))
+				fail(formalGate.n, `formal gate has no edge into later covered-code ${later.pr.title}`);
+		}
+	}
 }
 
 if (closeIndex !== -1) {
