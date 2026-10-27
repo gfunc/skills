@@ -349,7 +349,7 @@ def main() -> int:
         check((spec_dir / "plan.md").is_file(), "plan.md exists at the run root")
         plan_text = (spec_dir / "plan.md").read_text()
         check("The root never pushes. Owners push only their own branch." in plan_text,
-              "stamped standing order 10 carries the clarified push rule")
+              "stamped standing order 12 carries the clarified push rule")
 
         checker = subprocess.run(
             ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(spec_dir / "plan.md")],

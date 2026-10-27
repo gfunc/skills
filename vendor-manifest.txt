@@ -2,9 +2,10 @@
 # Mirror: ~/projects/pstack (upstream cursor/plugins, pstack subtree).
 # scripts/sync-upstream reads this file: first BASE line, then one path per line.
 # Since 0.3.0 the vendored paths keep upstream pstack content except for
-# harness-adapter hunks and the .scratch store convention. The directories below
-# still report as "local modification (intended)" because those allowed hunks
-# live inside them; no workflow modification remains in any vendored path.
+# harness-adapter hunks, the .scratch store convention, and the five declared
+# model-override hunks listed below. The directories below still report as
+# "local modification (intended)" because those allowed hunks live inside them;
+# no other workflow modification remains in any vendored path.
 #   skills/architect/  skills/arena/  skills/automate-me/  skills/create-verification-skill/
 #   skills/figure-it-out/  skills/how/  skills/interrogate/  skills/maintain-verification-skill/
 #   skills/no-comments/  skills/poteto-help/  skills/poteto-mode/  skills/recall/  skills/reflect/  skills/setup-pstack/

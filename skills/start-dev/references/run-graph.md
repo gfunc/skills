@@ -38,7 +38,7 @@ The plan's `## Verification readiness` decision selects these; with no decision 
 - Every wave subgraph has a wave-gate edge leaving it, or feeds the feature gate.
 - The feature gate and the review gate nodes are present.
 - A `create-*` readiness decision carries the folded creation task node in the carrier PR's first wave, with its lane.
-- `create-before-amendment` carries a `[gate: verification]` node fed by the carrier, with an edge into at least one later `ui`/`cli` PR.
+- `create-before-amendment` carries a `[gate: verification]` node fed by the carrier, with an edge into every later `ui`/`cli` PR node.
 - A `Formal: create` or `exists` decision carries a `[gate: formal]` node fed by the first covered-code PR, blocking every later covered-code PR.
 - The graph is acyclic.
 
