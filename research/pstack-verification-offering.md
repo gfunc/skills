@@ -160,7 +160,7 @@ The first returns verification *concepts* (the `**Verification**` principle buck
 
 > "**Verify, live.** … Ten lanes on `<swarm workers model>` at the PR head, per the boot recipe." — `multi-phase-plan.md:100`
 
-Its validator enforces the shape, not the capability: `skills/poteto-mode/scripts/check-plan.mjs:6` holds the same rule string, and `:7` matches `/Ten lanes on `[^`<>]+` at the PR head/`. A plan can pass with hand-written Playwright scripts, a control CLI, or no harness at all — the boxes must exist and name evidence, but nothing checks *how* the lane drives the app. So pstack requires the **outcome** the verification skill produces while refusing to require the **skill** that produces it.
+Its validator enforces the shape, not the capability: `skills/poteto-mode/scripts/check-plan.mjs:6` holds the same rule string, and line 7 requires the literal phrase `Ten lanes on … at the PR head`, with any model name. A plan can pass with hand-written Playwright scripts, a control CLI, or no harness at all — the boxes must exist and name evidence, but nothing checks *how* the lane drives the app. So pstack requires the **outcome** the verification skill produces while refusing to require the **skill** that produces it.
 
 **Contrast that proves the wiring is a choice.** `docs/guide/06-verify-and-ship.md:49` says "`/poteto-mode` already runs the checklist inside the Perf issue and Hillclimb playbooks" about `/benchmark-checklist`. pstack does put capabilities inside playbooks when it wants to. It did not do so for the four verification skills.
 
