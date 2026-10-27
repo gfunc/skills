@@ -76,3 +76,16 @@ start-dev resolves roles through this mapping. Resolution order: a named plugin 
 - **Continuation:** `/goal` is native (condition-evaluated turns). `/loop` and `CronCreate` also exist; under a goal, no audit tick is armed.
 - **Frontmatter:** `background` yes, `is_background` no, `subagents` no (nesting is gated by `tools`), `tools` yes, `model` yes (alias, full ID, or `inherit`).
 - **Fallback:** at the depth limit or with nesting disabled, the main orchestrator runs the PR-owner role prompt itself and spawns devs directly, disclosed in the ledger.
+
+### Role model table
+
+start-dev carries one `Model: <role>=<model>` line per role in each brief; the pstack design skills read it before `~/.agents/pstack-models.md`. On Claude the value is an alias (`sonnet`, `opus`, `haiku`, `fable`, `best`, `default`) or a full model ID, passed as the `Agent` `model` argument.
+
+| Role line | Meaning |
+|---|---|
+| `Model: dev=<alias>` | dev, critical-dev, reviewer, fixer, merge worker, research — pass as `model` on each spawn |
+| `Model: plan-lead=<alias>` | plan lead when it is a child; the main agent ignores it |
+| `Model: review-lead=<alias>` | review lead — a different model family from the parent's |
+| `Model: how explorer=<alias>` / `how explainer=<alias>` / `why investigators=<alias>` / `why synthesizer=<alias>` / `architect runners=<alias>` / `arena runners=<alias>` / `arena cross-judge pool=<alias>` / `swarm workers=<alias>` | the pstack skill role lines, consumed by that skill |
+
+**Per-harness limit.** The per-call `model` argument overrides an agent file's `model:` frontmatter, so the brief's line wins over any pinned role file — except under `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, which applies one model to every subagent and defeats the table. A blocked alias runs a family substitute or the inherited model rather than failing; treat any reported substitution as a failed line and disclose it.

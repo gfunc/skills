@@ -107,3 +107,16 @@ start-dev resolves roles through this mapping. Resolution order: a named plugin 
 - **Continuation:** `/goal` is native; CronCreate is the timed tick. There is no `/loop`. Under a goal, spawn children in the foreground and arm no audit tick.
 - **Frontmatter:** `background` no, `is_background` no, `subagents` yes, `tools` yes, `model` ignored (agent files cannot set a model).
 - **Fallback:** without the `subagents` allowlist, `dev-owner` is a leaf; the main orchestrator spawns the devs itself or runs the PR-owner role prompt directly, disclosed in the ledger.
+
+### Role model table
+
+start-dev carries one `Model: <role>=<model>` line per role in each brief; the pstack design skills read it before `~/.agents/pstack-models.md`. On Kimi the value must be a `[secondary_model.models]` alias, and the spawn passes it as `Agent`/`AgentSwarm` `model: "<alias>"`. `setup-workspace` owns the model phase and writes the aliases into `[secondary_model.models]`.
+
+| Role line | Meaning |
+|---|---|
+| `Model: dev=<alias>` | dev, critical-dev, reviewer, fixer, merge worker, research — pass as `model` on each spawn |
+| `Model: plan-lead=<alias>` | plan lead when it is a child; the main agent ignores it |
+| `Model: review-lead=<alias>` | review lead — a different model family from the parent's |
+| `Model: how explorer=<alias>` / `how explainer=<alias>` / `why investigators=<alias>` / `why synthesizer=<alias>` / `architect runners=<alias>` / `arena runners=<alias>` / `arena cross-judge pool=<alias>` / `swarm workers=<alias>` | the pstack skill role lines, consumed by that skill |
+
+**Per-harness limit.** A configured `[secondary_model]` pool is required before any per-role line can be honored; without one the `model` parameter is not offered and every spawn inherits the caller's model. `force = true` removes the parameter and pins every spawn to `default_model`, so it is reserved for single-model runs and cannot express a per-role table. An alias missing from `[secondary_model.models]` stops that spawn with the available aliases named; do not silently fall back. Confirm each alias against the spawn's `subagent.spawned` wire event.
