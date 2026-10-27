@@ -10,6 +10,21 @@ The program runs `skills/poteto-mode/playbooks/<execution playbook>.md`. <Who me
 
 Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
+## Verification readiness
+
+| Field | Value |
+|---|---|
+| Decision | `exists` |
+| Surface | `ui` |
+| Drivability | `drivable` |
+| Boundary | `none` |
+| Evidence | `<launch command, ready signal, one journey, timestamp>` |
+| Skill | `<verify-<app> path>` |
+| Map | `<features/ path>` |
+| Formal | `not-required` |
+| Formal property | `none` |
+| Owner | `<role>` |
+
 ## Program checklist
 
 ### Arm the program
@@ -19,6 +34,8 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
   - [ ] `git show origin/main:skills/poteto-mode/playbooks/<execution playbook>.md`
   - [ ] `git show origin/main:skills/swarm/SKILL.md`
   - [ ] `git show origin/main:<control skill path>`
+  - [ ] `git show origin/main:<verify-<app> skill path>`
+  - [ ] `git show origin/main:<verify-<app> features/ map path>`
   - [ ] `git show origin/main:skills/poteto-mode/playbooks/opening-a-pr.md`
   - [ ] `git show origin/main:skills/<each other leaf skill the program uses>`
   - [ ] Installed plugin alternative. Replace each `git show origin/main:<path>` with `<installed plugin root>/<path>` and use those absolute paths everywhere in this program.
@@ -33,6 +50,9 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - [ ] Follow this dependency graph. Start dependent work only after its parent merges, or base it on the parent branch when the execution playbook stacks.
   - [ ] <PR id> and <PR id> are independent and first. Both branch from `main`.
   - [ ] <PR id> after <PR id>.
+  - [ ] For `create-after-first-drivable-batch`, fold <creation task id> into the first wave of the last `ui`/`cli` PR of the first drivable batch. For `create-before-amendment`, fold it into the first wave of the amendment's first `ui`/`cli` PR. Use a `task:` node whose lane is the project skill folder glob `<project skill folder glob>`.
+  - [ ] For `create-before-amendment`, chart <carrier PR id> --> `[gate: verification]` --> <later `ui`/`cli` PR ids>. Later `ui`/`cli` PRs block on the gate; `library` and `backend` PRs do not.
+  - [ ] For `Formal: create` or `exists`, chart <first covered-code PR id> --> `[gate: formal]` --> <later covered-code PR ids>. Fold formal creation into the first covered-code PR after its code is built and before its gate.
 - [ ] Hold the file boundaries. <PR id or class> touches only `<glob>`.
 - [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.
 
@@ -47,17 +67,17 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 ### Verdict and merge, for every PR
 
-- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head. Run each full swarm per `skills/swarm/SKILL.md`. One gates lane. The ten live lanes from the PR's **Verify, live** block. The perf lane from its **Verify, perf** block. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The root audits the receipts in the merge-ready report before the verdict.
+- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head. Run each full swarm per `skills/swarm/SKILL.md`. One gates lane. The ten live lanes from the PR's **Verify, live** block. The formal check from its **Verify, formal** block when covered code changes. The perf lane from its **Verify, perf** block. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The carrier PR's creation-task prove-once evidence joins its gate. The root audits the receipts in the merge-ready report before the verdict.
 - [ ] Clean only when every lane is `PASS`. Findings go back to the owner, including a defect that a lane filed as a note. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `skills/poteto-mode/playbooks/shipping.md`.
 - [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `skills/poteto-mode/playbooks/shipping.md`.>
 
 ### Boot recipe, for every live lane
 
-Each live lane runs in its own git worktree at the PR head, checked out under the run's `.scratch/<feature-slug>/lanes/`. Lanes dispatch in waves of 5; the plan names the wave size and may tune it. Drive UI surfaces with Playwright (`skills/playwright-cli`); CLIs with tmux or a PTY.
+Each live lane runs in its own git worktree at the PR head, checked out under the run's `.scratch/<feature-slug>/lanes/`. Lanes dispatch in waves of 5; the plan names the wave size and may tune it. Follow the readiness `Skill` path and the lane's mapped feature entry through the project's `verify-<app>` skill. The skill wraps the repo's launch or e2e recipe and uses Playwright for `ui` and tmux/PTY for `cli`. A carrier PR's product lanes use the pre-existing drive path until the created skill passes its verification gate.
 
 - [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.
-- [ ] <Start the backend and the surface. Wait for ready.>
-- [ ] <Deliver input through Playwright (`skills/playwright-cli`) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>
+- [ ] <Start the backend and the surface through the verify skill's launch or e2e recipe. Wait for its ready signal.>
+- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses Playwright (`skills/playwright-cli`) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>
 - [ ] Save every screenshot to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png` and return the paths with the report.
 
 ## Run graph
@@ -86,6 +106,7 @@ graph TD
 ## <Task as a verb phrase> (<PR id>)
 
 Surface: ui
+Change: user-facing
 
 **Depends on.** <PR id, or None.>
 
@@ -98,6 +119,7 @@ Surface: ui
 **Build.**
 
 - [ ] <One change. Name the symbol and the file.>
+- [ ] Map update. For this `Change: user-facing` PR, add or update the feature entry for every changed user-facing behavior under `<features/ path>` in the same PR. Give each changed user-facing feature at least one live lane. Omit this box for `Change: internal`.
 
 **You see.**
 
@@ -107,18 +129,25 @@ Surface: ui
 
 - [ ] <Test file and the case it gains.> Run `<command>`.
 
-**Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on `<swarm workers model>` at the PR head, per the boot recipe.
+**Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on `<swarm workers model>` at the PR head, per the boot recipe. Each lane names one feature entry and drives one of its journeys under one condition. Cover every changed user-facing feature at least once. Use extra conditions on existing entries for PR-specific probes; add a genuinely new journey's feature entry in the same PR.
 
-- [ ] Lane 1. Regression lane against trunk. Run <the same load-bearing scenario> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 2. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 3. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 4. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 5. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 6. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 7. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 8. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 9. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 10. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 1. `<feature-id>#<sub-id>`. Regression lane against trunk. Drive the entry's load-bearing journey under <condition> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 2. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 3. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 4. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 5. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 6. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 7. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 8. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 9. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+- [ ] Lane 10. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.
+
+**Verify, formal.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
+
+<Keep the Formal run box for `Formal: create`, `exists`, or `exists-stale`. For `exists-stale`, name the `maintain-formal-verification-skill` route and owner in `## Verification readiness`, then run the maintained check. For `Formal: not-required`, keep only the Not covered box.>
+
+- [ ] Formal run. Run `<command>`. Property. <One-sentence property.> Covered files/functions. <Paths and symbols.> Save `<output evidence path>`. Pass when <predicate>. Advance the formal sync commit when the passing model still describes the code.
+- [ ] Not covered.
 
 **Verify, perf.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
@@ -131,18 +160,22 @@ Surface: ui
 
 - [ ] Copy lane <n> screenshots into `<media path>/<pr-id>-review-<slug>.png`.
 - [ ] Record a 30 to 60 second video of the change on a lane VM. Save it as `<media path>/<pr-id>-review.mp4`.
+- [ ] Check map and formal drift. Open the feature map and the formal skill's coverage record independently. Every changed user-facing behavior has a feature-entry update, every lane's feature entry exists and matches its scenario, every named evidence path exists, and the formal sync commit covers the current covered code. A covered-code change without a rerun or sync update is a finding.
 - [ ] Post the screenshots and the video in chat. Stop at merge-ready. Wait for the operator's click.
 
 **Merge.**
 
 - [ ] Root's clean verdict at the exact head SHA.
 - [ ] Bugbot triage done.
+- [ ] Formal-covered code has its required run and current sync commit; a missing run or model mismatch blocks merge.
 - [ ] Rebased onto current trunk after the verdict, patch-id unchanged.
 - [ ] <The owner squash-merges its own PR, or the root appends it to the base-branch stack and the operator lands it bottom-up.>
 
 ## Close the program
 
 - [ ] Every box above is checked with its evidence.
+- [ ] Every `Change: user-facing` PR has a checked Map update box and same-PR feature-entry updates for every changed user-facing behavior; every `Change: internal` PR has no map-update box.
+- [ ] For `create-after-first-drivable-batch` or `create-before-amendment`, the `verify-<app>` skill exists and was proved once. Its prove-once transcript and one mapped feature are saved under `.scratch/<effort>/verification/<pr-id>/`, and its files merged before the creation task's worktree was removed.
 - [ ] Reply to the operator with the report the execution playbook names.
 
 ## Appendix A. Prototype evidence
