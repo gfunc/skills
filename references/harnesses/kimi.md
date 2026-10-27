@@ -73,7 +73,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 
 ## UI Driver
 
-- **UI driver:** `playwright-cli` (`skills/playwright-cli`).
+- **UI driver:** Playwright, or `playwright-cli` (`skills/playwright-cli`) when the repo selects it.
 
 ## Store
 

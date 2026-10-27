@@ -42,7 +42,7 @@ Read only the active workspace's `agent-transcripts/` tree; the system prompt na
 
 ## UI Driver
 
-- **UI driver:** `playwright-cli` (`skills/playwright-cli`).
+- **UI driver:** Playwright, or `playwright-cli` (`skills/playwright-cli`) when the repo selects it.
 
 ## Store
 

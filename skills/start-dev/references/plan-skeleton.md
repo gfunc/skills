@@ -76,11 +76,11 @@ Fill `Maintenance route` only when the app `Decision` or `Formal` is `exists-sta
 
 ### Boot recipe, for every live lane
 
-Each live lane runs in its own git worktree at the PR head, checked out under the run's `.scratch/<feature-slug>/lanes/`. Lanes dispatch in waves of 5; the plan names the wave size and may tune it. Follow the readiness `Skill` path and the lane's mapped feature entry through the project's `verify-<app>` skill. The skill wraps the repo's launch or e2e recipe and uses Playwright for `ui` and tmux/PTY for `cli`. A carrier PR's product lanes use the pre-existing drive path until the created skill passes its verification gate.
+Each live lane runs in its own git worktree at the PR head, checked out under the run's `.scratch/<feature-slug>/lanes/`. Lanes dispatch in waves of 5; the plan names the wave size and may tune it. Follow the readiness `Skill` path and the lane's mapped feature entry through the project's `verify-<app>` skill. The skill wraps the repo's launch or e2e recipe and uses the detected UI driver (an existing Playwright harness first, then `playwright-cli` (`skills/playwright-cli`) or another browser/CDP recipe) for `ui`, and tmux/PTY for `cli`. A carrier PR's product lanes use the pre-existing drive path until the created skill passes its verification gate.
 
 - [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.
 - [ ] <Start the backend and the surface through the verify skill's launch or e2e recipe. Wait for its ready signal.>
-- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses Playwright (`skills/playwright-cli`) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>
+- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses the detected UI driver (an existing Playwright harness or `playwright-cli` (`skills/playwright-cli`)) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>
 - [ ] Save every screenshot to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png` and return the paths with the report.
 
 ## Run graph
