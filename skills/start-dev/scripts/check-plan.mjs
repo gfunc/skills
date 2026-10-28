@@ -5,11 +5,11 @@ import process from "node:process";
 
 const RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
-const LANES = /Ten lanes on `[^`<>]+` at the PR head/;
+const LANES = /Lanes on `[^`<>]+` at the PR head/;
 const SURFACES = ["ui", "cli", "library", "backend"];
 const DECISIONS = ["exists", "exists-stale", "create-after-first-drivable-batch", "create-before-amendment", "not-required"];
 const FORMAL_DECISIONS = ["exists", "exists-stale", "create", "not-required"];
-const READINESS_FIELDS = ["Decision", "Surface", "Drivability", "Boundary", "Evidence", "Skill", "Map", "Formal", "Formal property", "Maintenance route", "Owner"];
+const READINESS_FIELDS = ["Decision", "Surface", "Drivability", "Boundary", "Evidence", "Driver proof", "Isolation", "Gate duration", "Skill", "Map", "Formal", "Formal property", "Maintenance route", "Owner"];
 const DRIVABILITY_STATES = ["drivable", "drivable-with-boundary", "not-drivable"];
 const FEATURE_ENTRY = /`[A-Za-z0-9][A-Za-z0-9_-]*#[A-Za-z0-9][A-Za-z0-9_-]*`/;
 const MAP_UPDATE = /^\s*map update\b/i;
@@ -103,7 +103,8 @@ for (let i = start; i < raw.length; i++) {
 	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text.trim());
 	const isChangeLine = /^Change:\s*(user-facing|internal)\s*$/.test(text.trim());
 	const isContinuationLine = /^Continuation: \S/.test(text.trim());
-	if (/: \S/.test(prose) && !isSurfaceLine && !isChangeLine && !isContinuationLine) fail(n, "mid-sentence colon");
+	const colonProbe = prose.replace(/Live-only:/g, "Live-only");
+	if (/: \S/.test(colonProbe) && !isSurfaceLine && !isChangeLine && !isContinuationLine) fail(n, "mid-sentence colon");
 }
 
 const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
@@ -172,6 +173,21 @@ if (decision === "exists") {
 		if (value && !candidates.some((candidate) => fs.existsSync(candidate)))
 			fail(readinessLine(name), `Verification readiness ${name} path does not resolve: ${value}`);
 	}
+}
+if (readiness) {
+	const driverProof = readinessValue("Driver proof");
+	if (decision === "exists") {
+		if (!driverProof || /^none$/i.test(driverProof))
+			fail(readinessLine("Driver proof"), "exists requires driver proof, not none");
+		if (!/known-bad|control/i.test(driverProof))
+			fail(readinessLine("Driver proof"), "Driver proof must name the known-bad control");
+	}
+	const isolation = readinessValue("Isolation");
+	if (isolation && !/single-stack|per-lane/i.test(isolation))
+		fail(readinessLine("Isolation"), "Isolation must be single-stack or per-lane");
+	const gateDuration = readinessValue("Gate duration");
+	if (gateDuration && !/\d/.test(gateDuration))
+		fail(readinessLine("Gate duration"), "Gate duration must carry minutes per layer");
 }
 const maintenanceRoute = readinessValue("Maintenance route");
 if (decision === "exists-stale" && (!maintenanceRoute || !maintenanceRoute.includes("maintain-verification-skill")))
@@ -392,17 +408,23 @@ for (const pr of prSections) {
 	if (live) {
 		const artifact = LANE_ARTIFACT[surface];
 		if (artifact) {
-			if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Ten lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
+			if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
 			const lanes = boxes(live.lines).map((b) => ({ ...b, m: b.text.match(/^Lane (\d+)\. /) }));
 			const numbers = lanes.filter((b) => b.m).map((b) => Number(b.m[1])).sort((a, b) => a - b);
-			if (numbers.join(",") !== "1,2,3,4,5,6,7,8,9,10") fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected 1 to 10`);
+			const expectedNumbers = numbers.map((_, index) => index + 1).join(",");
+			if (numbers.length === 0) fail(live.n, `${pr.title}: Verify, live has no lane`);
+			else if (numbers.join(",") !== expectedNumbers) fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected contiguous numbering from 1`);
 			for (const lane of lanes) {
-				if (!lane.m) fail(lane.n, `${pr.title}: live box is not a lane`);
-				else if (!artifact.re.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no ${artifact.name}`);
-				else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
-				if (lane.m && !FEATURE_ENTRY.test(lane.text))
+				if (!lane.m) {
+					fail(lane.n, `${pr.title}: live box is not a lane`);
+					continue;
+				}
+				if (!artifact.re.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no ${artifact.name}`);
+				if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
+				if (!lane.text.includes("Live-only:")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no Live-only sentence`);
+				if (!FEATURE_ENTRY.test(lane.text))
 					fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no backticked <feature-id>#<sub-id> feature entry`);
-				if (lane.m?.[1] === "1" && !(["regression", "trunk", "head", "load-bearing"].every((marker) => lane.text.toLowerCase().includes(marker))))
+				if (lane.m[1] === "1" && !(["regression", "trunk", "head", "load-bearing"].every((marker) => lane.text.toLowerCase().includes(marker))))
 					fail(lane.n, `${pr.title}: lane 1 does not name the regression journey on trunk and head`);
 			}
 		} else if (boxes(live.lines).length === 0) {

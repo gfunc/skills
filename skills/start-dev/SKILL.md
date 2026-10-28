@@ -87,11 +87,11 @@ Record one drivability state:
 - `drivable-with-boundary`: a repo-supported production seam isolates the third party; name the boundary and the unproven journeys.
 - `not-drivable`: no launch path or no supported seam exists.
 
-**App skill.** Decide `exists`, `exists-stale`, `create-after-first-drivable-batch`, `create-before-amendment`, or `not-required`. Route `exists-stale` to `maintain-verification-skill`, never recreation. Allow `not-required` only when no `ui` or `cli` surface exists. Any `ui` or `cli` surface triggers the gate. Multiple apps get one verify skill each; the primary is the app the design's journeys touch, and the operator decides only a tie.
+**App skill.** Decide `exists`, `exists-stale`, `create-after-first-drivable-batch`, `create-before-amendment`, or `not-required`. Route `exists-stale` to `maintain-verification-skill`, never recreation. Allow `not-required` only when no `ui` or `cli` surface exists. Any `ui` or `cli` surface triggers the gate. Multiple apps get one verify skill each; the primary is the app the design's journeys touch, and the operator decides only a tie. Accept `exists` only with driver proof: one mapped journey passing at the head and one known-bad control failing. A driver being rewritten, or one with no negative control, is `exists-stale`. Record the stack `Isolation` and the `Gate duration` per layer; the plan derives its wave size from isolation and marks any gate above 90 minutes detached.
 
 **Formal.** Decide `exists`, `exists-stale`, `create`, or `not-required`. Route `exists-stale` to `maintain-formal-verification-skill`. For `not-required`, record the checked signal list and `none`; the design review can challenge it.
 
-**Recording.** Hand the decision and evidence to the plan lead. The plan records them in `## Verification readiness` between `## How to read this` and `## Program checklist`, and the run root gains one append-only `decisions.tsv` row referencing that section.
+**Recording.** Hand the decision and evidence to the plan lead. The plan records them in `## Verification readiness` between `## How to read this` and `## Program checklist`, including the driver proof, the isolation mode, and the gate durations, and the run root gains one append-only `decisions.tsv` row referencing that section. Prefer a carrier PR for a creation decision; a folded creation carries its known-bad control in the same PR.
 
 ## Maintenance
 

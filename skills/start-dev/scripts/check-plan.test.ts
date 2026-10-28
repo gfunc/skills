@@ -10,7 +10,7 @@ const rule =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
 const laneBlock = Array.from(
 	{ length: 10 },
-	(_, i) => `- [ ] Lane ${i + 1}. ${i === 0 ? "Regression lane against trunk and head for the load-bearing journey " : ""}\`checkout#journey-${i + 1}\`. Save \`lane-${i + 1}.png\`. Pass when evidence exists.`,
+	(_, i) => `- [ ] Lane ${i + 1}. ${i === 0 ? "Regression lane against trunk and head for the load-bearing journey " : ""}\`checkout#journey-${i + 1}\`. \`Live-only: real surface claim ${i + 1}.\` Save \`lane-${i + 1}.png\`. Pass when evidence exists.`,
 ).join("\n");
 const mapUpdateBox = (id: number) => `- [ ] Map update. Update \`features/checkout.md\` for PR ${id}.`;
 const formalBlock = (id: number) => `**Verify, formal.**
@@ -29,7 +29,7 @@ ${id === 1 ? `${mapUpdateBox(id)}\n` : ""}**You see.**
 - [ ] Do the thing.
 **Verify, unit.** ${rule}
 - [ ] Check the thing.
-**Verify, live.** ${rule} Ten lanes on \`example-model\` at the PR head
+**Verify, live.** ${rule} Lanes on \`example-model\` at the PR head
 ${laneBlock}
 ${formalBlock(id)}
 **Verify, perf.** ${rule}
@@ -171,7 +171,7 @@ test("accepts a cli plan with Log lanes", () => {
 test("accepts a library plan without lanes and with a None review gate", () => {
 	const libraryPlan = validPlan
 		.replace("## PR 1\n**Depends on.**", "## PR 1\nSurface: library\n**Depends on.**")
-		.replace(" Ten lanes on `example-model` at the PR head", "")
+		.replace(" Lanes on `example-model` at the PR head", "")
 		.replace(laneBlock, "- [ ] Run the probe against the PR head and diff the output tails.");
 	runPlanText(libraryPlan, 0);
 });
@@ -179,7 +179,7 @@ test("accepts a library plan without lanes and with a None review gate", () => {
 test("rejects a library plan with a gated review form", () => {
 	const libraryPlan = validPlan
 		.replace("## PR 1\n**Depends on.**", "## PR 1\nSurface: library\n**Depends on.**")
-		.replace(" Ten lanes on `example-model` at the PR head", "")
+		.replace(" Lanes on `example-model` at the PR head", "")
 		.replace(laneBlock, "- [ ] Run the probe against the PR head and diff the output tails.")
 		.replace("**Review gate.** None.", "**Review gate.** The operator reviews before merge.");
 	const result = runPlanText(libraryPlan, 1);
