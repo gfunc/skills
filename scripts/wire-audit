@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Audit one Kimi agent's wire.jsonl trail for orchestration-contract violations.
+"""Audit a Kimi agent wire trail, or a whole session, for orchestration breaches.
 
 The parent in a delegated run plans, briefs, reviews, and records; children
-author. This tool reads one agent's wire (protocol 1.5) and reports the three
-ways that contract breaks, all deterministic:
+author. This tool reads one agent's wire (protocol 1.5), or every agent's wire
+in a session with --session, and reports the four ways that contract breaks,
+all deterministic:
 
-  poll              The parent polls for state with repeated Bash calls
-                    (`git status`, `git log`, or a timed `sleep`) while a
-                    background child is still running. A completion is an
-                    event, not something to poll for.
-  parent-authoring  The parent edits product files itself with Edit/Write.
-  goal-mode         The parent spawns a background child or adds a cron job
-                    while a goal is active. A goal continues the turn as soon
-                    as one ends, so the next turn has nothing to do but poll.
+  poll               The parent polls for state with repeated Bash calls
+                     (`git status`, `git log`, or a timed `sleep`) while a
+                     background child is still running. A completion is an
+                     event, not something to poll for.
+  parent-authoring   The parent edits product files itself with Edit/Write.
+  goal-mode          The parent spawns a background child or adds a cron job
+                     while a goal is active. A goal continues the turn as soon
+                     as one ends, so the next turn has nothing to do but poll.
+  nested-background  A subagent spawns its own child in the background. On
+                     Kimi that child is registered under the subagent's task
+                     scope, so it never appears in /tasks and the operator
+                     loses the progress panel. Subagents run their children in
+                     the foreground.
 
 Parsed event schema. Every wire line is one JSON object; `type` selects the
 record. Only these records are consumed, everything else is ignored:
@@ -21,7 +27,7 @@ record. Only these records are consumed, everything else is ignored:
                   "tool.call"; fields event.toolCallId, event.name,
                   event.args, envelope time (ms)
   child spawn     type == "subagent.spawned"; fields subagentId,
-                  runInBackground
+                  runInBackground, callerAgentId
   child end       type in {"subagent.completed", "subagent.cancelled",
                   "subagent.failed"}; field subagentId
   goal start      type == "goal.create"
@@ -33,7 +39,7 @@ are correlated by subagentId: live from a spawned event with
 runInBackground=true until its end event. A poll counts when any background
 child is live, so overlapping children are handled.
 
-v1 scope: these two checks only. Plan-gate inference, context metrics, and
+Scope: these four checks only. Plan-gate inference, context metrics, and
 per-turn slicing are deliberately absent; counts cover the whole wire.
 """
 
@@ -68,6 +74,7 @@ class ToolCall:
 class ChildSpawned:
     subagent_id: str
     background: bool
+    caller_agent_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -127,6 +134,9 @@ def parse_wire(
             yield ChildSpawned(
                 subagent_id=str(record.get("subagentId", "")),
                 background=bool(record.get("runInBackground")),
+                caller_agent_id=str(
+                    record.get("callerAgentId") or record.get("parentAgentId") or ""
+                ),
             )
         elif rtype in CHILD_ENDED_TYPES:
             yield ChildEnded(subagent_id=str(record.get("subagentId", "")))
@@ -167,6 +177,8 @@ class Report:
     goal_background_spawns: int
     goal_background_ids: list[str]
     goal_cron_adds: int
+    nested_background_spawns: int
+    nested_background_ids: list[str]
 
 
 def audit(
@@ -182,6 +194,7 @@ def audit(
     goal_active = False
     goal_background_ids: list[str] = []
     goal_cron_adds = 0
+    nested_background_ids: list[str] = []
 
     def end_run() -> None:
         nonlocal current_run
@@ -203,6 +216,10 @@ def audit(
                 live.add(event.subagent_id)
                 if goal_active:
                     goal_background_ids.append(event.subagent_id)
+                if event.caller_agent_id and event.caller_agent_id != "main":
+                    nested_background_ids.append(
+                        f"{event.caller_agent_id} -> {event.subagent_id}"
+                    )
         elif isinstance(event, ChildEnded):
             live.discard(event.subagent_id)
         else:
@@ -235,6 +252,8 @@ def audit(
         goal_background_spawns=len(goal_background_ids),
         goal_background_ids=goal_background_ids,
         goal_cron_adds=goal_cron_adds,
+        nested_background_spawns=len(nested_background_ids),
+        nested_background_ids=nested_background_ids,
     )
 
 
@@ -273,6 +292,12 @@ def print_text(report: Report, wire_name: str) -> None:
     )
     for subagent_id in report.goal_background_ids[:10]:
         print(f"  background child {subagent_id}")
+    print(
+        f"nested-background: {report.nested_background_spawns} background spawns "
+        f"from callers other than main"
+    )
+    for label in report.nested_background_ids[:10]:
+        print(f"  {label}")
 
 
 def report_json(report: Report) -> dict:
@@ -293,6 +318,8 @@ def report_json(report: Report) -> dict:
         "goal_background_spawns": report.goal_background_spawns,
         "goal_background_ids": report.goal_background_ids,
         "goal_cron_adds": report.goal_cron_adds,
+        "nested_background_spawns": report.nested_background_spawns,
+        "nested_background_ids": report.nested_background_ids,
     }
 
 
@@ -303,6 +330,8 @@ def selected_finding(report: Report, fail_on: str) -> bool:
         return report.authoring_calls > 0
     if fail_on == "goal-mode":
         return report.goal_background_spawns > 0 or report.goal_cron_adds > 0
+    if fail_on == "nested-background":
+        return report.nested_background_spawns > 0
     return False
 
 
@@ -322,6 +351,79 @@ def run_audit(path: Path, fail_on: str, as_json: bool) -> int:
     else:
         print_text(report, path.name)
     return 1 if selected_finding(report, fail_on) else 0
+
+
+def session_wires(session_dir: Path) -> list[Path]:
+    agents = session_dir / "agents"
+    if not agents.is_dir():
+        raise WireError(f"{session_dir.name}: no agents/ directory")
+    return sorted(agents.glob("*/wire.jsonl"))
+
+
+def run_session(session_dir: Path, fail_on: str, as_json: bool) -> int:
+    try:
+        paths = session_wires(session_dir)
+    except WireError as error:
+        print(f"wire-audit: {error}", file=sys.stderr)
+        return 2
+    if not paths:
+        print(f"wire-audit: {session_dir.name}: no agent wires found", file=sys.stderr)
+        return 2
+
+    reports: dict[str, Report] = {}
+    for path in paths:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+            reports[path.parent.name] = audit(parse_wire(lines))
+        except (OSError, WireError) as error:
+            print(f"wire-audit: {path}: {error}", file=sys.stderr)
+            return 2
+
+    nested = [label for report in reports.values() for label in report.nested_background_ids]
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "session": session_dir.name,
+                    "agents": {name: report_json(report) for name, report in reports.items()},
+                    "nested_background_spawns": len(nested),
+                    "nested_background_ids": nested,
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"session: {session_dir.name}")
+        print(f"agents: {len(reports)}")
+        print("parent-authoring: evaluated for main only")
+        print(
+            f"nested-background: {len(nested)} background spawns from callers "
+            f"other than main"
+        )
+        for label in nested[:20]:
+            print(f"  {label}")
+        flagged = 0
+        for name, report in reports.items():
+            row = (
+                report.poll_run_count,
+                report.authoring_calls if name == "main" else 0,
+                report.goal_background_spawns + report.goal_cron_adds,
+                report.nested_background_spawns,
+            )
+            if not any(row):
+                continue
+            flagged += 1
+            print(
+                f"  {name}: poll={row[0]} runs, authoring={row[1]}, "
+                f"goal={row[2]}, nested={row[3]}"
+            )
+        print(f"  clean agents: {len(reports) - flagged}")
+    failed = any(
+        selected_finding(report, fail_on)
+        for name, report in reports.items()
+        if fail_on != "parent-authoring" or name == "main"
+    )
+    return 1 if failed else 0
 
 
 # --- self-test ---------------------------------------------------------------
@@ -344,11 +446,14 @@ def envelope_tool(call_id: str, name: str, args: dict, time: int = 0) -> str:
     )
 
 
-def envelope_spawn(subagent_id: str, background: bool, time: int = 0) -> str:
+def envelope_spawn(
+    subagent_id: str, background: bool, time: int = 0, caller: str = "main"
+) -> str:
     return json.dumps(
         {
             "type": "subagent.spawned",
             "subagentId": subagent_id,
+            "callerAgentId": caller,
             "runInBackground": background,
             "time": time,
         }
@@ -435,12 +540,19 @@ GOAL_CLEAN_WIRE = [
     envelope_cron(104),
 ]
 
+NESTED_WIRE = [
+    METADATA,
+    envelope_spawn("agent-272", True, 100, caller="agent-270"),
+    envelope_spawn("agent-273", False, 101, caller="agent-270"),
+    envelope_spawn("agent-300", True, 102, caller="main"),
+]
+
 MALFORMED_WIRE = [METADATA, '{"type": "subagent.spawned", ']
 
 
-def scan(path: Path, *extra: str) -> tuple[int, dict | None]:
+def scan_args(*args: str) -> tuple[int, dict | None]:
     process = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), str(path), "--json", *extra],
+        [sys.executable, str(Path(__file__).resolve()), *args],
         capture_output=True,
         text=True,
     )
@@ -451,6 +563,10 @@ def scan(path: Path, *extra: str) -> tuple[int, dict | None]:
         except ValueError:
             payload = None
     return process.returncode, payload
+
+
+def scan(path: Path, *extra: str) -> tuple[int, dict | None]:
+    return scan_args(str(path), "--json", *extra)
 
 
 def check(name: str, actual: object, expected: object) -> bool:
@@ -469,6 +585,7 @@ def self_test() -> int:
             "authoring.jsonl": AUTHORING_WIRE,
             "goal-background.jsonl": GOAL_BACKGROUND_WIRE,
             "goal-clean.jsonl": GOAL_CLEAN_WIRE,
+            "nested.jsonl": NESTED_WIRE,
             "malformed.jsonl": MALFORMED_WIRE,
         }
         for name, records in cases.items():
@@ -529,6 +646,40 @@ def self_test() -> int:
         ok &= check("goal_background_spawns", data["goal_background_spawns"], 0)
         ok &= check("goal_cron_adds", data["goal_cron_adds"], 0)
 
+        print("nested.jsonl: background spawns by a subagent, not by main")
+        code, data = scan(root / "nested.jsonl")
+        ok &= check("exit --fail-on none", code, 0)
+        assert data is not None
+        ok &= check("nested_background_spawns", data["nested_background_spawns"], 1)
+        ok &= check("nested_background_ids", data["nested_background_ids"], ["agent-270 -> agent-272"])
+        code, _ = scan(root / "nested.jsonl", "--fail-on", "nested-background")
+        ok &= check("exit --fail-on nested-background", code, 1)
+        code, _ = scan(root / "clean.jsonl", "--fail-on", "nested-background")
+        ok &= check("main background spawns are not findings", code, 0)
+
+        print("session: every agent wire under agents/*/wire.jsonl")
+        session = root / "session"
+        (session / "agents" / "main").mkdir(parents=True)
+        (session / "agents" / "agent-270").mkdir(parents=True)
+        (session / "agents" / "main" / "wire.jsonl").write_text(
+            "\n".join(CLEAN_WIRE) + "\n", encoding="utf-8"
+        )
+        (session / "agents" / "agent-270" / "wire.jsonl").write_text(
+            "\n".join(NESTED_WIRE) + "\n", encoding="utf-8"
+        )
+        code, data = scan_args("--session", str(session), "--json")
+        ok &= check("exit --fail-on none", code, 0)
+        assert data is not None
+        ok &= check("agents scanned", sorted(data["agents"]), ["agent-270", "main"])
+        ok &= check("nested_background_spawns", data["nested_background_spawns"], 1)
+        ok &= check(
+            "nested_background_ids",
+            data["nested_background_ids"],
+            ["agent-270 -> agent-272"],
+        )
+        code, _ = scan_args("--session", str(session), "--fail-on", "nested-background")
+        ok &= check("exit --fail-on nested-background", code, 1)
+
         print("malformed.jsonl: input errors exit 2")
         code, _ = scan(root / "malformed.jsonl")
         ok &= check("exit on malformed wire", code, 2)
@@ -540,12 +691,25 @@ def self_test() -> int:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="wire-audit",
-        description="Audit one agent's Kimi wire.jsonl for polling, parent authoring, and goal-mode breaches.",
+        description=(
+            "Audit one agent's Kimi wire.jsonl, or every agent wire in a session, "
+            "for polling, parent authoring, goal-mode, and nested-background breaches."
+        ),
     )
     parser.add_argument("wire", nargs="?", help="path to one agent's wire.jsonl")
     parser.add_argument(
+        "--session",
+        help="session directory containing agents/*/wire.jsonl",
+    )
+    parser.add_argument(
         "--fail-on",
-        choices=["poll", "parent-authoring", "goal-mode", "none"],
+        choices=[
+            "poll",
+            "parent-authoring",
+            "goal-mode",
+            "nested-background",
+            "none",
+        ],
         default="none",
         help="exit non-zero when this check has findings (default: none)",
     )
@@ -557,8 +721,12 @@ def main(argv: list[str]) -> int:
 
     if args.self_test:
         return self_test()
+    if args.session and args.wire:
+        parser.error("give one wire path or --session, not both")
+    if args.session:
+        return run_session(Path(args.session), args.fail_on, args.json)
     if not args.wire:
-        parser.error("a wire.jsonl path is required unless --self-test is given")
+        parser.error("a wire.jsonl path or --session <dir> is required unless --self-test is given")
     return run_audit(Path(args.wire), args.fail_on, args.json)
 
 

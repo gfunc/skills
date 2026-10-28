@@ -9,6 +9,7 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 - **Choose background only to detach.** A background child returns immediately and completes later. Use it only when the parent has other work and does not need the result now. Never launch a background child and then poll `TaskOutput` or `git status`; see Waiting and notifications.
 - **Parallel spawn:** yes. Independent foreground `Agent` calls in one message run concurrently; `AgentSwarm` fans one template out over its item list. Heterogeneous briefs need separate `Agent` calls.
 - **Live lanes:** one subagent per lane. The boot recipe (`skills/start-dev/references/plan-skeleton.md`) owns the rule; on Kimi each lane is one foreground `Agent` whose brief names exactly one lane, its worktree, its evidence path, and its verdict.
+- **Nested children run in the foreground.** A subagent that spawns its own children passes no background flag. A background child of a subagent is registered under that subagent's task scope, so it does not appear in `/tasks` and the operator loses the progress panel. Foreground siblings in one message still run concurrently.
 - **Fresh child inherits parent context:** no. A child starts from its spawn prompt; the parent passes the profile path, role-prompt path, and inputs explicitly. Agent definitions are Markdown frontmatter (`name`, `description`, `whenToUse`, `override`, `tools`, `disallowedTools`, `subagents`) and cannot set a model.
 
 ## Waiting and notifications
@@ -119,5 +120,7 @@ start-dev carries one `Model: <role>=<model>` line per role in each brief; the p
 | `Model: plan-lead=<alias>` | plan lead when it is a child; the main agent ignores it |
 | `Model: review-lead=<alias>` | review lead — a different model family from the parent's |
 | `Model: how explorer=<alias>` / `how explainer=<alias>` / `why investigators=<alias>` / `why synthesizer=<alias>` / `architect runners=<alias>` / `arena runners=<alias>` / `arena cross-judge pool=<alias>` / `swarm workers=<alias>` | the pstack skill role lines, consumed by that skill |
+
+**Lane model line.** The plan may name a fast-tier alias for `Model: swarm workers=` only when every lane is one asserted subcommand and the verdict stays with the PR owner. The qualitative lanes (sanitization, state honesty, stale or retry behavior, cross-page agreement) keep a stronger alias and an owner-read verdict.
 
 **Per-harness limit.** A configured `[secondary_model]` pool is required before any per-role line can be honored; without one the `model` parameter is not offered and every spawn inherits the caller's model. `force = true` removes the parameter and pins every spawn to `default_model`, so it is reserved for single-model runs and cannot express a per-role table. An alias missing from `[secondary_model.models]` stops that spawn with the available aliases named; do not silently fall back. Confirm each alias against the spawn's `subagent.spawned` wire event.
