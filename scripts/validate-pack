@@ -199,7 +199,7 @@ def agent_parity(root: Path) -> list[str]:
         if needle not in toml_text:
             problems.append(f"codex-agents/dev-owner.toml: missing required read path {needle}")
     if "subagents:" not in md_text:
-        problems.append("agents/dev-owner.md: missing the subagents allowlist (the Kimi nesting opt-in)")
+        problems.append("agents/dev-owner.md: missing the subagents child-type allowlist")
     return problems
 
 
