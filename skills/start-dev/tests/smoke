@@ -56,14 +56,15 @@ def cli_pr_section() -> str:
     """The second PR section: a cli surface the verification gate unblocks."""
 
     lanes = [
-        "- [ ] Lane 1. `cli-checkout#cart-total`. Regression lane against trunk. "
+        "- [ ] Lane 1. `cli-checkout#cart-total`. Live-only: trunk and head parity on the load-bearing cart journey. "
+        "Regression lane against trunk. "
         "Drive the entry's load-bearing journey under a loaded cart at trunk and head. "
         "Log `lane-1.log`. Pass when the totals match."
     ]
-    for i in range(2, 11):
+    for i in range(2, 4):
         lanes.append(
-            f"- [ ] Lane {i}. `cli-checkout#journey-{i}`. Drive the entry's journey "
-            f"under condition {i}. Log `lane-{i}.log`. Pass when the journey evidence exists."
+            f"- [ ] Lane {i}. `cli-checkout#journey-{i}`. Live-only: real CLI rendering under condition {i}. "
+            f"Drive the entry's journey under condition {i}. Log `lane-{i}.log`. Pass when the journey evidence exists."
         )
     lane_text = "\n".join(lanes)
     return f"""## Add the checkout CLI (PR 2)
@@ -90,7 +91,7 @@ Change: user-facing
 
 - [ ] `src/cli/checkout.test.ts` gains the render case. Run `npm test`.
 
-**Verify, live.** {RULE} Ten lanes on `{SWARM_MODEL}` at the PR head, per the boot recipe. Each lane names one feature entry and drives one of its journeys under one condition. Cover every changed user-facing feature at least once. Use extra conditions on existing entries for PR-specific probes; add a genuinely new journey's feature entry in the same PR.
+**Verify, live.** {RULE} Lanes on `{SWARM_MODEL}` at the PR head, per the boot recipe. One lane is the trunk/head regression. Add one lane for every changed feature entry, and an extra condition only where the unit, formal, or performance evidence leaves a gap. There is no fixed lane count. Each lane names one feature entry, one journey under one condition, and a `Live-only:` sentence. Cover every changed user-facing feature at least once. Use extra conditions on existing entries for PR-specific probes; add a genuinely new journey's feature entry in the same PR.
 
 {lane_text}
 
@@ -113,7 +114,7 @@ Runs the check created in PR 1 against this PR's covered CLI code.
 **Review gate.** The operator reviews before merge.
 
 - [ ] Copy lane 1 logs into `.scratch/demo/media/PR-2-review-cart.log`.
-- [ ] Record a 30 to 60 second video of the change on a lane VM. Save it as `.scratch/demo/media/PR-2-review.mp4`.
+- [ ] Record a 30 to 60 second video only when a lane's property lives in time, such as ordering, stop on terminal, or focus movement. Save it as `.scratch/demo/media/PR-2-review.mp4` when recorded; otherwise record none.
 - [ ] Check map and formal drift. Open the feature map and the formal skill's coverage record independently. Every changed user-facing behavior has a feature-entry update, every lane's feature entry exists and matches its scenario, every named evidence path exists, and the formal sync commit covers the current covered code. A covered-code change without a rerun or sync update is a finding.
 - [ ] Post the screenshots and the video in chat. Stop at merge-ready. Wait for the operator's click.
 
@@ -143,6 +144,12 @@ def verification_edits() -> list[tuple[str, str]]:
         ("| Decision | `exists` |", "| Decision | `create-before-amendment` |"),
         ("| Evidence | `<launch command, ready signal, one journey, timestamp>` |",
          "| Evidence | `npm run dev` ready on port 3000, checkout journey driven, 2026-10-27 |"),
+        ("| Driver proof | `<one mapped journey plus one known-bad control at the head, or none>` |",
+         "| Driver proof | `checkout journey green; known-bad total fails` |"),
+        ("| Isolation | `<single-stack at its fixed ports, or per-lane namespaces>` |",
+         "| Isolation | `single-stack at 3000` |"),
+        ("| Gate duration | `<unit, live, formal, perf in minutes; mark anything above 90 detached>` |",
+         "| Gate duration | `unit 1, live 5, formal 1, perf 10` |"),
         ("| Skill | `<verify-<app> path>` |", "| Skill | `.scratch/verify-demo/SKILL.md` |"),
         ("| Map | `<features/ path>` |", f"| Map | `{FEATURES_MAP}` |"),
         ("| Formal | `not-required` |", "| Formal | `create` |"),
@@ -168,19 +175,19 @@ def verification_edits() -> list[tuple[str, str]]:
          "chart PR 1 --> `[gate: formal]` --> PR 2."),
         ("- [ ] Hold the file boundaries. <PR id or class> touches only `<glob>`.",
          "- [ ] Hold the file boundaries. PR 1 touches only `src/checkout/**` and PR 2 only `src/cli/**`."),
-        ("- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.",
-         "- [ ] Hold the review gate. PR 1 and PR 2 change an interaction. They wait for the operator's review in chat with screenshots and a video before merge."),
+        ("- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots, and a video only when a lane's property lives in time, before merge.",
+         "- [ ] Hold the review gate. PR 1 and PR 2 change an interaction. They wait for the operator's review in chat with screenshots, and a video only for a temporal lane, before merge."),
         ("- [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `skills/poteto-mode/playbooks/shipping.md`.>",
          "- [ ] The owner squash-merges its own PR under the patch-id rule in `skills/poteto-mode/playbooks/shipping.md`."),
         ("Surface: library", "Surface: ui"),
         ("- [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.",
          "- [ ] `git fetch origin main && git checkout <head SHA>`."),
-        ("- [ ] <Start the backend and the surface through the verify skill's launch or e2e recipe. Wait for its ready signal.>",
-         "- [ ] Start the surface through the verify skill's launch recipe and wait for its ready signal."),
+        ("- [ ] <Start the shared stack once through the verify skill's launch recipe, or attach to the run's existing stack. Wait for the ready signal.>",
+         "- [ ] Start the shared stack once through the verify skill's launch recipe and wait for the ready signal."),
         ("- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses the detected UI driver (an existing Playwright harness or `playwright-cli` (`skills/playwright-cli`)) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>",
          "- [ ] Deliver the feature entry's journey under the lane's condition through the verify skill. Name the read-only diagnostics."),
-        ("Save every screenshot to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png`",
-         "Save every screenshot to `.scratch/demo/shots/<pr-id>/worker-<n>/<slug>.png`"),
+        ("Save every screenshot or transcript to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png`",
+         "Save every screenshot or transcript to `.scratch/demo/shots/<pr-id>/worker-<n>/<slug>.png`"),
         ("""  subgraph W1[Wave 1]
     T1[task: <id> lane <glob>]
     T2[task: <id> lane <glob>]
@@ -227,8 +234,8 @@ def verification_edits() -> list[tuple[str, str]]:
          "- [ ] The checkout screen renders the cart total within one second."),
         ("- [ ] <Test file and the case it gains.> Run `<command>`.",
          "- [ ] `src/checkout/flow.test.ts` gains the journey case. Run `npm test`."),
-        ("- [ ] Lane 1. `<feature-id>#<sub-id>`. Regression lane against trunk. Drive the entry's load-bearing journey under <condition> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.",
-         "- [ ] Lane 1. `checkout#cart-total`. Regression lane against trunk. Drive the entry's load-bearing journey under a loaded cart at trunk and head. Save `lane-1.png`. Pass when the totals match."),
+        ("- [ ] Lane 1. `<feature-id>#<sub-id>`. `Live-only: <the claim a mocked unit test cannot make>.` Regression lane against trunk. Drive the entry's load-bearing journey under <condition> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.",
+         "- [ ] Lane 1. `checkout#cart-total`. `Live-only: real browser totals against the API.` Regression lane against trunk. Drive the entry's load-bearing journey under a loaded cart at trunk and head. Save `lane-1.png`. Pass when the totals match."),
         ("<Keep the four formal boxes for `Formal: create`, `exists`, or `exists-stale`. For `exists-stale`, name the `maintain-formal-verification-skill` route and owner in `## Verification readiness`, then run the maintained check in the Run box. For `Formal: not-required`, keep only the Not covered box. Delete whichever branch the PR's Formal decision does not use.>",
          "Created with this PR by folding `create-formal-verification-skill` after the code is built and before the gate."),
         ("- [ ] Command. `<command>`.", "- [ ] Command. Run `npx fast-check src/checkout/property.test.ts`."),
@@ -246,15 +253,15 @@ def verification_edits() -> list[tuple[str, str]]:
          "- [ ] Rule. Head stays within 110 percent of trunk; 132 ms fails."),
         ("- [ ] Copy lane <n> screenshots into `<media path>/<pr-id>-review-<slug>.png`.",
          "- [ ] Copy lane 1 screenshots into `.scratch/demo/media/PR-1-review-cart.png`."),
-        ("Save it as `<media path>/<pr-id>-review.mp4`.", "Save it as `.scratch/demo/media/PR-1-review.mp4`."),
+        ("Save it as `<media path>/<pr-id>-review.mp4` when recorded", "Save it as `.scratch/demo/media/PR-1-review.mp4` when recorded"),
         ("- [ ] <The owner squash-merges its own PR, or the root appends it to the base-branch stack and the operator lands it bottom-up.>",
          "- [ ] The owner squash-merges its own PR."),
         ("`.scratch/<effort>/verification/<pr-id>/`", "`.scratch/demo/verification/PR-1/`"),
     ]
-    for i in range(2, 11):
+    for i in range(2, 4):
         edits.append((
-            f"- [ ] Lane {i}. `<feature-id>#<sub-id>`. <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.",
-            f"- [ ] Lane {i}. `checkout#journey-{i}`. Drive the entry's journey under condition {i}. "
+            f"- [ ] Lane {i}. `<feature-id>#<sub-id>`. `Live-only: <the claim a mocked unit test cannot make>.` <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.",
+            f"- [ ] Lane {i}. `checkout#journey-{i}`. `Live-only: real browser rendering under condition {i}.` Drive the entry's journey under condition {i}. "
             f"Save `lane-{i}.png`. Pass when the journey evidence exists.",
         ))
     return edits
