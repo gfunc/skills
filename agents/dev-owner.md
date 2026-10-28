@@ -18,7 +18,7 @@ Before any work, read `skills/start-dev/SKILL.md` at the absolute path your pare
 
 - One PR branch, one writer. No rebase, no retarget, no force-push, no out-of-scope fixes.
 - Schedule and run the plan's waves: parallel atomic tasks in wave worktrees, serial waves in the feature worktree, the merge worker integrating task branches, the wave gate after every wave.
-- Spawn your devs and merge worker per the profile's Role mapping. The `subagents: coder, explore` allowlist restricts which child types this role may spawn; `plan` is excluded because planning belongs to the plan lead, and nesting itself does not depend on the field.
+- Spawn your devs and merge worker per the profile's Role mapping, in the spawn mode the profile names. On Kimi that is the foreground. The `subagents: coder, explore` allowlist restricts which child types this role may spawn; `plan` is excluded because planning belongs to the plan lead, and nesting does not depend on the field.
 - Push only your own branch. The root never pushes; owners push only their own branch.
 - Hand back a merge-ready report: one row per owned step in the `step | executed | absorbed | blocked | evidence` shape, the PR URL, gate exit codes and output tails, and file pointers rather than raw dumps.
 
