@@ -67,15 +67,15 @@ None is required by the pack. A missing runtime stops only the step or lane that
 
 start-dev resolves roles through this mapping. Pi has no stock subagents, so this is the degraded mapping and the disclosure is mandatory in the ledger.
 
-- **PR owner (`dev-owner`):** collapses to the main agent, which runs the PR-owner role prompt directly. With the first-party subagent extension installed, a separate `pi` process per agent is possible; agents are not package resources, so the pack ships no installable agent for Pi.
-- **Dev, critical-dev, reviewer, fixer, merge worker, research:** without the extension, the main agent does the work sequentially. With it, the extension's `tasks` (parallel, capped 8/4) or `chain` (sequential) modes carry the role prompts.
+- **PR owner (`dev-owner`):** collapses to the main agent, which runs the PR-owner role prompt directly. Pi's documented delegation path is a child `pi` process in print or JSON mode, which an extension or the bash tool can drive. Agents are not package resources, so the pack ships no installable agent for Pi.
+- **Dev, critical-dev, reviewer, fixer, merge worker, research:** without an extension, the main agent does the work sequentially. With one, its parallel or chained task modes carry the role prompts.
 - **Plan lead:** the main agent.
 - **Review lead:** the main agent in a fresh read, with the reduced independence disclosed; the operator is the independent review.
-- **Nested spawn:** none stock; recursion is extension-defined and unverified (the example child reloads extensions and has no depth guard).
-- **Parallel spawn:** only through the example extension, capped at 8 tasks and 4 concurrent.
+- **Nested spawn:** no stock spawn tool. Delegation runs a child `pi` process, which is what the harness's shipped example does: `pi --mode json -p --no-session`, with the prompt on stdin and `--model` when a different model is needed. That child reloads extensions and sets no depth guard, so any extension the stack relies on must enforce its own depth limit and timeout. Without that, this profile's fallback applies. The mechanism is source-verified, not exercised end to end here.
+- **Parallel spawn:** only through an extension that offers it.
 - **Continuation:** none built in; use external cron or a timed shell wait. The installed docs and package contain no goal command.
 - **Frontmatter (example loader):** `background` no, `is_background` no, `subagents` no, `tools` yes, `model` yes.
-- **Fallback:** the main agent executes the plan and review hats itself, sequentially, disclosed in the ledger as reduced independence.
+- **Fallback:** the main agent executes the plan and review hats itself, sequentially, disclosed in the ledger as reduced independence. This is the default because the pack ships no Pi extension.
 
 ### Role model table
 

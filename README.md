@@ -62,6 +62,7 @@ One flat `skills/` root — every skill a peer:
 - `references/harnesses/` holds one profile per supported harness. The host's adapter or `scripts/resolve-harness` names the active profile without copying it to a separate selection file.
 - `references/adapters/` — the thin per-host adapters and the clone/Codex selection contract.
 - [`docs/harness/wire-audit.md`](docs/harness/wire-audit.md) — usage for `scripts/wire-audit`, which reads one Kimi wire trail and reports parent polling, parent authoring, and background children or cron adds under a goal.
+- [`docs/harness/nesting.md`](docs/harness/nesting.md) — per-harness agent nesting: native spawn, the child-type allowlist, Pi's child-process delegation, the zero-cost allowlist probe, and the dated test results behind each profile's nested-spawn bullet.
 
 `/to-tickets` and `/implement-spec` are retired doors: decomposition lives in start-dev's program-plan playbook, and the plan emitter lives inside start-dev.
 

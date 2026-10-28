@@ -8,6 +8,7 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 - **Choose foreground when the next step needs the result.** A foreground child returns inline in the spawning turn. Foreground is not serial; independent foreground `Agent` calls in one message run concurrently. Use one message for independent probes, reads, or judges.
 - **Choose background only to detach.** A background child returns immediately and completes later. Use it only when the parent has other work and does not need the result now. Never launch a background child and then poll `TaskOutput` or `git status`; see Waiting and notifications.
 - **Parallel spawn:** yes. Independent foreground `Agent` calls in one message run concurrently; `AgentSwarm` fans one template out over its item list. Heterogeneous briefs need separate `Agent` calls.
+- **Live lanes:** one subagent per lane. The boot recipe (`skills/start-dev/references/plan-skeleton.md`) owns the rule; on Kimi each lane is one foreground `Agent` whose brief names exactly one lane, its worktree, its evidence path, and its verdict.
 - **Fresh child inherits parent context:** no. A child starts from its spawn prompt; the parent passes the profile path, role-prompt path, and inputs explicitly. Agent definitions are Markdown frontmatter (`name`, `description`, `whenToUse`, `override`, `tools`, `disallowedTools`, `subagents`) and cannot set a model.
 
 ## Waiting and notifications
@@ -98,15 +99,15 @@ None is required by the pack. A missing runtime stops only the step or lane that
 
 start-dev resolves roles through this mapping. Resolution order: a named plugin agent, then the built-in types, then the main-agent fallback, then sequential/degraded with disclosure.
 
-- **PR owner (`dev-owner`):** the plugin agent from `agents/dev-owner.md`, registered through `kimi.plugin.json` `agents`. Its `subagents` allowlist (`coder, explore`) is the nesting opt-in and matches the execution-only boundary: devs, critical-dev, reviewer, fixer, and the merge worker spawn on `coder`, research on `explore`. Without the allowlist the agent is a leaf; the main orchestrator spawns the devs.
+- **PR owner (`dev-owner`):** the plugin agent from `agents/dev-owner.md`, registered through `kimi.plugin.json` `agents`. Its `subagents` field (`coder, explore`) is a child-type allowlist, not a nesting switch. It matches the execution-only boundary: devs, critical-dev, reviewer, fixer, and the merge worker spawn on `coder`, research on `explore`, and `plan` is excluded because planning belongs to the plan lead.
 - **Dev, critical-dev, reviewer, fixer, merge worker, research:** `Agent` on the built-in `coder` (or `explore` for research) with the role prompts.
 - **Plan lead:** the main agent, or an `Agent` child on `coder` with the plan-lead prompt.
 - **Review lead:** a fresh `Agent` child on a different model family with the review-lead prompt.
-- **Nested spawn:** only with an explicit `subagents` allowlist on the custom agent. Chains always terminate; no depth number is documented.
+- **Nested spawn:** yes. Every agent, custom included, gets the `Agent` tool and can spawn its own children. The `subagents` field narrows the allowed child types; with no field the default set is `coder, explore, plan`. The check runs before any child starts and the error names the allowed set, for example `Subagent type "plan" is not allowed for this agent. Allowed subagent types: coder, explore.` Custom agents sit outside the default set, so a plain child cannot spawn another custom agent. No depth number is documented. Tested on Kimi Code 2.3.3.
 - **Parallel spawn:** yes; independent foreground `Agent` calls in one message run concurrently, and `AgentSwarm` fans out a template.
 - **Continuation:** `/goal` is native; CronCreate is the timed tick. There is no `/loop`. Under a goal, spawn children in the foreground and arm no audit tick.
 - **Frontmatter:** `background` no, `is_background` no, `subagents` yes, `tools` yes, `model` ignored (agent files cannot set a model).
-- **Fallback:** without the `subagents` allowlist, `dev-owner` is a leaf; the main orchestrator spawns the devs itself or runs the PR-owner role prompt directly, disclosed in the ledger.
+- **Fallback:** only when a harness reports no spawn at all. Kimi always has `Agent`, so this fallback is unused; if a future build removes spawning, the main orchestrator runs the PR-owner role prompt itself and spawns the devs directly, disclosed in the ledger.
 
 ### Role model table
 
