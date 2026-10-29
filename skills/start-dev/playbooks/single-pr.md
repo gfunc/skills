@@ -1,0 +1,28 @@
+### Single PR
+
+**You own the PR, the merge worker writes it. One spec is one PR, and the owner lands it on the clean verdict.**
+
+Forked from `skills/poteto-mode/playbooks/autopilot-stack.md` at `9a6784c` and the `autopilot-full.md` it inherits, pstack BASE `e44668c`. Kept from both: the owner lifecycle, one verdict per patch, the single topology writer, drift absorption, the root countersign, and stand-down. Replaced: the stack of links becomes the unit graph, `STACK-READY` disappears because there is no landing handoff, the operator landing becomes the owner landing, and the per-PR CI at open becomes one CI run after the only push.
+
+**Harness profile.** Read the active profile before harness-dependent work; `profile` is absolute, or relative to `profile-root` (`plugin` means the installed plugin root), and a parent passes its child the resolved absolute path; stop the affected action if the profile is unavailable.
+
+1. **Own the verdicts, never the code.** The main agent owns the PR. It spawns unit workers and a merge worker, runs the final review, and lands. It never edits the branch itself.
+2. **Arm the run.** Read this playbook from one source, then the verify skill, the feature map, the plan and its preflight. Write `Run <spec>: armed (plan <sha>, plugin <version>)` to `.scratch/<spec>/progress.md`. Set the continuation the active profile names: under `/goal`, a goal whose completion criterion is the landed PR, with foreground children, no background polling and no audit tick; without `/goal`, normal mode with the same no-polling rule. Each unit's brief is a file the owner writes, and a child never reads the whole plan.
+3. **Preflight the unit graph.** One row per pair of units that share a file or an interface, one row per unit against its own text. Rule on every finding and record `Ruling: <what> <why> <cost if wrong>`. A unit whose lane intersects another's does not join a ready set.
+4. **Dispatch the ready set.** Ready means every dependency is merged. Spawn every ready unit in one message, each with its brief path, file lane, worktree path, scoped test command and report contract. Cap in flight at the ready set's size. Every spawn names its model explicitly, since an omission falls back to the pool default rather than the caller.
+5. **Unit gate.** The worker runs only its scoped tests. Green returns DONE with its evidence path. Red enters the fix loop.
+6. **Fix loop.** Rounds 1 to 3 resume the worker with the failing output. Rounds 4 and 5 dispatch a fresh worker on a stronger model. The cap is five. At the cap the run stops, the finding becomes a ruling, and the owner reports BLOCKED with the failing command and its exit code. Minor findings are deferred to the final review, and a finding the plan itself mandates gets a recorded ruling rather than a silent dismissal.
+7. **Merge the unit.** A separate merge worker merges the unit's worktree into the PR branch, one writer, and reports the merge SHA. The owner appends `Unit <id>: merged (commits <base7>..<head7>, evidence <path>)`. A unit whose tests are red never merges.
+8. **Drain the graph.** Recompute the ready set after every merge and repeat steps 4 to 7 until no unit is left.
+9. **Final verify on the local head.** Run the full suite at the merged head, the plan's final-gate lanes, and the formal check where covered. Save the evidence under the run root.
+10. **One review, one fix round.** One independent reviewer reads the local diff and the run's evidence, runs the verify skill and the formal check, and returns one fix list. Above eight units or 1,500 changed lines it fans out one area reviewer per unit group and aggregates one verdict. The fix round goes back to the unit that caused it, or to the merge worker for a cross-unit fix. Then a scoped re-check of the changed findings only.
+11. **Push once.** Push the branch and open the PR ready. CI runs on that head. No draft, no earlier push, no push per unit.
+12. **Land on the verdict.** Merge prep onto current trunk. If trunk moved, rebase locally and push the rebased head, which is the only second push and a second CI run. Merge, and append `Landed (merge <sha>)`. Green CI alone never authorizes the merge.
+13. **Root layer and stand-down.** Anything that loosens a gate needs a verifier's proof and a fresh countersign. Never arm an audit tick while a goal is active. A stop reaches every live worker as a zero-writes order.
+14. **Long units.** A unit expected to outlast the harness spawn cap splits before dispatch, because a killed spawn loses its turn.
+
+**Review reception.** The fixer reads `references/review-reception.md`. A rejection requires evidence, a code line, a test or a spec line, and is recorded as a ruling the reviewer adjudicates. The progress log shows implementation or rejection for every finding, so nothing is silently dropped.
+
+**Progress log.** One line per state a resume would need, in `show-me-your-work`'s format. `NotifyUser` stays the human channel and fires at coarser moments.
+
+**Reply.** Status, commits, a one-line test summary and concerns, under fifteen lines. The detail goes to the run's report file.

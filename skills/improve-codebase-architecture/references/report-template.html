@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --surface: #ffffff;
+    --surface-alt: #f4f5f7;
+    --ink: #1d2129;
+    --ink-soft: #5b6472;
+    --line: #d9dde3;
+    --accent: #2f6feb;
+    --strong: #1f7a4d;
+    --worth: #9a6700;
+    --speculative: #8250df;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #14171c;
+      --surface-alt: #1c2027;
+      --ink: #e8eaed;
+      --ink-soft: #a2aab6;
+      --line: #2c323b;
+      --accent: #6ea8ff;
+      --strong: #4ac08a;
+      --worth: #d4a72c;
+      --speculative: #b48ef7;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+    background: var(--surface);
+    color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 66rem; margin: 0 auto; }
+  header { margin-bottom: 2.5rem; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .5rem; }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 1rem; }
+  p { margin: .4rem 0; }
+  .meta { color: var(--ink-soft); font-size: .9rem; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-alt);
+    padding: 1.25rem;
+    margin: 1.25rem 0;
+  }
+  .card h3 { margin: 0 0 .25rem; font-size: 1.1rem; }
+  .badge {
+    display: inline-block;
+    margin-left: .5rem;
+    padding: .1rem .5rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: .75rem;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge.strong { color: var(--strong); }
+  .badge.worth { color: var(--worth); }
+  .badge.speculative { color: var(--speculative); }
+  .card dl { display: grid; grid-template-columns: 7rem 1fr; gap: .3rem .75rem; margin: .75rem 0; }
+  .card dt { color: var(--ink-soft); font-weight: 600; }
+  .card dd { margin: 0; }
+  .figures { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  .figures figure { margin: 0; }
+  .figures svg { width: 100%; height: auto; display: block; }
+  figcaption { color: var(--ink-soft); font-size: .8rem; text-align: center; margin-top: .25rem; }
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+  .top { border-left: 4px solid var(--accent); padding: .75rem 1rem; background: var(--surface-alt); border-radius: 0 var(--radius) var(--radius) 0; }
+  @media (max-width: 640px) { .figures { grid-template-columns: 1fr; } .card dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>{{TITLE}}</h1>
+  <p class="meta">Generated {{GENERATED_AT}} · scope: {{SCOPE}} · {{CANDIDATE_COUNT}} candidates</p>
+  <p>{{SUMMARY}}</p>
+</header>
+
+<!-- One card per candidate. Keep the order of the fields. -->
+<section class="card">
+  <h3>{{CANDIDATE_NAME}}<span class="badge {{STRENGTH_CLASS}}">{{STRENGTH}}</span></h3>
+  <dl>
+    <dt>Files</dt><dd>{{FILES}}</dd>
+    <dt>Problem</dt><dd>{{PROBLEM}}</dd>
+    <dt>Solution</dt><dd>{{SOLUTION}}</dd>
+    <dt>Benefits</dt><dd>{{BENEFITS}}</dd>
+  </dl>
+  <div class="figures">
+    <figure>
+      <svg viewBox="0 0 320 180" role="img" aria-label="Before: shallow module">
+        <rect x="20" y="20" width="280" height="140" rx="10" fill="none" stroke="currentColor" stroke-opacity=".25"/>
+        <rect x="40" y="40" width="240" height="28" rx="6" fill="currentColor" fill-opacity=".12" stroke="currentColor" stroke-opacity=".4"/>
+        <text x="160" y="59" text-anchor="middle" font-size="12" fill="currentColor">interface</text>
+        <rect x="40" y="76" width="76" height="56" rx="6" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+        <rect x="122" y="76" width="76" height="56" rx="6" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+        <rect x="204" y="76" width="76" height="56" rx="6" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+        <text x="160" y="108" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity=".7">shallow pieces</text>
+      </svg>
+      <figcaption>Before</figcaption>
+    </figure>
+    <figure>
+      <svg viewBox="0 0 320 180" role="img" aria-label="After: deep module">
+        <rect x="20" y="20" width="280" height="140" rx="10" fill="none" stroke="currentColor" stroke-opacity=".25"/>
+        <rect x="70" y="40" width="180" height="26" rx="6" fill="currentColor" fill-opacity=".12" stroke="currentColor" stroke-opacity=".4"/>
+        <text x="160" y="58" text-anchor="middle" font-size="12" fill="currentColor">small interface</text>
+        <rect x="70" y="76" width="180" height="56" rx="8" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-opacity=".45"/>
+        <text x="160" y="108" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity=".75">one deep module</text>
+      </svg>
+      <figcaption>After</figcaption>
+    </figure>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section class="top">
+  <h2>Top recommendation</h2>
+  <p><strong>{{TOP_CANDIDATE}}</strong> first, because {{TOP_REASON}}</p>
+</section>
+
+</main>
+</body>
+</html>

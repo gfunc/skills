@@ -1,22 +1,21 @@
 #!/usr/bin/env node
+// Renders the authoring shell from the one shape statement. Every block, order and
+// placeholder comes from ../references/plan-shape.mjs; this file only handles argv,
+// the standing-orders register, and the output path.
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { renderShell, SURFACES } from "../references/plan-shape.mjs";
 
-const USAGE = `Usage: node emit-plan --feature <slug> --title "<Program>" --surface ui|cli|library|backend --pr <id> [--playbook autopilot-stack] [--out <path>] [--models <path>] [--force]`;
-
-const SURFACES = ["ui", "cli", "library", "backend"];
-const DEFAULT_MODEL = "inherit-parent";
+const USAGE = `Usage: node emit-plan --feature <slug> --title "<PR title>" --surface ui|cli|library|backend --pr <id> [--playbook single-pr] [--out <path>] [--force]`;
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.dirname(scriptDir);
-const skeletonPath = path.join(skillDir, "references", "plan-skeleton.md");
 const registerPath = path.join(skillDir, "references", "standing-orders.md");
 
 const args = process.argv.slice(2);
-const flags = { playbook: "autopilot-stack", force: false };
+const flags = { playbook: "single-pr", force: false };
 for (let i = 0; i < args.length; i++) {
 	const arg = args[i];
 	if (!arg.startsWith("--")) {
@@ -47,50 +46,28 @@ if (!SURFACES.includes(flags.surface)) {
 	process.exit(2);
 }
 
-const modelsPath = flags.models
-	? flags.models.replace(/^~(?=$|\/)/, os.homedir())
-	: path.join(os.homedir(), ".agents", "pstack-models.md");
-let model = "";
+let register;
 try {
-	const line = fs
-		.readFileSync(modelsPath, "utf8")
-		.split(/\r?\n/)
-		.find((l) => /^\s*swarm workers\b/.test(l));
-	if (line) model = line.replace(/^\s*swarm workers[:\s]*/i, "").trim();
-} catch {
-	// missing models file falls through to the default model
-}
-if (!model) {
-	model = DEFAULT_MODEL;
-	console.error(`emit-plan: no "swarm workers" line in ${modelsPath}; stamping ${DEFAULT_MODEL}`);
-}
-
-const register = fs.readFileSync(registerPath, "utf8").trimEnd();
-
-let plan = fs.readFileSync(skeletonPath, "utf8");
-
-const drift = (marker) => {
-	console.error(`emit-plan: skeleton is missing the ${marker} marker; re-sync ${path.relative(skillDir, skeletonPath)}`);
+	register = fs.readFileSync(registerPath, "utf8");
+} catch (error) {
+	console.error(`emit-plan: cannot read ${registerPath}: ${error.message}`);
 	process.exit(1);
-};
-const countMatches = (source, pattern) => {
-	if (typeof pattern === "string") return source.split(pattern).length - 1;
-	const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
-	return (source.match(new RegExp(pattern.source, flags)) ?? []).length;
-};
-const replaceRequired = (marker, source, pattern, replacement) => {
-	if (countMatches(source, pattern) === 0) drift(marker);
-	return typeof pattern === "string" ? source.replaceAll(pattern, replacement) : source.replace(pattern, replacement);
-};
+}
 
-plan = replaceRequired("program title", plan, "# <Program> plan", () => `# ${flags.title} plan`);
-plan = replaceRequired("execution playbook", plan, "<execution playbook>", () => flags.playbook);
-plan = replaceRequired("swarm workers model", plan, "<swarm workers model>", () => model);
-plan = replaceRequired("Surface line", plan, "Surface: ui", () => `Surface: ${flags.surface}`);
-plan = replaceRequired("PR heading (standing-orders insertion point)", plan, /^## <Task as a verb phrase> \(<PR id>\)$/m, (m) =>
-	m.replace("(<PR id>)", `(${flags.pr})`).replace(/^## /, `### Standing orders\n\n${register}\n\n## `),
-);
-if (!plan.includes("### Standing orders")) drift("standing-orders insertion point");
+let plan;
+try {
+	plan = renderShell({
+		feature: flags.feature,
+		title: flags.title,
+		surface: flags.surface,
+		pr: flags.pr,
+		playbook: flags.playbook,
+		register,
+	});
+} catch (error) {
+	console.error(`emit-plan: ${error.message}`);
+	process.exit(1);
+}
 
 const out = flags.out
 	? path.resolve(process.cwd(), flags.out)

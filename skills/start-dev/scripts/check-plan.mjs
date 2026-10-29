@@ -1,593 +1,431 @@
 #!/usr/bin/env node
+// Validates a plan against the one shape statement in ../references/plan-shape.mjs.
+// The shape owns every rule; this file parses the document and walks the shape.
 import fs from "node:fs";
-import { dirname, resolve } from "node:path";
+import path from "node:path";
 import process from "node:process";
+import { shape, validators } from "../references/plan-shape.mjs";
 
-const RULE =
-	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
-const LANES = /Lanes on `[^`<>]+` at the PR head/;
-const SURFACES = ["ui", "cli", "library", "backend"];
-const DECISIONS = ["exists", "exists-stale", "create-after-first-drivable-batch", "create-before-amendment", "not-required"];
-const FORMAL_DECISIONS = ["exists", "exists-stale", "create", "not-required"];
-const READINESS_FIELDS = ["Decision", "Surface", "Drivability", "Boundary", "Evidence", "Driver proof", "Isolation", "Gate duration", "Skill", "Map", "Formal", "Formal property", "Maintenance route", "Owner"];
-const DRIVABILITY_STATES = ["drivable", "drivable-with-boundary", "not-drivable"];
-const FEATURE_ENTRY = /`[A-Za-z0-9][A-Za-z0-9_-]*#[A-Za-z0-9][A-Za-z0-9_-]*`/;
-const MAP_UPDATE = /^\s*map update\b/i;
-const MAP_UPDATE_NEGATED = /\b(?:no|not|never|without)\b/i;
-const CREATION_TASK = /\bcreate-verification-skill\b/i;
-const LANE_ARTIFACT = { ui: { re: /Save `[^`]+`/, name: "screenshot" }, cli: { re: /Log `[^`]+`/, name: "log" } };
-const FORMAL_ITEMS = ["Command.", "Property.", "Covered.", "Run."];
-const FORMAL_ITEM_BODY = {
-	"Command.": { re: /`[^`]+`/, name: "backticked command" },
-	"Property.": { re: /\S+/, name: "one-sentence property" },
-	"Covered.": { re: /`[^`]+`/, name: "backticked covered files or functions" },
-	"Run.": { re: /`[^`]+`/, name: "evidence path" },
-};
-const SUB_BLOCKS = [
-	"Depends on.",
-	"Files.",
-	"Build.",
-	"You see.",
-	"Verify, unit.",
-	"Verify, live.",
-	"Verify, formal.",
-	"Verify, perf.",
-	"Review gate.",
-	"Merge.",
-];
-const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_STATUS_MARKER = "status message";
-const REMOTE_READ_MARKER = "git show origin/main:";
-const PLUGIN_TOKEN = /`([^`\n]+)`/g;
-const CONTINUATION_LINE = /^Continuation: \S/;
-const HOW_TO_READ_MARKERS = [
-	"One box is one unit of work",
-	"names the evidence",
-	"Check a box only when its evidence exists",
-	"playbooks/",
-	RULE,
-];
-const PERF_ITEMS = ["Metric.", "Probe.", "Baseline.", "Rule."];
-const BOX = /^\s*- \[[ x]\] (.*)$/;
-
+const USAGE = "Usage: node check-plan.mjs <plan.md>";
 const file = process.argv[2];
 if (!file) {
-	console.error("Usage: node check-plan.mjs <plan.md>");
+	console.error(USAGE);
+	process.exit(2);
+}
+let text;
+try {
+	text = fs.readFileSync(file, "utf8");
+} catch (error) {
+	console.error(`check-plan: cannot read ${file}: ${error.message}`);
 	process.exit(2);
 }
 
-const raw = fs.readFileSync(file, "utf8").split(/\r?\n/);
+const lines = text.split(/\r?\n/);
+const planDir = path.dirname(path.resolve(file));
 const problems = [];
-const notes = [];
-const fail = (line, message) => problems.push(`${file}:${line}: ${message}`);
+const fail = (line, message) => problems.push(`${file}:${line + 1}: ${message}`);
+const exists = (value) => {
+	const candidate = value.replace(/^`|`$/g, "").trim();
+	if (!candidate) return false;
+	return [candidate, path.resolve(planDir, candidate), path.resolve(process.cwd(), candidate)].some((p) => {
+		try {
+			return fs.existsSync(p);
+		} catch {
+			return false;
+		}
+	});
+};
 
-let start = 0;
-if (raw[0] === "---") {
-	start = raw.indexOf("---", 1) + 1;
-}
-
-const lines = [];
+// ---------- parse ----------
+const inFence = new Array(lines.length).fill(false);
+const fenceLang = new Array(lines.length).fill(null);
 let fence = null;
-const openingFence = (text) => {
-	const match = text.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-	if (!match || (match[1][0] === "`" && match[2].includes("`"))) return null;
-	return { char: match[1][0], length: match[1].length };
-};
-const closingFence = (text, opening) => {
-	const match = text.match(/^ {0,3}(`+|~+)[ \t]*$/);
-	return Boolean(
-		match &&
-		match[1][0] === opening.char &&
-		match[1].length >= opening.length,
-	);
-};
-for (let i = start; i < raw.length; i++) {
-	const text = raw[i];
-	const n = i + 1;
-	let code = Boolean(fence);
-	if (fence && closingFence(text, fence)) {
-		code = false;
+for (let i = 0; i < lines.length; i++) {
+	const line = lines[i];
+	const open = line.match(/^\s*```\s*(\S*)/);
+	if (!fence && open) {
+		fence = { lang: open[1] || "", start: i };
+		inFence[i] = true;
+		fenceLang[i] = fence.lang;
+		continue;
+	}
+	if (fence && /^\s*```/.test(line)) {
+		inFence[i] = true;
+		fenceLang[i] = fence.lang;
 		fence = null;
-	} else if (!fence) {
-		fence = openingFence(text);
-		code = Boolean(fence);
+		continue;
 	}
-	lines.push({ n, text, code });
-	if (code) continue;
-	const prose = text
-		.replace(/`[^`]*`/g, "`")
-		.replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-		.replace(/\]\([^)]*\)/g, "]");
-	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
-	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
-	const isSurfaceLine = /^Surface:\s*(ui|cli|library|backend)\s*$/.test(text.trim());
-	const isChangeLine = /^Change:\s*(user-facing|internal)\s*$/.test(text.trim());
-	const isContinuationLine = /^Continuation: \S/.test(text.trim());
-	const colonProbe = prose.replace(/Live-only:/g, "Live-only");
-	if (/: \S/.test(colonProbe) && !isSurfaceLine && !isChangeLine && !isContinuationLine) fail(n, "mid-sentence colon");
+	if (fence) {
+		inFence[i] = true;
+		fenceLang[i] = fence.lang;
+	}
 }
 
-const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
-const sections = [];
-for (const l of lines) {
-	const title = h2(l);
-	if (title !== null) sections.push({ title, n: l.n, body: [] });
-	else if (sections.length) sections.at(-1).body.push(l);
+const headings = [];
+for (let i = 0; i < lines.length; i++) {
+	if (inFence[i]) continue;
+	const match = lines[i].match(/^(#{1,6})\s+(.+?)\s*$/);
+	if (match) headings.push({ level: match[1].length, title: match[2].trim(), line: i });
 }
-const find = (title) => sections.find((s) => s.title === title);
-const bodyText = (s) => s.body.map((l) => l.text).join("\n");
-const boxes = (ls) => ls.filter((l) => !l.code && BOX.test(l.text)).map((l) => ({ n: l.n, text: l.text.match(BOX)[1] }));
 
-const readiness = find("Verification readiness");
-if (!readiness) fail(1, 'no "## Verification readiness" section');
-const readinessFields = new Map();
-const cellValue = (text) => {
-	const value = text.trim();
-	const ticked = value.match(/^`([^`]+)`$/);
-	return (ticked ? ticked[1] : value).trim();
-};
-if (readiness) {
-	for (const l of readiness.body) {
-		if (l.code) continue;
-		const match = l.text.match(/^\s*\|([^|]+)\|([^|]+)\|\s*$/);
-		if (!match) continue;
-		const name = match[1].trim();
-		const value = cellValue(match[2]);
-		if (name === "Field" || /^-+$/.test(name)) continue;
-		if (readinessFields.has(name)) fail(l.n, `Verification readiness repeats table field "${name}"`);
-		readinessFields.set(name, { value, n: l.n });
-	}
-	for (const name of READINESS_FIELDS) {
-		if (!readinessFields.get(name)?.value) fail(readiness.n, `Verification readiness lacks table field "${name}"`);
-	}
+const sections = new Map();
+for (let h = 0; h < headings.length; h++) {
+	const heading = headings[h];
+	if (heading.level !== 2) continue;
+	const end = h + 1 < headings.length ? headings[h + 1].line : lines.length;
+	sections.set(heading.title, { title: heading.title, line: heading.line, body: lines.slice(heading.line + 1, end), bodyStart: heading.line + 1 });
 }
-const readinessValue = (name) => readinessFields.get(name)?.value ?? "";
-const readinessLine = (name) => readinessFields.get(name)?.n ?? readiness?.n ?? 1;
-const decision = readinessValue("Decision");
-const readinessSurface = readinessValue("Surface");
-const formalDecision = readinessValue("Formal");
-if (readiness && decision && !DECISIONS.includes(decision))
-	fail(readinessLine("Decision"), `unknown Verification readiness Decision "${decision}" (expected ${DECISIONS.join("|")})`);
-if (readiness && readinessSurface && !SURFACES.includes(readinessSurface))
-	fail(readinessLine("Surface"), `unknown Verification readiness Surface "${readinessSurface}" (expected ${SURFACES.join("|")})`);
-if (readiness && formalDecision && !FORMAL_DECISIONS.includes(formalDecision))
-	fail(readinessLine("Formal"), `unknown Verification readiness Formal "${formalDecision}" (expected ${FORMAL_DECISIONS.join("|")})`);
-const drivability = readinessValue("Drivability");
-if (readiness && drivability && !DRIVABILITY_STATES.includes(drivability))
-	fail(readinessLine("Drivability"), `unknown Verification readiness Drivability "${drivability}" (expected ${DRIVABILITY_STATES.join("|")})`);
-const evidence = readinessValue("Evidence");
-if (readiness && evidence) {
-	if (!/`[^`]+`/.test(evidence))
-		fail(readinessLine("Evidence"), "Verification readiness Evidence must name the launch or e2e command in backticks");
-	if (!/\bready\b/i.test(evidence))
-		fail(readinessLine("Evidence"), "Verification readiness Evidence must name the ready signal");
-	if (!/\bjourneys?\b/i.test(evidence))
-		fail(readinessLine("Evidence"), "Verification readiness Evidence must name one driven journey");
-	if (!/\d{4}-\d{2}-\d{2}/.test(evidence))
-		fail(readinessLine("Evidence"), "Verification readiness Evidence must carry the timestamp");
-}
-if (decision === "exists") {
-	for (const name of ["Skill", "Map"]) {
-		const value = readinessValue(name);
-		const candidates = [resolve(process.cwd(), value), resolve(dirname(file), value)];
-		if (value && !candidates.some((candidate) => fs.existsSync(candidate)))
-			fail(readinessLine(name), `Verification readiness ${name} path does not resolve: ${value}`);
-	}
-}
-if (readiness) {
-	const driverProof = readinessValue("Driver proof");
-	if (decision === "exists") {
-		if (!driverProof || /^none$/i.test(driverProof))
-			fail(readinessLine("Driver proof"), "exists requires driver proof, not none");
-		if (!/known-bad|control/i.test(driverProof))
-			fail(readinessLine("Driver proof"), "Driver proof must name the known-bad control");
-	}
-	const isolation = readinessValue("Isolation");
-	if (isolation && !/single-stack|per-lane/i.test(isolation))
-		fail(readinessLine("Isolation"), "Isolation must be single-stack or per-lane");
-	const gateDuration = readinessValue("Gate duration");
-	if (gateDuration && !/\d/.test(gateDuration))
-		fail(readinessLine("Gate duration"), "Gate duration must carry minutes per layer");
-}
-const maintenanceRoute = readinessValue("Maintenance route");
-if (decision === "exists-stale" && (!maintenanceRoute || !maintenanceRoute.includes("maintain-verification-skill")))
-	fail(readinessLine("Maintenance route"), "exists-stale requires a maintenance route");
-if (formalDecision === "exists-stale" && (!maintenanceRoute || !maintenanceRoute.includes("maintain-formal-verification-skill")))
-	fail(readinessLine("Maintenance route"), "Formal exists-stale requires a maintenance route");
-if (formalDecision === "not-required" && readinessValue("Formal property") !== "none")
-	fail(readinessLine("Formal property"), 'Formal not-required requires Formal property "none" so the design signal is none');
-if (decision === "not-required" && readinessSurface && !["library", "backend"].includes(readinessSurface))
-	fail(readinessLine("Decision"), "Verification readiness not-required is only allowed for library/backend surfaces");
 
-const installedPluginPaths = (text) => {
-	const tokens = [...text.matchAll(PLUGIN_TOKEN)].flatMap((match) => match[1].split(/\s+/));
-	return [...new Set(tokens.filter((token) =>
-		token.startsWith("/") &&
-		token.includes("/plugins/") &&
-		token.includes("/skills/") &&
-		token.endsWith(".md") &&
-		!token.includes("<") &&
-		!token.includes(">") &&
-		!token.includes("*")
-	))];
-};
+const boxesIn = (body, start) =>
+	body
+		.map((text, index) => ({ text: text.trim(), line: start + index }))
+		.filter((box) => /^- \[[ x]\] /.test(box.text))
+		.map((box) => ({ ...box, body: box.text.replace(/^- \[[ x]\] /, "") }));
 
-const validateInstalledPluginPaths = (paths, line) => {
-	for (const pluginPath of paths) {
-		const at = pluginPath.indexOf("/skills/");
-		const pluginDir = pluginPath.slice(0, at);
-		if (!fs.existsSync(pluginDir)) {
-			notes.push(`installed plugin root is not present, path not validated: ${pluginPath}`);
-			continue;
+const tablesIn = (body, start) => {
+	const tables = [];
+	let current = null;
+	for (let i = 0; i < body.length; i++) {
+		const line = body[i].trim();
+		if (line.startsWith("|")) {
+			if (!current) current = { start: start + i, rows: [] };
+			current.rows.push(line);
+		} else if (current) {
+			tables.push(current);
+			current = null;
 		}
-		if (!fs.existsSync(pluginPath)) {
-			fail(line, `installed plugin file does not exist: ${pluginPath}`);
-			continue;
-		}
-		if (!fs.statSync(pluginPath).isFile())
-			fail(line, `installed plugin path is not a file: ${pluginPath}`);
 	}
+	if (current) tables.push(current);
+	return tables
+		.map((table) => {
+			const cells = table.rows.map((row) =>
+				row.replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim()));
+			const separator = cells.findIndex((row) => row.every((cell) => /^:?-{3,}:?$/.test(cell)));
+			if (separator < 0) return null;
+			return { start: table.start, header: cells[separator - 1] ?? [], rows: cells.slice(separator + 1) };
+		})
+		.filter(Boolean);
 };
 
-const h1 = lines.findIndex((l) => !l.code && l.text.startsWith("# "));
-if (h1 === -1) fail(1, "no H1 title");
-const howToRead = find("How to read this");
-if (!howToRead) fail(1, 'no "## How to read this" section');
-if (h1 !== -1 && howToRead) {
-	const intro = lines.slice(h1 + 1).filter((l) => l.n < howToRead.n && l.text.trim() !== "");
-	if (intro.length >= 10) fail(lines[h1].n, `intro is ${intro.length} lines, under ten required`);
-	for (const marker of HOW_TO_READ_MARKERS) {
-		if (!bodyText(howToRead).includes(marker)) fail(howToRead.n, `How to read this lacks "${marker}"`);
+// ---------- document rules ----------
+const documentRules = shape.documentRules ?? {};
+for (let i = 0; i < lines.length; i++) {
+	if (inFence[i]) continue;
+	let prose = lines[i].replace(/`[^`]*`/g, "");
+	for (const rule of Object.values(documentRules)) {
+		if (rule.lineExceptions?.some((re) => re.test(lines[i]))) continue;
+		let test = prose;
+		for (const token of rule.neutralize ?? []) test = test.split(token).join("");
+		const hit = rule.re.exec?.(test) ?? rule.re.test(test);
+		if (hit) fail(i, rule.message);
 	}
 }
 
-const program = find("Program checklist");
-if (!program) fail(1, 'no "## Program checklist" section');
-else {
-	const h3s = program.body.filter((l) => !l.code && l.text.startsWith("### ")).map((l) => l.text.slice(4).trim());
-	let cursor = 0;
-	for (const name of PROGRAM_H3) {
-		const at = h3s.findIndex((t, i) => i >= cursor && t.startsWith(name));
-		if (at === -1) fail(program.n, `Program checklist lacks "### ${name}" in order`);
-		else cursor = at + 1;
-	}
-	const programText = bodyText(program);
-	if (!programText.includes(PROGRAM_STATUS_MARKER))
-		fail(program.n, `Program checklist lacks "${PROGRAM_STATUS_MARKER}"`);
-	const pluginPaths = installedPluginPaths(programText);
-	validateInstalledPluginPaths(pluginPaths, program.n);
-	const hasRemoteRead = programText.includes(REMOTE_READ_MARKER);
-	if (!hasRemoteRead && pluginPaths.length === 0)
-		fail(program.n, `Program checklist lacks a read source: "${REMOTE_READ_MARKER}" or an installed plugin path`);
-	if (!hasRemoteRead && pluginPaths.length && /Re-read the execution playbook from trunk/.test(programText))
-		fail(program.n, "tick prompt reads the playbook from trunk; name the installed plugin path");
-	if (!program.body.some((l) => !l.code && CONTINUATION_LINE.test(l.text.trim())))
-		fail(program.n, "Program checklist lacks a \"Continuation: <mechanism>\" line naming the active profile's continuation mechanism");
+// ---------- title, intro, how to read ----------
+const title = headings.find((heading) => heading.level === 1);
+if (!title) fail(0, "no H1 title");
+if (shape.title?.intro && title) {
+	const firstH2 = headings.find((heading) => heading.level === 2);
+	const end = firstH2 ? firstH2.line : lines.length;
+	const intro = lines.slice(title.line + 1, end).filter((line) => line.trim());
+	if (intro.length >= shape.title.intro.maxLines)
+		fail(title.line, `intro is ${intro.length} lines, under ${shape.title.intro.maxLines} required`);
 }
 
-if (readiness && program && sections.indexOf(readiness) > sections.indexOf(program))
-	fail(readiness.n, 'Verification readiness must precede "## Program checklist"');
-if (readiness && howToRead && sections.indexOf(readiness) < sections.indexOf(howToRead))
-	fail(readiness.n, 'Verification readiness must follow "## How to read this"');
-
-let graph = null;
-const runGraph = find("Run graph");
-if (!runGraph) fail(1, 'no "## Run graph" section');
+const howToRead = sections.get("How to read this");
+if (!howToRead) fail(0, 'no "## How to read this" section');
 else {
-	const fence = runGraph.body.find((l) => l.code && l.text.trim().startsWith("```mermaid"));
-	if (!fence) fail(runGraph.n, 'Run graph lacks a ```mermaid block');
+	const joined = howToRead.body.join("\n");
+	for (const marker of shape.howToRead?.markers ?? [])
+		if (!joined.includes(marker)) fail(howToRead.line, `How to read this lacks "${marker}"`);
+}
+
+// ---------- sections order ----------
+const h2 = headings.filter((heading) => heading.level === 2).map((heading) => heading.title);
+for (const forbidden of shape.sections?.forbiddenHeadings ?? [])
+	if (h2.includes(forbidden)) fail(headings.find((heading) => heading.title === forbidden).line, `retired heading "${forbidden}" is not allowed`);
+
+const close = sections.get(shape.close?.title ?? "Close the run");
+if (!close) fail(0, `no "## ${shape.close?.title ?? "Close the run"}" section`);
+
+const prSectionPattern = shape.sections?.prSection?.pattern;
+const prHeads = headings.filter(
+	(heading) => heading.level === 2 && prSectionPattern?.test(`## ${heading.title}`) &&
+		(!close || heading.line < close.line) &&
+		(headings.find((h) => h.title === "Run graph")?.line ?? 0) < heading.line,
+);
+if (prHeads.length !== 1) fail(prHeads[0]?.line ?? 0, `expected exactly one PR section, found ${prHeads.length}`);
+
+if (close) {
+	const after = headings.filter((heading) => heading.level === 2 && heading.line > close.line);
+	for (const heading of after)
+		if (!/^Appendix/.test(heading.title)) fail(heading.line, `section after Close the run must be an Appendix, got "${heading.title}"`);
+	if (!after.length) fail(close.line, `Close the run must be followed by "## ${shape.appendices?.firstRequired ?? "Prototype evidence"}"`);
+	else if (!after[0].title.includes(shape.appendices?.firstRequired ?? "Prototype evidence"))
+		fail(after[0].line, `first appendix must be "${shape.appendices?.firstRequired}"`);
+}
+
+// ---------- readiness ----------
+const readiness = sections.get("Verification readiness");
+const readinessValues = {};
+if (!readiness) fail(0, 'no "## Verification readiness" section');
+else {
+	const table = tablesIn(readiness.body, readiness.bodyStart)[0];
+	const fields = shape.readiness.table.fields;
+	if (!table) fail(readiness.line, "Verification readiness has no table");
 	else {
-		const lines = runGraph.body.filter((l) => l.code);
-		const text = lines.map((l) => l.text).join("\n");
-		if (!/^\s*graph TD\s*$/m.test(text)) fail(fence.n, "Run graph must declare graph TD");
-		const tasks = [...text.matchAll(/\[(?:task|pr|feature): [^\]]+\]/g)].map((m) => m[0]);
-		if (tasks.length === 0) fail(fence.n, "Run graph has no task, pr, or feature node");
-		for (const task of tasks) {
-			if (!/ lane [^\]]+/.test(task)) fail(fence.n, `Run graph node ${task} has no file lane`);
+		const seen = new Set();
+		for (const row of table.rows) {
+			const name = row[0];
+			const raw = (row[1] ?? "").trim();
+			const value = raw.replace(/^`|`$/g, "").trim();
+			if (!name) continue;
+			if (seen.has(name)) fail(table.start, `Verification readiness repeats table field "${name}"`);
+			seen.add(name);
+			readinessValues[name] = value;
+			const field = fields.find((entry) => entry.name === name);
+			if (!field) continue;
+			if (field.enum && !field.enum.includes(value)) fail(table.start, `unknown ${name} "${value}"`);
+			if (field.validator) {
+				const needsRaw = ["readinessEvidence", "resolvablePath"].includes(field.validator);
+				const result = validators[field.validator](needsRaw ? raw : value, { readiness: readinessValues, exists });
+				for (const message of [].concat(result ?? [])) if (message) fail(table.start, `${name}: ${message}`);
+			}
 		}
-		const gates = [...text.matchAll(/\[gate: ([^\]]+)\]/g)].map((m) => m[1]);
-		if (!gates.includes("feature")) fail(fence.n, 'Run graph lacks the feature gate node "[gate: feature]"');
-		if (!gates.includes("review")) fail(fence.n, 'Run graph lacks the review gate node "[gate: review]"');
-		const waves = [...text.matchAll(/subgraph W\d+\[/g)];
-		if (waves.length === 0) fail(fence.n, "Run graph has no wave subgraph W<n>");
-		const nodes = new Set();
-		const graphNodes = new Map();
+		for (const field of fields)
+			if (field.required && !seen.has(field.name)) fail(readiness.line, `Verification readiness lacks table field "${field.name}"`);
+		if (readinessValues.Surface && !shape.readiness.table.fields.find((f) => f.name === "Surface").enum.includes(readinessValues.Surface))
+			fail(table.start, `unknown Surface "${readinessValues.Surface}"`);
+		if (readinessValues.Decision === "not-required" && !["library", "backend"].includes(readinessValues.Surface))
+			fail(table.start, "Decision not-required is only allowed for library or backend surfaces");
+	}
+}
+
+// ---------- run graph ----------
+const runGraph = sections.get("Run graph");
+const laneRows = [];
+const unitIds = [];
+if (!runGraph) fail(0, 'no "## Run graph" section');
+else {
+	const graphBox = [];
+	for (let i = runGraph.bodyStart; i < runGraph.bodyStart + runGraph.body.length; i++)
+		if (fenceLang[i] === "mermaid") graphBox.push({ line: i, text: lines[i] });
+	if (!graphBox.length) fail(runGraph.line, "Run graph has no mermaid fence");
+	else {
+		const body = graphBox.map((entry) => entry.text).join("\n");
+		if (!/graph TD/.test(body)) fail(graphBox[0].line, 'Run graph must declare "graph TD"');
+		if (shape.runGraph?.forbidden?.waveSubgraphs?.test(body)) fail(graphBox[0].line, "wave subgraphs are retired");
+		const nodes = new Map();
 		const edges = [];
-		let currentWave = null;
-		for (const line of lines) {
-			const subgraph = line.text.match(/^\s*subgraph\s+([A-Za-z0-9_-]+)(?:\[[^\]]*\])?/);
-			if (subgraph) currentWave = subgraph[1];
-			else if (/^\s*end\s*$/.test(line.text)) currentWave = null;
-			for (const match of line.text.matchAll(/([A-Za-z0-9_-]+)\[((?:task|pr|feature|gate): [^\]]+)\]/g)) {
-				const previous = graphNodes.get(match[1]);
-				graphNodes.set(match[1], {
-					id: match[1],
-					label: match[2],
-					kind: match[2].slice(0, match[2].indexOf(":")),
-					n: line.n,
-					wave: previous?.wave ?? currentWave,
-				});
+		const gates = [];
+		for (const entry of graphBox) {
+			const text = entry.text;
+			for (const match of text.matchAll(/([A-Za-z0-9_]+)\[([^\]]+)\]/g)) {
+				nodes.set(match[1], { label: match[2], line: entry.line });
+				if (match[2].startsWith("gate: ")) gates.push(match[2].slice(6).trim());
 			}
-			const m = line.text.match(/^\s*([A-Za-z0-9_-]+)(?:\[[^\]]*\])?\s*-->(?:\|([^|]*)\|)?\s*([A-Za-z0-9_-]+)/);
-			if (m) {
-				nodes.add(m[1]); nodes.add(m[3]); edges.push([m[1], m[3]]);
-			} else {
-				const decl = line.text.match(/^\s*([A-Za-z0-9_-]+)\[/);
-				if (decl) nodes.add(decl[1]);
-			}
+			for (const match of text.matchAll(/([A-Za-z0-9_]+)\s*-->\s*(?:\|[^|]*\|\s*)?([A-Za-z0-9_]+)/g))
+				edges.push([match[1], match[2]]);
 		}
-		graph = { nodes: [...graphNodes.values()], edges };
-		const color = new Map();
-		const stack = [...nodes];
+		const units = [...nodes.entries()].filter(([, node]) => node.label.startsWith("unit: "));
+		if (!units.length) fail(graphBox[0].line, "Run graph has no unit node");
+		for (const [id, node] of units) {
+			unitIds.push(id);
+			const result = validators.unitNodeLabel(node.label);
+			if (result) fail(node.line, result);
+		}
+		const prNodes = [...nodes.values()].filter((node) => node.label.startsWith("pr: "));
+		if (prNodes.length !== 1) fail(graphBox[0].line, `Run graph needs exactly one pr node, found ${prNodes.length}`);
+		for (const required of shape.runGraph?.gates?.required ?? [])
+			if (!gates.some((gate) => gate.startsWith(required))) fail(graphBox[0].line, `Run graph lacks a gate: ${required}`);
+		for (const gate of gates)
+			if (!(shape.runGraph?.gates?.allowed ?? []).some((allowed) => gate.startsWith(allowed)))
+				fail(graphBox[0].line, `unknown gate "${gate}"`);
+		// acyclic
 		const state = new Map();
-		let cyclic = false;
-		const visit = (id) => {
-			if (state.get(id) === 1) { cyclic = true; return; }
-			if (state.get(id) === 2) return;
+		const visit = (id, stack) => {
+			if (state.get(id) === 1) return true;
+			if (state.get(id) === 2) return false;
 			state.set(id, 1);
-			for (const [from, to] of edges) if (from === id) visit(to);
+			for (const [, to] of edges.filter(([from]) => from === id)) if (visit(to, [...stack, id])) return true;
 			state.set(id, 2);
+			return false;
 		};
-		for (const id of stack) visit(id);
-		if (cyclic) fail(fence.n, "Run graph is cyclic");
-		if (!runGraph.body.some((l) => !l.code && (/^\*\*Critical path\.\*\*/.test(l.text.trim()) || l.text.trim().startsWith("Critical path:"))))
-			fail(runGraph.n, 'Run graph section lacks a "Critical path" line');
+		for (const id of nodes.keys()) if (visit(id, [])) { fail(graphBox[0].line, "Run graph is cyclic"); break; }
 	}
+	if (!runGraph.body.some((line) => /^\*\*Critical path\.\*\*/.test(line.trim())))
+		fail(runGraph.line, "Run graph lacks a Critical path line");
 }
 
-const close = find("Close the program");
-if (!close) fail(1, 'no "## Close the program" section');
-const programIndex = sections.indexOf(program);
-const closeIndex = sections.indexOf(close);
-const runGraphIndex = sections.indexOf(runGraph);
-const prSections = programIndex === -1 || closeIndex === -1
-  ? []
-  : sections.slice(programIndex + 1, closeIndex).filter((s) => s !== runGraph);
-if (prSections.length === 0) fail(1, "no PR sections between Program checklist and Close the program");
+// ---------- PR section ----------
+const prHead = prHeads[0];
+if (prHead) {
+	const pr = sections.get(prHead.title) ?? {
+		title: prHead.title,
+		line: prHead.line,
+		body: lines.slice(prHead.line + 1, close ? close.line : lines.length),
+		bodyStart: prHead.line + 1,
+	};
+	const subBlocks = [];
+	for (let i = 0; i < pr.body.length; i++) {
+		const match = pr.body[i].trim().match(/^\*\*([^*]+)\*\*(.*)$/);
+		if (match && shape.pr.subBlocks.order.includes(match[1]))
+			subBlocks.push({ name: match[1], rest: match[2].trim(), line: pr.bodyStart + i, index: i });
+	}
+	const names = subBlocks.map((block) => block.name);
+	if (JSON.stringify(names) !== JSON.stringify(shape.pr.subBlocks.order))
+		fail(pr.line, `sub-blocks are [${names.join(", ")}], expected [${shape.pr.subBlocks.order.join(", ")}]`);
 
-const report = [];
-const prInfo = [];
-for (const pr of prSections) {
-	const heads = [];
-	for (const l of pr.body) {
-		if (l.code) continue;
-		const m = l.text.match(/^\*\*([^*]+)\*\*(.*)$/);
-		if (m && SUB_BLOCKS.includes(m[1])) heads.push({ name: m[1], n: l.n, rest: m[2].trim(), lines: [] });
-		else if (heads.length) heads.at(-1).lines.push(l);
-	}
-	const names = heads.map((h) => h.name);
-	if (names.join("|") !== SUB_BLOCKS.join("|")) {
-		fail(pr.n, `${pr.title}: sub-blocks are [${names.join(", ")}], expected [${SUB_BLOCKS.join(", ")}]`);
-	}
-	const block = (name) => heads.find((h) => h.name === name);
-	const counts = {};
-	for (const h of heads) counts[h.name] = boxes(h.lines).length;
+	const blockBody = (name) => {
+		const block = subBlocks.find((entry) => entry.name === name);
+		if (!block) return null;
+		const others = subBlocks.filter((entry) => entry.index > block.index).map((entry) => entry.index);
+		const end = others.length ? Math.min(...others) : pr.body.length;
+		return { ...block, lines: pr.body.slice(block.index + 1, end), start: pr.bodyStart + block.index + 1 };
+	};
+	const blockBoxes = (name) => {
+		const block = blockBody(name);
+		return block ? boxesIn(block.lines, block.start) : [];
+	};
+	const blockText = (name) => {
+		const block = blockBody(name);
+		return block ? [block.rest, ...block.lines].join("\n") : "";
+	};
 
-	let surface = "ui";
-	const surfaceLines = pr.body.filter((l) => !l.code && /^Surface:/.test(l.text.trim()));
-	if (surfaceLines.length > 1) fail(surfaceLines[1].n, `${pr.title}: more than one Surface line`);
-	if (surfaceLines.length) {
-		const value = surfaceLines[0].text.trim().replace(/^Surface:\s*/, "");
-		if (!SURFACES.includes(value)) fail(surfaceLines[0].n, `${pr.title}: unknown Surface "${value}" (expected ${SURFACES.join("|")})`);
-		else surface = value;
+	// head lines
+	for (const headLine of shape.pr.headLines ?? []) {
+		const matches = pr.body
+			.map((line, index) => ({ line: pr.bodyStart + index, text: line.trim() }))
+			.filter((entry) => entry.text.startsWith(`${headLine.name}: `));
+		if (matches.length !== 1) fail(pr.line, `expected exactly one ${headLine.name} line, found ${matches.length}`);
+		else if (!headLine.pattern.test(matches[0].text)) fail(matches[0].line, `unknown ${headLine.name} "${matches[0].text}"`);
 	}
+	const surfaceMatch = pr.body.map((line) => line.trim()).find((line) => line.startsWith("Surface: "));
+	const surface = surfaceMatch?.slice(9).trim() ?? "ui";
 
-	const changeLines = pr.body.filter((l) => !l.code && /^Change:/.test(l.text.trim()));
-	let change = LANE_ARTIFACT[surface] ? "user-facing" : "internal";
-	if (changeLines.length > 1) fail(changeLines[1].n, `${pr.title}: more than one Change line`);
-	if (changeLines.length === 0) fail(pr.n, `${pr.title}: no Change line`);
-	else {
-		const value = changeLines[0].text.trim().replace(/^Change:\s*/, "");
-		if (!["user-facing", "internal"].includes(value)) fail(changeLines[0].n, `${pr.title}: unknown Change "${value}" (expected user-facing|internal)`);
-		else change = value;
-	}
-	const mapUpdates = boxes(pr.body).filter((b) => MAP_UPDATE.test(b.text));
-	if (change === "user-facing" && mapUpdates.length === 0)
-		fail(changeLines[0]?.n ?? pr.n, `${pr.title}: Change user-facing requires a map-update box`);
-	if (change === "internal" && mapUpdates.length > 0)
-		fail(mapUpdates[0].n, `${pr.title}: Change internal must not carry a map-update box`);
-	for (const box of mapUpdates) {
-		if (MAP_UPDATE_NEGATED.test(box.text))
-			fail(box.n, `${pr.title}: map-update box is negated; a Change user-facing PR updates its feature entries`);
-		if (!/`[^`]*features\/[^`]*`/.test(box.text))
-			fail(box.n, `${pr.title}: map-update box names no backticked features/ entry path`);
+	// Files
+	const filesBoxes = blockBoxes("Files.");
+	if (filesBoxes.length < 1) fail(pr.line, "Files has no box");
+	const filesPaths = [];
+	for (const box of filesBoxes) {
+		const match = box.body.match(/^(Create|Edit|Delete) `([^`]+)`\.?$/);
+		if (!match) fail(box.line, `Files box is not "Create|Edit|Delete \`<path>\`": ${box.body}`);
+		else filesPaths.push(match[2]);
 	}
 
-	const depends = block("Depends on.");
-	if (depends && depends.rest === "") fail(depends.n, `${pr.title}: Depends on names nothing`);
-	for (const name of ["Files.", "Build.", "You see.", "Verify, unit.", "Merge."]) {
-		const b = block(name);
-		if (b && boxes(b.lines).length === 0) fail(b.n, `${pr.title}: ${name} has no box`);
-	}
-	for (const name of ["Verify, unit.", "Verify, live.", "Verify, perf."]) {
-		const b = block(name);
-		if (b && !b.rest.startsWith(RULE)) fail(b.n, `${pr.title}: ${name} does not open with the rule`);
-	}
-
-	const live = block("Verify, live.");
-	if (live) {
-		const artifact = LANE_ARTIFACT[surface];
-		if (artifact) {
-			if (!LANES.test(live.rest)) fail(live.n, `${pr.title}: Verify, live lacks "Lanes on \`<swarm workers model>\` at the PR head" with the model filled in`);
-			const lanes = boxes(live.lines).map((b) => ({ ...b, m: b.text.match(/^Lane (\d+)\. /) }));
-			const numbers = lanes.filter((b) => b.m).map((b) => Number(b.m[1])).sort((a, b) => a - b);
-			const expectedNumbers = numbers.map((_, index) => index + 1).join(",");
-			if (numbers.length === 0) fail(live.n, `${pr.title}: Verify, live has no lane`);
-			else if (numbers.join(",") !== expectedNumbers) fail(live.n, `${pr.title}: lanes are [${numbers.join(",")}], expected contiguous numbering from 1`);
-			for (const lane of lanes) {
-				if (!lane.m) {
-					fail(lane.n, `${pr.title}: live box is not a lane`);
-					continue;
-				}
-				if (!artifact.re.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no ${artifact.name}`);
-				if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
-				if (!lane.text.includes("Live-only:")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no Live-only sentence`);
-				if (!FEATURE_ENTRY.test(lane.text))
-					fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no backticked <feature-id>#<sub-id> feature entry`);
-				if (lane.m[1] === "1" && !(["regression", "trunk", "head", "load-bearing"].every((marker) => lane.text.toLowerCase().includes(marker))))
-					fail(lane.n, `${pr.title}: lane 1 does not name the regression journey on trunk and head`);
-			}
-		} else if (boxes(live.lines).length === 0) {
-			fail(live.n, `${pr.title}: Verify, live has no box`);
-		}
-	}
-
-	let formalCovered = false;
-	const formal = block("Verify, formal.");
-	if (!formal) {
-		if (["create", "exists"].includes(formalDecision)) fail(pr.n, `${pr.title}: Formal ${formalDecision} requires a Verify, formal block`);
-		else fail(pr.n, `${pr.title}: Verify, formal block is required`);
-	} else {
-		const formalBoxes = boxes(formal.lines);
-		const notCovered =
-			(formal.rest === "Not covered." && formalBoxes.length === 0) ||
-			(formal.rest === "" && formalBoxes.length === 1 && formalBoxes[0].text === "Not covered.");
-		if (formalDecision === "not-required") {
-			if (!notCovered) fail(formal.n, `${pr.title}: Formal not-required requires "Not covered." only`);
-		} else if (!notCovered) {
-			formalCovered = true;
-			const formalBoxItems = new Map(formalBoxes.map((b) => [b.text.split(" ")[0], b]));
-			for (const name of FORMAL_ITEMS) {
-				const box = formalBoxItems.get(name);
-				if (!box) fail(formal.n, `${pr.title}: Verify, formal lacks "${name}" box`);
-				else if (box.text.trim() === name)
-					fail(box.n, `${pr.title}: Verify, formal "${name}" box is empty; it must name ${FORMAL_ITEM_BODY[name].name}`);
-				else if (!FORMAL_ITEM_BODY[name].re.test(box.text))
-					fail(box.n, `${pr.title}: Verify, formal "${name}" box names no ${FORMAL_ITEM_BODY[name].name}`);
-			}
-			if (formalDecision === "exists-stale" && !maintenanceRoute.includes("maintain-formal-verification-skill"))
-				fail(formal.n, `${pr.title}: Formal exists-stale requires a maintain-formal-verification-skill route in Verification readiness`);
-			if (formalBoxItems.get("Run.") && !/pass when/i.test(formalBoxItems.get("Run.").text))
-				fail(formalBoxItems.get("Run.").n, `${pr.title}: Verify, formal "Run." box names no pass predicate`);
-		}
-	}
-
-	const perf = block("Verify, perf.");
-	if (perf) {
-		const items = boxes(perf.lines).map((b) => b.text.split(" ")[0]);
-		if (items.join("|") !== PERF_ITEMS.join("|")) fail(perf.n, `${pr.title}: perf boxes are [${items.join(", ")}], expected [${PERF_ITEMS.join(", ")}]`);
-	}
-
-	const gate = block("Review gate.");
-	if (gate) {
-		if (!LANE_ARTIFACT[surface] && !gate.rest.startsWith("None.")) {
-			fail(gate.n, `${pr.title}: Review gate must be "None. <PR id> is not review-gated." for ${surface} surfaces`);
-		}
-		const gateBoxes = boxes(gate.lines);
-		if (gate.rest.startsWith("None.")) {
-			if (gateBoxes.length) fail(gate.n, `${pr.title}: Review gate says None but has boxes`);
-		} else {
-			const text = gate.lines.map((l) => l.text).join("\n");
-			if (gateBoxes.length === 0) fail(gate.n, `${pr.title}: Review gate has no box`);
-			for (const word of ["screenshot", "video", "operator"]) {
-				if (!text.includes(word)) fail(gate.n, `${pr.title}: Review gate lacks "${word}"`);
-			}
-		}
-	}
-
-	prInfo.push({ pr, surface, change, formalCovered });
-	const total = boxes(pr.body).length;
-	const cells = SUB_BLOCKS.filter((s) => s !== "Depends on.").map((s) => `${s.replace(/[ ,.]+/g, "-").replace(/-$/, "").toLowerCase()}=${counts[s] ?? 0}`);
-	report.push(`${pr.title}  boxes=${total}  ${cells.join(" ")}`);
-}
-
-const prKey = (text) => {
-	const clean = text.replace(/^(?:pr|feature):\s*/, "").trim();
-	const match = clean.match(/\bPR[ -]?([A-Za-z0-9_-]+)/i);
-	return (match ? match[1] : clean).toLowerCase();
-};
-const graphPrNode = (pr) => graph?.nodes.find((node) =>
-	["pr", "feature"].includes(node.kind) && prKey(node.label) === prKey(pr.title),
-) ?? null;
-const hasEdge = (from, to) => Boolean(graph?.edges.some(([source, target]) => source === from && target === to));
-for (const info of prInfo) info.graphNode = graphPrNode(info.pr);
-const livePrs = prInfo.filter((info) => ["ui", "cli"].includes(info.surface));
-if (decision === "not-required" && livePrs.length > 0 && !["ui", "cli"].includes(readinessSurface))
-	fail(readinessLine("Decision"), "Verification readiness not-required is only allowed for library/backend surfaces");
-
-if (["create-after-first-drivable-batch", "create-before-amendment"].includes(decision)) {
-	const carrier = decision === "create-before-amendment" ? livePrs[0] : livePrs.at(-1);
-	const creationTasks = graph?.nodes.filter((node) => node.kind === "task" && CREATION_TASK.test(node.label)) ?? [];
-	if (!carrier) fail(readinessLine("Decision"), `${decision} requires a ui/cli carrier PR`);
-	if (creationTasks.length === 0)
-		fail(readinessLine("Decision"), `${decision} requires a folded create-verification-skill task`);
-	for (const task of creationTasks) {
-		if (!/\slane\s+\S+/.test(task.label)) fail(task.n, "create-verification-skill task has no file lane");
-	}
-	const carrierNode = carrier ? graphPrNode(carrier.pr) : null;
-	if (carrier && creationTasks.length > 0 && !carrierNode)
-		fail(carrier.pr.n, `${carrier.pr.title}: creation carrier has no pr or feature node in Run graph`);
-	else if (carrierNode && creationTasks.length > 0) {
-		const folded = creationTasks.filter((task) => task.wave === carrierNode.wave && hasEdge(task.id, carrierNode.id));
-		if (!creationTasks.some((task) => task.wave === carrierNode.wave))
-			fail(readinessLine("Decision"), `${decision} requires a folded create-verification-skill task in ${carrier.pr.title}'s wave`);
-		if (folded.length === 0)
-			fail(readinessLine("Decision"), `${decision} requires the create-verification-skill task to fold into carrier ${carrier.pr.title} with an edge into its node`);
-		for (const task of creationTasks) {
-			if (task.wave === carrierNode.wave && !hasEdge(task.id, carrierNode.id))
-				fail(task.n, `create-verification-skill task does not fold into carrier ${carrier.pr.title}`);
-			if (task.wave !== carrierNode.wave)
-				fail(task.n, `create-verification-skill task must sit in carrier ${carrier.pr.title}'s wave`);
-		}
-	}
-
-	if (decision === "create-before-amendment") {
-		const verificationGate = graph?.nodes.find((node) => node.kind === "gate" && node.label === "gate: verification");
-		if (!verificationGate)
-			fail(runGraph?.n ?? readinessLine("Decision"), 'Run graph lacks the verification gate node "[gate: verification]"');
+	// Build: lane table
+	const build = blockBody("Build.");
+	let laneTable = null;
+	if (build) {
+		const tables = tablesIn(build.lines, build.start);
+		laneTable = tables.find((table) =>
+			JSON.stringify(table.header.map((cell) => cell.replace(/`/g, ""))) === JSON.stringify(shape.pr.blocks["Build."].laneTable.columns.map((column) => column.header)));
+		if (!laneTable) fail(build.line, `Build lacks the lane table with columns ${shape.pr.blocks["Build."].laneTable.columns.map((c) => c.header).join(" | ")}`);
 		else {
-			if (carrierNode && !hasEdge(carrierNode.id, verificationGate.id))
-				fail(verificationGate.n, `verification gate does not follow carrier ${carrier.pr.title}`);
-			const carrierIndex = livePrs.indexOf(carrier);
-			for (const later of livePrs.slice(carrierIndex + 1)) {
-				const laterNode = graphPrNode(later.pr);
-				if (!laterNode) fail(later.pr.n, `${later.pr.title}: later ui/cli PR has no pr or feature node in Run graph`);
-				else if (!hasEdge(verificationGate.id, laterNode.id))
-					fail(verificationGate.n, `verification gate has no edge into later ui/cli ${later.pr.title}`);
+			const columns = shape.pr.blocks["Build."].laneTable.columns;
+			for (const row of laneTable.rows) {
+				const record = {};
+				columns.forEach((column, index) => { record[column.key] = (row[index] ?? "").replace(/`/g, "").trim(); });
+				if (laneRows.some((existing) => existing.id === record.id)) fail(laneTable.start, `lane table repeats unit "${record.id}"`);
+				for (const column of columns) {
+					if (column.required && !record[column.key]) fail(laneTable.start, `lane row "${record.id}" lacks ${column.header}`);
+					if (column.pattern && record[column.key] && !column.pattern.test(record[column.key]))
+						fail(laneTable.start, `lane row "${record.id}" has an invalid ${column.header}`);
+					if (column.validator && record[column.key]) {
+						const result = validators[column.validator](record[column.key], { laneRows, readiness: readinessValues });
+						for (const message of [].concat(result ?? [])) if (message) fail(laneTable.start, message);
+					}
+				}
+				laneRows.push(record);
 			}
+			if (!laneRows.length) fail(laneTable.start, "lane table has no unit rows");
 		}
+		const proseBoxes = boxesIn(build.lines, build.start).filter((box) => !laneTable?.rows.some((row) => row.join("|").includes(box.body.slice(0, 10))));
+		if (proseBoxes.length < 1) fail(build.line, "Build has no prose box");
+		const mapBoxes = boxesIn(build.lines, build.start).filter((box) => /map update/i.test(box.body));
+		const changeLine = pr.body.map((line) => line.trim()).find((line) => line.startsWith("Change: "));
+		if (changeLine === "Change: user-facing") {
+			if (!mapBoxes.length) fail(build.line, "Change user-facing requires a map update box");
+			for (const box of mapBoxes) if (!/`[^`]*features\/[^`]*`/.test(box.body)) fail(box.line, "map update box names no backticked features/ path");
+		} else if (mapBoxes.length) fail(build.line, "Change internal must not carry a map update box");
 	}
-}
 
-if (decision === "create-after-first-drivable-batch" && close) {
-	const closeBoxes = boxes(close.body);
-	const skillPath = readinessValue("Skill");
-	if (!closeBoxes.some((b) => (b.text.includes(skillPath) || /verification skill/i.test(b.text)) && /\bexists?\b/i.test(b.text)))
-		fail(close.n, "create-after-first-drivable-batch requires Close the program to assert that the verification skill exists");
-	if (!closeBoxes.some((b) => /\b(?:prove[- ]once|proved once|proven once)\b/i.test(b.text)))
-		fail(close.n, "create-after-first-drivable-batch requires Close the program to assert prove-once evidence");
-}
+	// cross rules
+	const laneViolations = validators.laneCoverage(filesPaths, { laneRows });
+	for (const message of [].concat(laneViolations ?? [])) if (message) fail(pr.line, message);
+	const anchorViolations = validators.unitAnchorSet(unitIds, { laneRows });
+	for (const message of [].concat(anchorViolations ?? [])) if (message) fail(pr.line, message);
 
-if (["create", "exists"].includes(formalDecision)) {
-	const formalGate = graph?.nodes.find((node) => node.kind === "gate" && node.label === "gate: formal");
-	if (!formalGate) fail(runGraph?.n ?? readinessLine("Formal"), 'Run graph lacks the formal gate node "[gate: formal]"');
-	const coveredPrs = prInfo.filter((info) => info.formalCovered);
-	if (coveredPrs.length === 0)
-		fail(readinessLine("Formal"), `Formal ${formalDecision} requires at least one covered-code PR to run the formal check`);
-	else if (formalGate) {
-		const firstNode = graphPrNode(coveredPrs[0].pr);
-		if (!firstNode) fail(coveredPrs[0].pr.n, `${coveredPrs[0].pr.title}: formal covered-code PR has no pr or feature node in Run graph`);
-		else if (!hasEdge(firstNode.id, formalGate.id))
-			fail(formalGate.n, `formal gate does not follow first covered-code ${coveredPrs[0].pr.title}`);
-		for (const later of coveredPrs.slice(1)) {
-			const laterNode = graphPrNode(later.pr);
-			if (!laterNode) fail(later.pr.n, `${later.pr.title}: later formal covered-code PR has no pr or feature node in Run graph`);
-			else if (!hasEdge(formalGate.id, laterNode.id))
-				fail(formalGate.n, `formal gate has no edge into later covered-code ${later.pr.title}`);
+	// block-level minimums
+	for (const name of ["You see.", "Verify, unit.", "Verify, live.", "Review gate.", "Merge."])
+		if (blockBoxes(name).length < 1) fail(pr.line, `${name} has no box`);
+	if (!blockText("Verify, unit.").includes(shape.rule)) fail(pr.line, "Verify, unit. does not open with the rule");
+	if (!blockText("Verify, live.").includes(shape.rule)) fail(pr.line, "Verify, live. does not open with the rule");
+	if (!blockText("Verify, formal.").includes(shape.rule)) fail(pr.line, "Verify, formal. does not open with the rule");
+	if (!blockText("Verify, perf.").includes(shape.rule)) fail(pr.line, "Verify, perf. does not open with the rule");
+
+	// final-gate lanes
+	const liveText = blockText("Verify, live.");
+	if (!/Lanes on `[^`]+` at the PR head/.test(liveText)) fail(pr.line, "Verify, live lacks the Lanes declaration");
+	const laneBoxes = blockBoxes("Verify, live.").map((box) => ({ ...box, match: box.body.match(/^Lane (\d+)\. /) })).filter((box) => box.match);
+	const numbers = laneBoxes.map((box) => Number(box.match[1]));
+	if (!numbers.length) fail(pr.line, "Verify, live has no lane");
+	else if (numbers.join(",") !== numbers.map((_, index) => index + 1).join(","))
+		fail(pr.line, `lanes are [${numbers.join(",")}], expected contiguous numbering from 1`);
+	const artifact = shape.pr.blocks["Verify, live."].artifactBySurface[surface];
+	for (const lane of laneBoxes) {
+		if (!lane.body.includes("Live-only:")) fail(lane.line, `lane ${lane.match[1]} has no Live-only sentence`);
+		if (!lane.body.includes("Pass when")) fail(lane.line, `lane ${lane.match[1]} has no pass predicate`);
+		if (!/`[^`]+#[^`]+`/.test(lane.body)) fail(lane.line, `lane ${lane.match[1]} names no backticked feature entry`);
+		if (artifact && !lane.body.includes(artifact.verb)) fail(lane.line, `lane ${lane.match[1]} names no ${artifact.noun}`);
+		if (lane.match[1] === "1" && !["trunk", "head"].every((marker) => lane.body.toLowerCase().includes(marker)))
+			fail(lane.line, "lane 1 must run the regression journey on trunk and head");
+	}
+
+	// formal
+	const formal = readinessValues.Formal ?? "not-required";
+	const formalText = blockText("Verify, formal.");
+	const formalBoxes = blockBoxes("Verify, formal.");
+	if (formal === "not-required") {
+		if (!formalBoxes.some((box) => /^Not covered\.$/.test(box.body.trim()))) fail(pr.line, 'Formal not-required requires "Not covered."');
+		if (formalBoxes.length > 1) fail(pr.line, 'Formal not-required allows only the "Not covered." box');
+	} else {
+		const items = shape.pr.blocks["Verify, formal."].items;
+		for (const item of items) {
+			const box = formalBoxes.find((entry) => entry.body.startsWith(item.name));
+			if (!box) { fail(pr.line, `Verify, formal lacks "${item.name}"`); continue; }
+			const body = box.body.slice(item.name.length).trim();
+			if (item.body.re && !item.body.re.test(body)) fail(box.line, `${item.name} names no ${item.body.message}`);
+			if (item.also && !item.also.re.test(body)) fail(box.line, `${item.name} names no ${item.also.message}`);
 		}
+		if (!formalText.includes(shape.rule)) fail(pr.line, "Verify, formal does not open with the rule");
 	}
+
+	// perf items order
+	const perfBoxes = blockBoxes("Verify, perf.");
+	const perfNames = perfBoxes.map((box) => (box.body.match(/^[A-Z][a-z]+\./) ?? [""])[0]);
+	if (JSON.stringify(perfNames) !== JSON.stringify(shape.pr.blocks["Verify, perf."].items))
+		fail(pr.line, `perf boxes are [${perfNames.join(", ")}], expected [${shape.pr.blocks["Verify, perf."].items.join(", ")}]`);
+
+	// review gate
+	const reviewText = blockText("Review gate.");
+	if (!/reviewer/i.test(reviewText)) fail(pr.line, "Review gate names no reviewer");
+	if (!/operator/i.test(reviewText)) fail(pr.line, "Review gate names no operator");
+	const depth = shape.pr.blocks["Review gate."].reviewDepth;
+	if (laneRows.length > depth.unitThreshold && !/area reviewer/i.test(reviewText))
+		fail(pr.line, `above ${depth.unitThreshold} units the Review gate names the area split`);
+
+	// merge
+	if (blockBoxes("Merge.").length < 1) fail(pr.line, "Merge has no box");
 }
 
-if (closeIndex !== -1) {
-	const tail = sections.slice(closeIndex + 1);
-	for (const s of tail) {
-		if (!s.title.startsWith("Appendix")) fail(s.n, `"## ${s.title}" after Close the program is not an appendix`);
-	}
-	if (!tail.some((s) => s.title.includes("Prototype evidence"))) fail(close.n, 'no "## Appendix ... Prototype evidence" section');
+// ---------- close ----------
+if (close) {
+	if (boxesIn(close.body, close.bodyStart).length < 1) fail(close.line, "Close the run has no box");
 }
 
-for (const line of report) console.log(line);
-console.log(`${prSections.length} PR sections, ${problems.length} problems`);
-for (const p of problems) console.error(p);
-for (const note of notes) console.error(`note: ${note}`);
+// ---------- report ----------
+for (const line of lines.slice(0, 0)) void line;
+console.log(`${prHeads.length} PR sections, ${problems.length} problems`);
+for (const problem of problems) console.error(problem);
 process.exit(problems.length ? 1 : 0);

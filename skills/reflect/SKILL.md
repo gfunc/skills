@@ -40,7 +40,17 @@ One synthesizer spawn using the profile's Subagents section, `model` from the `r
 
 Move any Accepted item that a lint rule, script, metadata flag, or runtime check would enforce more reliably to Backlog. See the **encode-lessons-in-structure** principle skill.
 
-## 5. Apply
+## 5. The guardrail category
+
+When a mistake an automated check could have caught slips through, the finding is the missing check, not a new paragraph in a steering file.
+
+- Read the repository's own lint, typecheck and test commands first. An existing check that is unwired or silently broken is the finding; do not add a second tool for the same job.
+- A repository with no pre-commit hook and no CI job running those commands has no guardrail at all, and that is itself a finding.
+- Classify before routing. A mechanical violation, such as a banned API, an import shape, or a file-location rule, gets a deterministic check, not a reviewer note. Reserve prose standards for genuine judgment calls that no check could decide.
+
+Adapted from Matt Pocock's `retro`, MIT, Matt Pocock.
+
+## 6. Apply
 
 Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval before applying any Accepted edit. The user picks the subset and may redirect routings. Skill changes affect every future agent in the org. Do not auto-apply.
 
@@ -55,7 +65,7 @@ Follow each approved row's Routing exactly:
 
 If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
 
-## 6. Summarize for the user
+## 7. Summarize for the user
 
 Short list, no preamble:
 

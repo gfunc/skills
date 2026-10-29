@@ -1,51 +1,47 @@
 # Run graph
 
-The plan lead charts the run graph before execution. It lives in the plan's `## Run graph` block, in the Mermaid shape `check-plan` validates.
+The plan lead charts the run graph before execution. It lives in the plan's `## Run graph` block, in the Mermaid shape [`plan-shape.mjs`](plan-shape.mjs) defines and `check-plan.mjs` validates.
 
 ## Format
 
 ```mermaid
 graph TD
-  subgraph W1[Wave 1]
-    T1[task: <id> lane <glob>]
-    T2[task: <id> lane <glob>]
-  end
-  subgraph W2[Wave 2]
-    T3[task: <id> lane <glob>]
-  end
-  T1 -->|blocks| T3
-  T2 -->|lane <glob>| T3
-  W1 -->|wave gate| W2
+  U1[unit: <id> lane <glob>]
+  U2[unit: <id> lane <glob>]
+  P[pr: <slug>]
+  U1 -->|blocks| U2
+  U1 --> P
+  U2 --> P
+  P -->|final gate| FG[gate: final]
 ```
 
-- **Nodes.** A `pr:` or `feature:` node per PR or feature; a `task:` node per atomic task. Every task, pr, and feature node carries a lane. A gate node per wave gate, plus the feature gate, the review gate, and the readiness-driven gates below.
-- **Edges.** `-->|blocks|` for a blocking dependency; `-->|lane <glob>|` for a file-lane collision. Both serialize.
-- **Waves.** Each `subgraph W<n>` is one wave of tasks that run in parallel.
+- **Nodes.** One `pr:` node, one `unit:` node per unit, each carrying its file lane, and one `[gate: final]`. A `Formal: create` or `Formal: exists` decision adds `[gate: formal]`; a review above the depth threshold may add `[gate: review]`, and neither replaces the final gate.
+- **Edges.** `-->|blocks|` for a dependency; `-->|lane <glob>|` for a file-lane collision. Both serialize the pair. Two units may share a lane only when an edge orders them.
+- **Ready set.** Every unit whose dependencies are merged and whose file lane is disjoint from the other units in that set. Disjointness is scoped to a ready set, not to the whole plan.
 - **Critical path.** Named in prose under the graph: the longest blocking chain, with its gates.
 
 ## Readiness-driven nodes
 
-The plan's `## Verification readiness` decision selects these; with no decision requiring them, they stay out.
+The plan's `## Verification readiness` decision selects these. With no decision requiring them, they stay out.
 
-- **Creation task.** A `create-after-first-drivable-batch` or `create-before-amendment` app-skill decision adds a folded `task:` node inside the carrier PR's first wave, lane = the project skill folder glob. The carrier PR node itself is unchanged. New project: the carrier is the last `ui`/`cli` PR of the first drivable batch. Existing project: the carrier is the first `ui`/`cli` PR of the amendment.
-- **Verification gate.** `create-before-amendment` only, existing projects: the carrier `pr:` node `-->|verification gate| VG[gate: verification]`, and `VG -->|blocks|` every later `ui`/`cli` PR node. `library`/`backend` PR nodes take no edge from it.
-- **Formal gate.** A `Formal: create` or `exists` decision: the first covered-code `pr:` node `-->|formal gate| FMG[gate: formal]`, and `FMG -->|blocks|` every later covered-code PR node.
+- **Skill creation.** `create-before-amendment` or `create-after-first-drivable-batch` adds one `unit:` node for the creation, lane = the project skill folder glob. Before-amendment puts it in the first ready set. After-first-drivable-batch puts it after the first unit that makes the app drivable. Every later unit that needs the skill declares a `blocks` edge from the creation unit; that edge replaces the old verification gate.
+- **Skill repair.** `exists-stale` makes the repair the first unit, and every later unit that needs the skill declares the dependency.
+- **Formal creation.** `Formal: create` adds one `unit:` node that builds the check, placed before the last unit that changes covered code.
+- **Formal gate.** `Formal: create` or `Formal: exists` adds `[gate: formal]` after that unit or after the PR node; the final gate runs it.
 
 ## Rules the checker enforces
 
-- The graph block exists and parses as `graph TD` with at least one task node.
-- Every task, pr, and feature node carries a lane.
-- Every wave subgraph has a wave-gate edge leaving it, or feeds the feature gate.
-- The feature gate and the review gate nodes are present.
-- A `create-*` readiness decision carries the folded creation task node in the carrier PR's first wave, with its lane.
-- `create-before-amendment` carries a `[gate: verification]` node fed by the carrier, with an edge into every later `ui`/`cli` PR node.
-- A `Formal: create` or `exists` decision carries a `[gate: formal]` node fed by the first covered-code PR, blocking every later covered-code PR.
+- The block exists and parses as `graph TD` with at least one unit node.
+- Exactly one `pr:` node, and every unit node carries `unit: <id> lane <glob>`.
+- `[gate: final]` is present; a gate is named `final`, `review` or `formal`.
+- Wave subgraphs are rejected by name.
 - The graph is acyclic.
+- A `**Critical path.**` line is present.
 
 ## Rules that stay judgment
 
-Decomposition quality, whether a lane split is right, whether a task is truly atomic, and the critical path's naming are the plan lead's judgment. The checker proves structure, not design.
+Decomposition quality, whether a lane split is right, whether a unit is atomic, and the critical path's naming are the plan lead's judgment. The checker proves structure, not design.
 
 ## Re-planning
 
-A design or spec change re-charts the graph, updates the plan, and re-enters the approval gate. The prior graph stays in git history; the plan carries the new one and a one-line note that it re-charted. A readiness change (`exists-stale` maintenance, a deferred creation becoming due) re-charts too: the same rule, the same note.
+A design or spec change re-charts the graph, updates the plan, and re-enters the approval gate. The prior graph stays in git history; the plan carries the new one and a one-line note that it re-charted. A readiness change (`exists-stale` maintenance, a deferred creation becoming due) re-charts too, by the same rule.

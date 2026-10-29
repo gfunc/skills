@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """start-dev structural smoke: drive the workflow's file-moving machinery in a scratch repo.
 
-Builds a synthetic spec and stamps a plan with emit-plan, runs check-plan,
-creates per-task git worktree lanes, commits each task, merges them onto one
-PR branch, and writes the program, feature, and PR ledgers plus gate logs.
-Then asserts the ledgers, the evidence files, and the emitter's portable
-model fallback.
+Builds a synthetic spec, stamps the authoring shell with emit-plan, proves the
+unauthored shell is rejected, validates the authored plan with check-plan,
+rejects a wave subgraph as a negative control, creates the feature worktree and
+one unit worktree, commits the unit, merges it through the single-writer path,
+and writes the run ledger.
 
 This exercises the workflow's artifacts and tools, not the skill or a model.
 No agent runs, no skill is loaded, and no model is called. Live model-backed
@@ -17,9 +17,6 @@ Usage: skills/start-dev/tests/smoke [--keep]
 from __future__ import annotations
 
 import argparse
-import json
-import os
-import re
 import shutil
 import subprocess
 import sys
@@ -29,243 +26,9 @@ from pathlib import Path
 
 PACK_ROOT = Path(__file__).resolve().parents[3]
 SKILL = PACK_ROOT / "skills" / "start-dev"
+FIXTURE = SKILL / "tests" / "fixtures" / "valid-plan.md"
 
 FAILURES: list[str] = []
-
-RULE = (
-    "Tests alone are not sufficient verification. A PR is verified only when its "
-    "unit, live, and perf boxes are all checked."
-)
-SWARM_MODEL = "smoke-worker-model"
-FEATURES_MAP = ".scratch/verify-demo/features/"
-
-
-def author_plan(text: str, edits: list[tuple[str, str]]) -> tuple[str, list[str]]:
-    """Apply anchored skeleton edits; report any anchor that no longer resolves."""
-
-    missing = []
-    for old, new in edits:
-        if old not in text:
-            missing.append(old)
-            continue
-        text = text.replace(old, new)
-    return text, missing
-
-
-def cli_pr_section() -> str:
-    """The second PR section: a cli surface the verification gate unblocks."""
-
-    lanes = [
-        "- [ ] Lane 1. `cli-checkout#cart-total`. Live-only: trunk and head parity on the load-bearing cart journey. "
-        "Regression lane against trunk. "
-        "Drive the entry's load-bearing journey under a loaded cart at trunk and head. "
-        "Log `lane-1.log`. Pass when the totals match."
-    ]
-    for i in range(2, 4):
-        lanes.append(
-            f"- [ ] Lane {i}. `cli-checkout#journey-{i}`. Live-only: real CLI rendering under condition {i}. "
-            f"Drive the entry's journey under condition {i}. Log `lane-{i}.log`. Pass when the journey evidence exists."
-        )
-    lane_text = "\n".join(lanes)
-    return f"""## Add the checkout CLI (PR 2)
-
-Surface: cli
-Change: user-facing
-
-**Depends on.** PR 1.
-
-**Files.**
-
-- [ ] Edit `src/cli/checkout.ts`.
-
-**Build.**
-
-- [ ] Add `renderCart()` in `src/cli/checkout.ts`.
-- [ ] Map update. For this `Change: user-facing` PR, add or update the feature entry for every changed user-facing behavior under `{FEATURES_MAP}` in the same PR. Give each changed user-facing feature at least one live lane. Omit this box for `Change: internal`.
-
-**You see.**
-
-- [ ] The CLI prints the cart total.
-
-**Verify, unit.** {RULE}
-
-- [ ] `src/cli/checkout.test.ts` gains the render case. Run `npm test`.
-
-**Verify, live.** {RULE} Lanes on `{SWARM_MODEL}` at the PR head, per the boot recipe. One lane is the trunk/head regression. Add one lane for every changed feature entry, and an extra condition only where the unit, formal, or performance evidence leaves a gap. There is no fixed lane count. Each lane names one feature entry, one journey under one condition, and a `Live-only:` sentence. Cover every changed user-facing feature at least once. Use extra conditions on existing entries for PR-specific probes; add a genuinely new journey's feature entry in the same PR.
-
-{lane_text}
-
-**Verify, formal.** {RULE}
-
-Runs the check created in PR 1 against this PR's covered CLI code.
-
-- [ ] Command. Run `npx fast-check src/cli/property.test.ts`.
-- [ ] Property. Concurrent checkouts preserve the inventory count.
-- [ ] Covered. `src/cli/**` and `renderCart()`.
-- [ ] Run. Save `.scratch/demo/verification/PR-2/formal.log`. Pass when the check exits 0. Advance the formal sync commit when the passing model still describes the code.
-
-**Verify, perf.** {RULE}
-
-- [ ] Metric. CLI render time at trunk and head.
-- [ ] Probe. Run `npm run bench:cli` at trunk and head, interleaved.
-- [ ] Baseline. Record the trunk 90 ms first.
-- [ ] Rule. Head stays within 110 percent of trunk; 189 ms fails.
-
-**Review gate.** The operator reviews before merge.
-
-- [ ] Copy lane 1 logs into `.scratch/demo/media/PR-2-review-cart.log`.
-- [ ] Record a 30 to 60 second video only when a lane's property lives in time, such as ordering, stop on terminal, or focus movement. Save it as `.scratch/demo/media/PR-2-review.mp4` when recorded; otherwise record none.
-- [ ] Check map and formal drift. Open the feature map and the formal skill's coverage record independently. Every changed user-facing behavior has a feature-entry update, every lane's feature entry exists and matches its scenario, every named evidence path exists, and the formal sync commit covers the current covered code. A covered-code change without a rerun or sync update is a finding.
-- [ ] Post the screenshots and the video in chat. Stop at merge-ready. Wait for the operator's click.
-
-**Merge.**
-
-- [ ] Root's clean verdict at the exact head SHA.
-- [ ] Bugbot triage done.
-- [ ] Formal-covered code has its required run and current sync commit; a missing run or model mismatch blocks merge.
-- [ ] Rebased onto current trunk after the verdict, patch-id unchanged.
-- [ ] The owner squash-merges its own PR.
-
-"""
-
-
-def verification_edits() -> list[tuple[str, str]]:
-    """Author the emitted ui skeleton into a plan the checker accepts.
-
-    Decision `create-before-amendment` folds the creation task into PR 1's wave and
-    charts both gates; `Formal: create` gives every PR the four-box formal block.
-    """
-
-    edits = [
-        ("<Under ten lines. What changes, for whom, the rule the program enforces, and the PR ids in order.>",
-         "Add the checkout journeys behind the project verify skill and its formal property. PR 1 then PR 2."),
-        ("<Who merges, and which PR ids are the operator's items that stop at merge-ready.>",
-         "The root merges both PRs. PR 1 and PR 2 stop at merge-ready."),
-        ("| Decision | `exists` |", "| Decision | `create-before-amendment` |"),
-        ("| Evidence | `<launch command, ready signal, one journey, timestamp>` |",
-         "| Evidence | `npm run dev` ready on port 3000, checkout journey driven, 2026-10-27 |"),
-        ("| Driver proof | `<one mapped journey plus one known-bad control at the head, or none>` |",
-         "| Driver proof | `checkout journey green; known-bad total fails` |"),
-        ("| Isolation | `<single-stack at its fixed ports, or per-lane namespaces>` |",
-         "| Isolation | `single-stack at 3000` |"),
-        ("| Gate duration | `<unit, live, formal, perf in minutes; mark anything above 90 detached>` |",
-         "| Gate duration | `unit 1, live 5, formal 1, perf 10` |"),
-        ("| Skill | `<verify-<app> path>` |", "| Skill | `.scratch/verify-demo/SKILL.md` |"),
-        ("| Map | `<features/ path>` |", f"| Map | `{FEATURES_MAP}` |"),
-        ("| Formal | `not-required` |", "| Formal | `create` |"),
-        ("| Formal property | `none` |", "| Formal property | Concurrent checkouts preserve the inventory count |"),
-        ("| Owner | `<role>` |", "| Owner | `main agent` |"),
-        ("Fill `Maintenance route` only when the app `Decision` or `Formal` is `exists-stale`: name the `maintain-verification-skill` and/or `maintain-formal-verification-skill` route the stale decision routes to. Keep `none` otherwise.",
-         "Fill `Maintenance route` only when the app `Decision` or `Formal` is `exists-stale`; name the maintain route it takes and keep `none` otherwise."),
-        ("`git show origin/main:<control skill path>`", "`git show origin/main:skills/playwright-cli/SKILL.md`"),
-        ("`git show origin/main:<verify-<app> skill path>`", "`git show origin/main:.scratch/verify-demo/SKILL.md`"),
-        ("`git show origin/main:<verify-<app> features/ map path>`", f"`git show origin/main:{FEATURES_MAP}`"),
-        ("`git show origin/main:skills/<each other leaf skill the program uses>`", "`git show origin/main:skills/how/SKILL.md`"),
-        ("Continuation: <the profile's continuation mechanism, named from the active profile's Role mapping; a goal where the profile has `/goal`, a scheduler tick where it has one and no goal, an external cron where it has neither>. Where a goal exists, the merge-ready PR is the completion criterion; no background polling and no audit tick run under it.",
-         "Continuation: goal mode with the merge-ready PR as the completion criterion and no background polling under it."),
-        ("  - [ ] <PR id> and <PR id> are independent and first. Both branch from `main`.",
-         "  - [ ] PR 1 branches from `main` first and carries the folded creation task."),
-        ("  - [ ] <PR id> after <PR id>.", "  - [ ] PR 2 after PR 1's verification gate."),
-        ("fold <creation task id> into the first wave", "fold C1 into the first wave"),
-        ("whose lane is the project skill folder glob `<project skill folder glob>`.",
-         "whose lane is the project skill folder glob `.scratch/verify-demo/**`."),
-        ("chart <carrier PR id> --> `[gate: verification]` --> <later `ui`/`cli` PR ids>.",
-         "chart PR 1 --> `[gate: verification]` --> PR 2."),
-        ("chart <first covered-code PR id> --> `[gate: formal]` --> <later covered-code PR ids>.",
-         "chart PR 1 --> `[gate: formal]` --> PR 2."),
-        ("- [ ] Hold the file boundaries. <PR id or class> touches only `<glob>`.",
-         "- [ ] Hold the file boundaries. PR 1 touches only `src/checkout/**` and PR 2 only `src/cli/**`."),
-        ("- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots, and a video only when a lane's property lives in time, before merge.",
-         "- [ ] Hold the review gate. PR 1 and PR 2 change an interaction. They wait for the operator's review in chat with screenshots, and a video only for a temporal lane, before merge."),
-        ("- [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `skills/poteto-mode/playbooks/shipping.md`.>",
-         "- [ ] The owner squash-merges its own PR under the patch-id rule in `skills/poteto-mode/playbooks/shipping.md`."),
-        ("Surface: library", "Surface: ui"),
-        ("- [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.",
-         "- [ ] `git fetch origin main && git checkout <head SHA>`."),
-        ("- [ ] <Start the shared stack once through the verify skill's launch recipe, or attach to the run's existing stack. Wait for the ready signal.>",
-         "- [ ] Start the shared stack once through the verify skill's launch recipe and wait for the ready signal."),
-        ("- [ ] <Deliver the feature entry's journey under the lane's condition through the verify skill, which uses the detected UI driver (an existing Playwright harness or `playwright-cli` (`skills/playwright-cli`)) on UI surfaces or tmux/PTY on CLIs. Name the read-only diagnostics.>",
-         "- [ ] Deliver the feature entry's journey under the lane's condition through the verify skill. Name the read-only diagnostics."),
-        ("Save every screenshot or transcript to `.scratch/<feature-slug>/shots/<pr-id>/worker-<n>/<slug>.png`",
-         "Save every screenshot or transcript to `.scratch/demo/shots/<pr-id>/worker-<n>/<slug>.png`"),
-        ("""  subgraph W1[Wave 1]
-    T1[task: <id> lane <glob>]
-    T2[task: <id> lane <glob>]
-  end
-  subgraph W2[Wave 2]
-    T3[task: <id> lane <glob>]
-  end
-  T1 -->|blocks| T3
-  W1 -->|wave gate| W2
-  W2 -->|feature gate| FG[gate: feature]
-  FG -->|review| RL[gate: review]""",
-         f"""  subgraph W1[Wave 1]
-    T1[task: checkout-core lane src/checkout/core/**]
-    C1[task: create-verification-skill PR 1 lane .scratch/verify-demo/**]
-    P1[pr: PR 1 lane src/checkout/**]
-  end
-  subgraph W2[Wave 2]
-    T2[task: checkout-cli lane src/cli/**]
-    P2[pr: PR 2 lane src/cli/**]
-  end
-  T1 -->|blocks| P1
-  C1 -->|folds into| P1
-  W1 -->|wave gate| W2
-  P1 -->|verification| VG[gate: verification]
-  VG -->|blocks| P2
-  P1 -->|formal| FM[gate: formal]
-  FM -->|blocks| P2
-  P2 -->|feature gate| FG[gate: feature]
-  FG -->|review| RL[gate: review]"""),
-        ("**Critical path.** <The longest blocking chain, named with its gates.>",
-         "**Critical path.** Wave 1, PR 1, the verification and formal gates, PR 2, then the feature and review gates."),
-        ("**Staffing.** <role-to-model map per unit; critical-dev and reviewer independence; the model-family diversity rule. Outside auto mode this map is presented to the operator before the first wave.>",
-         f"**Staffing.** swarm workers on `{SWARM_MODEL}`, with critical-dev and reviewer from different model families."),
-        ("**Risk.** <the risk register with a fallback per risk and the verification ceiling.>",
-         "**Risk.** A failed lane falls back to a single verifier at the new head."),
-        ("## <Task as a verb phrase> (1)", "## Add the checkout flow (PR 1)"),
-        ("**Depends on.** <PR id, or None.>", "**Depends on.** None."),
-        ("- [ ] Edit `<path>`.", "- [ ] Edit `src/checkout/flow.ts`."),
-        ("- [ ] Create `<path>`.", "- [ ] Create `src/checkout/journeys.ts`."),
-        ("- [ ] Delete `<path>`.\n", ""),
-        ("- [ ] <One change. Name the symbol and the file.>", "- [ ] Add `driveJourney()` in `src/checkout/flow.ts`."),
-        ("under `<features/ path>` in the same PR", f"under `{FEATURES_MAP}` in the same PR"),
-        ("- [ ] <One observable result, with the exact log line or screen state.>",
-         "- [ ] The checkout screen renders the cart total within one second."),
-        ("- [ ] <Test file and the case it gains.> Run `<command>`.",
-         "- [ ] `src/checkout/flow.test.ts` gains the journey case. Run `npm test`."),
-        ("- [ ] Lane 1. `<feature-id>#<sub-id>`. `Live-only: <the claim a mocked unit test cannot make>.` Regression lane against trunk. Drive the entry's load-bearing journey under <condition> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.",
-         "- [ ] Lane 1. `checkout#cart-total`. `Live-only: real browser totals against the API.` Regression lane against trunk. Drive the entry's load-bearing journey under a loaded cart at trunk and head. Save `lane-1.png`. Pass when the totals match."),
-        ("<Keep the four formal boxes for `Formal: create`, `exists`, or `exists-stale`. For `exists-stale`, name the `maintain-formal-verification-skill` route and owner in `## Verification readiness`, then run the maintained check in the Run box. For `Formal: not-required`, keep only the Not covered box. Delete whichever branch the PR's Formal decision does not use.>",
-         "Created with this PR by folding `create-formal-verification-skill` after the code is built and before the gate."),
-        ("- [ ] Command. `<command>`.", "- [ ] Command. Run `npx fast-check src/checkout/property.test.ts`."),
-        ("- [ ] Property. <One-sentence property.>", "- [ ] Property. Concurrent checkouts preserve the inventory count."),
-        ("- [ ] Covered. <Paths and symbols.>", "- [ ] Covered. `src/checkout/**` and `driveJourney()`."),
-        ("- [ ] Run. Save `<output evidence path>`. Pass when <predicate>. Advance the formal sync commit when the passing model still describes the code.",
-         "- [ ] Run. Save `.scratch/demo/verification/PR-1/formal.log`. Pass when the check exits 0. Advance the formal sync commit when the passing model still describes the code."),
-        ("\n- [ ] Not covered.", ""),
-        ("- [ ] Metric. <What is measured at both trunk and head. If trunk lacks the feature, also name the diff-added work and the end-to-end state the user waits for.>",
-         "- [ ] Metric. Cart render time at trunk and head."),
-        ("- [ ] Probe. <The command or procedure, run at trunk and at the head, interleaved. Both sides must produce the metric.>",
-         "- [ ] Probe. Run `npm run bench:render` at trunk and head, interleaved."),
-        ("- [ ] Baseline. Record the trunk <value> first.", "- [ ] Baseline. Record the trunk 120 ms first."),
-        ("- [ ] Rule. <Head against trunk, with the number that fails. If the scenarios differ, add absolute budgets for the diff-added work and the user-visible end state instead of an invalid ratio.>",
-         "- [ ] Rule. Head stays within 110 percent of trunk; 132 ms fails."),
-        ("- [ ] Copy lane <n> screenshots into `<media path>/<pr-id>-review-<slug>.png`.",
-         "- [ ] Copy lane 1 screenshots into `.scratch/demo/media/PR-1-review-cart.png`."),
-        ("Save it as `<media path>/<pr-id>-review.mp4` when recorded", "Save it as `.scratch/demo/media/PR-1-review.mp4` when recorded"),
-        ("- [ ] <The owner squash-merges its own PR, or the root appends it to the base-branch stack and the operator lands it bottom-up.>",
-         "- [ ] The owner squash-merges its own PR."),
-        ("`.scratch/<effort>/verification/<pr-id>/`", "`.scratch/demo/verification/PR-1/`"),
-    ]
-    for i in range(2, 4):
-        edits.append((
-            f"- [ ] Lane {i}. `<feature-id>#<sub-id>`. `Live-only: <the claim a mocked unit test cannot make>.` <Drive this entry's journey under one condition.> Save `<slug>.png`. Pass when <predicate>.",
-            f"- [ ] Lane {i}. `checkout#journey-{i}`. `Live-only: real browser rendering under condition {i}.` Drive the entry's journey under condition {i}. "
-            f"Save `lane-{i}.png`. Pass when the journey evidence exists.",
-        ))
-    return edits
-
 
 
 def check(condition: bool, label: str, detail: str = "") -> None:
@@ -284,43 +47,6 @@ def git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return run(["git", *args], cwd)
 
 
-def write_ledgers(repo: Path, effort: str) -> None:
-    """Initialize the layered ledger from the pack's templates and drive one run."""
-
-    root = repo / ".scratch" / effort
-    (root / "features" / "F1").mkdir(parents=True, exist_ok=True)
-
-    (root / "program.md").write_text(
-        "# demo-program run ledger\n\n"
-        "Run root: `.scratch/demo/`\n"
-        "Standing orders: `skills/start-dev/references/standing-orders.md`\n\n"
-        "## Features\n\n"
-        "| id | title | state | owner | updated |\n|---|---|---|---|---|\n"
-        "| F1 | demo-feature | in-progress | main | t0 |\n"
-    )
-    (root / "features.tsv").write_text(
-        "id\ttitle\tstate\towner\tupdated\nF1\tdemo-feature\tin-progress\tmain\tt0\n"
-    )
-    (root / "decisions.tsv").write_text("date\tdecision\tevidence\nt0\trouter selected feature layer\tone feature, two atomic tasks\n")
-    (root / "agents.tsv").write_text("id\trole\tstate\tstuck_after\nPR-OWNER-1\tpoteto-agent pr-owner\trunning\t-\n")
-
-
-def dispatch_wave(repo: Path, effort: str, tasks: list[dict]) -> dict:
-    """Dispatch one wave of atomic tasks concurrently; one commit per task lane."""
-
-    root = repo / ".scratch" / effort
-    lanes = root / "lanes"
-    lanes.mkdir(parents=True, exist_ok=True)
-    started = {}
-    for task in tasks:
-        lane = lanes / task["id"]
-        if lane.exists():
-            shutil.rmtree(lane)
-        result = git(["worktree", "add", str(lane.resolve()), "-b", task["branch"], "main"], repo)
-        started[task["id"]] = result.returncode
-    return started
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--keep", action="store_true", help="keep the scratch repo for inspection")
@@ -329,6 +55,7 @@ def main() -> int:
     t0 = time.time()
     repo = Path(tempfile.mkdtemp(prefix="start-dev-smoke-"))
     keep = args.keep
+    worktrees: list[Path] = []
     try:
         print(f"scratch repo {repo}")
         result = git(["init", "-q", "-b", "main"], repo)
@@ -342,175 +69,138 @@ def main() -> int:
         spec_dir = repo / ".scratch" / "demo"
         spec_dir.mkdir(parents=True)
         (spec_dir / "spec.md").write_text(
-            "# demo spec\n\nOne feature, two atomic tasks, disjoint file lanes, a wave gate, a feature gate, a review and a fix.\n"
+            "# demo spec\n\nOne PR, two units on disjoint file lanes, one final gate, one review and one fix round.\n"
         )
         check((spec_dir / "spec.md").is_file(), "synthetic spec written")
 
-        emit = subprocess.run(
+        emit = run(
             ["node", str(SKILL / "scripts" / "emit-plan"), "--feature", "demo",
-             "--title", "Demo", "--surface", "library", "--pr", "1",
+             "--title", "Demo", "--surface", "cli", "--pr", "P1",
              "--out", str(spec_dir / "plan.md")],
-            cwd=repo, capture_output=True, text=True,
+            repo,
         )
         check(emit.returncode == 0, "emit-plan stamps the plan", emit.stderr.strip()[:120])
         check((spec_dir / "plan.md").is_file(), "plan.md exists at the run root")
-        plan_text = (spec_dir / "plan.md").read_text()
-        check("The root never pushes. Owners push only their own branch." in plan_text,
-              "stamped standing order 12 carries the clarified push rule")
-
-        checker = subprocess.run(
-            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(spec_dir / "plan.md")],
-            cwd=repo, capture_output=True, text=True,
-        )
-        print(f"  note check-plan on the unauthored skeleton exits {checker.returncode} (expected: placeholder boxes)")
-
-        empty_models = spec_dir / "empty-models.md"
-        empty_models.write_text("# no roles configured\n")
-        fallback = subprocess.run(
-            ["node", str(SKILL / "scripts" / "emit-plan"), "--feature", "demo",
-             "--title", "Demo", "--surface", "library", "--pr", "1",
-             "--models", str(empty_models),
-             "--out", str(spec_dir / "plan-fallback.md")],
-            cwd=repo, capture_output=True, text=True,
-        )
-        fallback_text = (spec_dir / "plan-fallback.md").read_text()
-        check(fallback.returncode == 0, "emit-plan runs with an empty models file", fallback.stderr.strip()[:120])
-        check("inherit-parent" in fallback_text, "fallback stamps the inherit-parent token")
-        check("magpie/" not in fallback_text, "fallback stamps no environment-specific alias")
-        check("no \"swarm workers\" line" in fallback.stderr and "inherit-parent" in fallback.stderr,
-              "fallback warns on stderr naming the models file and the stamped token")
-
-        emitted = (spec_dir / "plan.md").read_text()
-        check("## Run graph" in emitted, "emitted plan carries the Run graph section")
-        check("Continuation: " in emitted, "emitted plan carries the profile-named Continuation line")
-        check("[gate: feature]" in emitted and "[gate: review]" in emitted,
-              "emitted run graph names the feature and review gates")
-
-        authored, unresolved = author_plan(emitted, verification_edits())
-        check(not unresolved, "every skeleton anchor resolves against the emitted plan",
-              "; ".join(unresolved[:3]))
-        verify_skill = repo / ".scratch" / "verify-demo"
-        verify_skill.mkdir(parents=True, exist_ok=True)
-        (verify_skill / "SKILL.md").write_text("# verify-demo\n")
-        features_dir = verify_skill / "features"
-        features_dir.mkdir(exist_ok=True)
-        (features_dir / "checkout.md").write_text("# checkout\n")
-        (features_dir / "cli-checkout.md").write_text("# cli-checkout\n")
-        close_at = authored.index("## Close the program")
-        authored = authored[:close_at] + cli_pr_section() + authored[close_at:]
+        shell = (spec_dir / "plan.md").read_text()
         for needle, label in [
-            ("## Verification readiness", "the readiness H2"),
-            ("| Maintenance route | `none` |", "the Maintenance route row"),
-            ("| Decision | `create-before-amendment` |", "the creation decision"),
-            ("| Formal | `create` |", "the formal decision"),
-            ("Change: user-facing", "the Change line"),
-            ("task: create-verification-skill PR 1", "the folded creation task"),
-            ("[gate: verification]", "the verification gate node"),
-            ("[gate: formal]", "the formal gate node"),
-            ("- [ ] Command. Run `npx fast-check", "the formal Command box"),
-            ("- [ ] Property. Concurrent checkouts", "the formal Property box"),
-            ("- [ ] Covered. `src/checkout/**`", "the formal Covered box"),
-            ("- [ ] Run. Save `.scratch/demo/verification/PR-1/formal.log`", "the formal Run box"),
-            ("`checkout#cart-total`", "a ui feature-entry lane"),
-            ("`cli-checkout#cart-total`", "a cli feature-entry lane"),
+            ("## How to read this", "the How to read this section"),
+            ("## Verification readiness", "the readiness section"),
+            ("## Run graph", "the Run graph section"),
+            ("| Unit | Deliverable | File lane | Worktree | Scoped tests | Depends on |", "the lane table"),
+            ("## Close the run", "the Close the run section"),
+            ("## Appendix A. Prototype evidence", "the first appendix"),
+            ("The root never pushes. Owners push only their own branch.", "standing order 12 in the register"),
         ]:
-            check(needle in authored, f"authored plan carries {label}")
-        authored_path = spec_dir / "plan-authored.md"
-        authored_path.write_text(authored)
-        checker2 = subprocess.run(
-            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(authored_path)],
-            cwd=repo, capture_output=True, text=True,
+            check(needle in shell, f"emitted shell carries {label}")
+        check("subgraph W" not in shell, "emitted shell carries no wave subgraph")
+        check("Continuation: " in shell, "emitted shell carries the profile-named Continuation line")
+
+        skeleton_check = run(
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(spec_dir / "plan.md")], repo
         )
-        check(checker2.returncode == 0, "check-plan exits 0 on the authored plan",
-              checker2.stderr.strip()[:200])
-        summary = next((ln for ln in checker2.stdout.splitlines() if "PR sections" in ln), "")
-        check("2 PR sections, 0 problems" in summary, "checker reports two clean PR sections", summary)
+        check(skeleton_check.returncode == 1, "check-plan rejects the unauthored shell",
+              f"exit {skeleton_check.returncode}")
+        check("placeholder" in skeleton_check.stderr.lower() or "unit node" in skeleton_check.stderr.lower(),
+              "the rejection names the missing authored content", skeleton_check.stderr.strip()[:160])
 
-        write_ledgers(repo, "demo")
+        authored = spec_dir / "plan-authored.md"
+        shutil.copyfile(FIXTURE, authored)
+        authored_check = run(
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(authored)], repo
+        )
+        check(authored_check.returncode == 0, "check-plan accepts the authored plan",
+              authored_check.stderr.strip()[:200])
+        summary = next((ln for ln in authored_check.stdout.splitlines() if "PR sections" in ln), "")
+        check("1 PR sections, 0 problems" in summary, "checker reports one clean PR section", summary)
 
-        tasks = [
-            {"id": "w1t1", "branch": "task/w1t1", "file": "src/alpha.txt"},
-            {"id": "w1t2", "branch": "task/w1t2", "file": "src/beta.txt"},
-        ]
-        started = dispatch_wave(repo, "demo", tasks)
-        check(all(code == 0 for code in started.values()), "two task lanes created in one wave",
-              f"return codes {started}")
+        mutated = spec_dir / "plan-mutated.md"
+        mutated.write_text(authored.read_text().replace("graph TD", "graph TD\n  subgraph W1[Wave 1]"))
+        mutated_check = run(
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(mutated)], repo
+        )
+        check(mutated_check.returncode == 1, "check-plan rejects a wave subgraph",
+              f"exit {mutated_check.returncode}")
+        check("wave subgraphs are retired" in mutated_check.stderr,
+              "the rejection names the wave rule", mutated_check.stderr.strip()[:160])
 
-        evidence = repo / ".scratch" / "demo" / "features" / "F1" / "run.md"
-        evidence.parent.mkdir(parents=True, exist_ok=True)
-        evidence.write_text(
-            "# demo-feature run\n\n"
-            "## Tickets\n\n"
-            "| id | title | file lane | edges | surface | state |\n|---|---|---|---|---|---|\n"
-            "| P1 | two atomic tasks | src/** | none | library | wave-1 dispatched |\n\n"
+        lanes = spec_dir / "lanes"
+        lanes.mkdir(parents=True)
+        feature = lanes / "feature"
+        feature_add = git(["worktree", "add", str(feature), "-b", "pr/demo-1", "main"], repo)
+        check(feature_add.returncode == 0, "feature worktree created on the PR branch",
+              feature_add.stderr.strip()[:120])
+        worktrees.append(feature)
+
+        head = git(["rev-parse", "HEAD"], feature).stdout.strip()
+        unit = lanes / "unit-U1"
+        unit_add = git(["worktree", "add", str(unit), "-b", "unit/U1", head], repo)
+        check(unit_add.returncode == 0, "unit worktree branched from the feature head",
+              unit_add.stderr.strip()[:120])
+        worktrees.append(unit)
+
+        target = unit / "src" / "alpha.txt"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("U1\n")
+        git(["add", "src/alpha.txt"], unit)
+        commit = git(["commit", "-qm", "unit U1"], unit)
+        check(commit.returncode == 0, "the unit commits in its own worktree", commit.stderr.strip()[:80])
+        check(not (feature / "src" / "alpha.txt").exists(),
+              "the PR branch is untouched before the merge")
+
+        merge = git(["merge", "-q", "--no-ff", "unit/U1", "-m", "merge U1"], feature)
+        check(merge.returncode == 0, "the merge worker integrates the unit",
+              merge.stderr.strip()[:80])
+        check((feature / "src" / "alpha.txt").is_file(),
+              "merged unit content is present on the PR branch")
+        mergesha = git(["rev-parse", "--short", "HEAD"], feature).stdout.strip()
+
+        root = spec_dir
+        (root / "decisions.tsv").write_text(
+            "date\tdecision\tevidence\nt0\tone PR, two units\tplan.md\n"
+        )
+        (root / "agents.tsv").write_text("id\trole\tspawned_as\tmodel\tstate\tstuck_after\nU1\tdev\tcoder\tsmoke-model\tmerged\t-\n")
+        (root / "progress.md").write_text(
+            f"Run demo: armed (plan {authored.name}, plugin 0.6.0)\n"
+            f"Unit U1: merged (commits {head[:7]}..{mergesha}, evidence .scratch/demo/logs/U1.log)\n"
+        )
+        (root / "run.md").write_text(
+            "# demo run\n\n"
+            f"Run root: `.scratch/demo/`\nPlan: `.scratch/demo/{authored.name}`\nProgress log: `.scratch/demo/progress.md`\n\n"
+            "## PR\n\n"
+            "| id | branch | url | owner | state | merged sha |\n|---|---|---|---|---|---|\n"
+            f"| P1 | pr/demo-1 | pending | main | merged | {mergesha} |\n\n"
+            "## Units\n\n"
+            "| id | title | file lane | worktree | scoped test | dependencies | state | merge sha |\n"
+            "|---|---|---|---|---|---|---|---|\n"
+            f"| U1 | alpha | src/alpha.txt | .scratch/demo/lanes/unit-U1 | cat src/alpha.txt | none | merged | {mergesha} |\n\n"
             "## Gates\n\n"
             "| date | gate | command | exit | evidence |\n|---|---|---|---|---|\n"
-            "| t1 | wave-1 | targeted: ls src/alpha.txt src/beta.txt | 0 | logs/wave-1.log |\n"
-            "| t2 | feature | full gate over the PR head | 0 | logs/feature-gate.log |\n\n"
-            "## Review\n\n"
-            "| round | lead | family | verdict | findings | fixed |\n|---|---|---|---|---|---|\n"
-            "| 1 | review-lead | different | PASS | 1 | 1 |\n\n"
+            "| t1 | unit U1 | cat src/alpha.txt | 0 | logs/U1.log |\n\n"
             "## Review and fix\n\n"
             "| round | reviewer | findings | fixer | fixed | rechecked |\n|---|---|---|---|---|---|\n"
-            "| 1 | reviewer-A (different family) | 1 | fixer-A | 1 | high-risk only |\n"
+            "| 1 | reviewer-A | 0 | merge worker | 0 | n/a |\n"
         )
-        check(evidence.is_file(), "feature ledger written with wave gate, feature gate, and review/fix rows")
-
-        logs = repo / ".scratch" / "demo" / "logs"
-        logs.mkdir(parents=True, exist_ok=True)
-        (logs / "wave-1.log").write_text("exit 0\nsrc/alpha.txt\nsrc/beta.txt\n")
-        (logs / "feature-gate.log").write_text("exit 0\nall checks\n")
-        (logs / "review-1.md").write_text("finding: missing newline at EOF in src/alpha.txt\n")
-
-        for task in tasks:
-            lane = repo / ".scratch" / "demo" / "lanes" / task["id"]
-            target = lane / task["file"]
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(f"{task['id']}\n")
-            git(["add", task["file"]], lane)
-            commit = git(["commit", "-qm", f"task {task['id']}"], lane)
-            check(commit.returncode == 0, f"task {task['id']} commits in its own lane", commit.stderr.strip()[:80])
-
-        pr_branch = "pr/demo-1"
-        pr = git(["checkout", "-q", "-b", pr_branch, "main"], repo)
-        check(pr.returncode == 0, "PR branch created from main")
-        merges = [git(["merge", "-q", "--no-ff", t["branch"], "-m", f"merge {t['id']}"], repo) for t in tasks]
-        check(all(m.returncode == 0 for m in merges), "merge worker integrates both task commits",
-              "; ".join(m.stderr.strip()[:60] for m in merges))
-        for task in tasks:
-            present = (repo / task["file"]).is_file()
-            check(present, f"merged lane content present on the PR branch ({task['file']})")
-        writers = subprocess.run(["git", "log", "--format=%an", pr_branch], cwd=repo,
-                                 capture_output=True, text=True).stdout.splitlines()
-        check(writers.count("smoke") == 5, "PR branch carries the init, two task, and two merge commits under repo-local identity", str(writers))
-
-        program_ledger = repo / ".scratch" / "demo" / "program.md"
-        feature_tsv = repo / ".scratch" / "demo" / "features" / "F1" / "tickets.tsv"
-        feature_tsv.write_text("id\ttitle\tfile_lane\tedges\tsurface\tstate\nP1\ttwo atomic tasks\tsrc/**\tnone\tlibrary\tmerged\n")
-        decisions = repo / ".scratch" / "demo" / "decisions.tsv"
-        agents = repo / ".scratch" / "demo" / "agents.tsv"
+        logs = root / "logs"
+        logs.mkdir()
+        (logs / "U1.log").write_text("exit 0\nU1\n")
 
         for path, label in [
-            (program_ledger, "program ledger"), (repo / ".scratch/demo/features.tsv", "features.tsv"),
-            (evidence, "feature run ledger"), (feature_tsv, "ticket tsv"),
-            (decisions, "decisions.tsv"), (agents, "agents.tsv"),
+            (root / "run.md", "run ledger"),
+            (root / "progress.md", "progress log"),
+            (root / "decisions.tsv", "decision trail"),
+            (root / "agents.tsv", "agent registry"),
+            (logs / "U1.log", "unit gate evidence"),
         ]:
             check(path.is_file() and path.stat().st_size > 0, f"{label} exists and is nonempty")
 
-        wave_log = (logs / "wave-1.log").read_text()
-        check("exit 0" in wave_log, "wave gate evidence records the exit code")
-        review = (logs / "review-1.md").read_text()
-        fix = repo / ".scratch" / "demo" / "logs" / "fix-1.md"
-        fix.write_text("fixed: newline added in src/alpha.txt; recheck: high-risk only\n")
-        check("finding" in review and fix.is_file(), "review recorded one finding and the fix pass recorded its fix")
-
-        run_md = evidence.read_text()
+        run_md = (root / "run.md").read_text()
         for needle, label in [
-            ("wave-1", "wave gate row"), ("| t2 | feature |", "feature gate row"),
-            ("reviewer-A", "reviewer row"), ("fixer-A", "fixer row"),
-            ("| PASS |", "review-lead verdict row"),
+            ("| U1 |", "unit row"),
+            ("| t1 | unit U1 |", "unit gate row"),
+            ("reviewer-A", "reviewer row"),
+            (mergesha, "merge SHA"),
         ]:
-            check(needle in run_md, f"feature ledger carries the {label}")
+            check(needle in run_md, f"run ledger carries the {label}")
 
         tracked = git(["status", "--porcelain"], repo).stdout.strip()
         check(tracked == "", "scratch artifacts stay untracked (.scratch gitignored)", tracked[:80])
@@ -522,11 +212,11 @@ def main() -> int:
             for failure in FAILURES:
                 print(f"  - {failure}")
             return 1
-        print("SMOKE OK structural artifacts: ledgers, evidence, and portable fallback")
+        print("SMOKE OK structural artifacts: shell, checker, unit merge, and run ledger")
         return 0
     finally:
-        for task_dir in (repo / ".scratch" / "demo" / "lanes").glob("*") if (repo / ".scratch" / "demo" / "lanes").is_dir() else []:
-            git(["worktree", "remove", "--force", str(task_dir)], repo)
+        for tree in reversed(worktrees):
+            git(["worktree", "remove", "--force", str(tree)], repo)
         if not keep:
             shutil.rmtree(repo, ignore_errors=True)
 

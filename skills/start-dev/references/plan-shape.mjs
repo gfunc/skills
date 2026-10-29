@@ -115,6 +115,7 @@ export const validators = {
 		return null;
 	},
 	resolvablePath(value, ctx) {
+		if (ctx.readiness.Decision !== "exists") return null;
 		return ctx.exists(value) ? null : `path does not resolve: ${value}`;
 	},
 	unitNodeLabel(label) {
@@ -125,7 +126,7 @@ export const validators = {
 	filesBoxes(value) {
 		const problems = [];
 		for (const box of value) {
-			if (!/^(Create|Edit|Delete) `[^`]+`$/.test(box))
+			if (!/^(Create|Edit|Delete) `[^`]+`\.?$/.test(box))
 				problems.push(`Files box is not "Create|Edit|Delete \`<path>\`" with exactly one path: ${box}`);
 		}
 		return problems;
@@ -189,7 +190,7 @@ export const shape = {
 
 	sections: {
 		// "{pr}" marks the PR section's position; its heading pattern is below.
-		order: ["How to read this", "Verification readiness", "Run graph", "{pr}", "Close the program"],
+		order: ["How to read this", "Verification readiness", "Run graph", "{pr}", "Close the run"],
 		forbiddenHeadings: [
 			"Program checklist",
 			"Arm the program",
@@ -202,7 +203,7 @@ export const shape = {
 			placeholder: "## <PR title> (<PR id>)",
 			pattern: /^## \S.* \([^)]+\)$/,
 			exactlyOne: true,
-			between: ["Run graph", "Close the program"],
+			between: ["Run graph", "Close the run"],
 		},
 		afterClose: { appendicesOnly: true, firstAppendixIncludes: "Prototype evidence" },
 	},
@@ -272,7 +273,7 @@ export const shape = {
 			"Files.": {
 				minBoxes: 1,
 				onePathPerBox: true,
-				boxPattern: /^(Create|Edit|Delete) `[^`]+`$/,
+				boxPattern: /^(Create|Edit|Delete) `[^`]+`\.?$/,
 				kinds: ["Create", "Edit", "Delete"],
 				validator: "filesBoxes",
 				crossRules: [
@@ -369,7 +370,7 @@ export const shape = {
 	},
 
 	close: {
-		title: "Close the program",
+		title: "Close the run",
 		required: true,
 		content: "close assertions",
 		minBoxes: 1,
@@ -411,9 +412,9 @@ const READINESS_SHELL = {
 	Owner: `<role>`,
 };
 
-// Renders the authoring shell. Every placeholder the retired
-// references/plan-skeleton.md carried for the sections that survive is
-// renderable here; the program checklist moved to the execution playbook.
+// Renders the authoring shell. Every placeholder the retired skeleton carried
+// for the sections that survive is renderable here; the retired program
+// checklist lives in the execution playbook.
 export function renderShell(options) {
 	const required = ["feature", "title", "surface", "pr", "register"];
 	const missing = required.filter((name) => !options[name]);
@@ -448,6 +449,8 @@ export function renderShell(options) {
 One box is one unit of work. Every box names the evidence that checks it. A nested box is a sub-step of the box above it. Check a box only when its evidence exists, a file, a log line, a screenshot, a test run, or a SHA. The body is a how-to. The appendices explain and record.
 
 The run executes \`skills/start-dev/playbooks/${playbook}.md\`. The main agent owns PR ${pr} and lands it on the clean verdict; a merge worker is the only writer of the branch.
+
+Continuation: <the active profile's continuation mechanism. Where the profile has \`/goal\`, a goal whose completion criterion is the landed PR, foreground children, and no background polling and no audit tick. Where it has no goal, normal mode with the same no-polling rule.>
 
 ${RULE}
 
@@ -498,7 +501,7 @@ Change: <user-facing|internal>
 ${laneTable.join("\n")}
 
 - [ ] <One change. Name the symbol and the file.>
-- [ ] Map update. For this \`Change: user-facing\` PR, add or update the feature entry for every changed user-facing behavior under \`<features/ path>\` in the same PR. Give each changed user-facing feature at least one live lane. Omit this box for \`Change: internal\`.
+- [ ] Map update. For this \`Change: user-facing\` PR, add or update the feature entry for every changed user-facing behavior under \`<features/ path>\` in the same PR. Give each changed user-facing feature at least one final-gate lane. Omit this box for \`Change: internal\`.
 
 **You see.**
 
@@ -542,7 +545,7 @@ Add or remove lanes so every changed feature entry has at least one, plus the re
 
 - [ ] Squash-merge on a clean verdict and green CI on the merge result. The patch-id rule applies if a rebase is needed.
 
-## Close the program
+## Close the run
 
 - [ ] Every unit in the lane table is merged with its scoped tests green and its evidence recorded in the progress log.
 - [ ] Every changed user-facing behavior has its feature entry updated in the same PR, and every changed entry has at least one final-gate lane.

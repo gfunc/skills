@@ -10,6 +10,8 @@ When debugging, fix the fault, not the place where it surfaced. The symptom is w
 
 **Why:** A symptom fix hides the evidence and leaves the fault free to surface somewhere else. Each one makes the system harder to reason about, because the code now carries a workaround for a bug that nobody named.
 
+**Feedback loop first.** Before forming a hypothesis, reproduce the bug in a check that fails for the right reason. That failing check is the loop you test every hypothesis against; without one you are guessing. Make it fast, deterministic, and cheap enough to run after every change. Adapted from superpowers' `diagnosing-superpowers`, MIT, Jesse Vincent.
+
 **Pattern:**
 - Reproduce first.
 - Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one.

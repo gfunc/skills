@@ -35,11 +35,11 @@ Three front doors.
 
 - [`/poteto-mode`](skills/poteto-mode/SKILL.md) takes a goal and a check, selects a playbook, and runs it. This is the original pstack path, restored to upstream content.
 - [`/wayfinder`](skills/wayfinder/SKILL.md) discusses a loose idea with you and maps the decisions, resolved one per session. It also works standalone.
-- [`/start-dev`](skills/start-dev/SKILL.md) takes an approved spec and runs the full post-spec lifecycle behind it: a design phase run inside the restored `architect` skill's Phase A+B under the full Principles index (start-dev keeps its own attributed copy at `skills/start-dev/references/principles.md`), a dev-lead plan with a run graph (every phase applies the full index, with its primary principles named in the skill's Principles table), execution through the `dev-owner` agent in parallel waves under a worktree topology, and a confrontational review before you land. Human-invoked, like wayfinder.
+- [`/start-dev`](skills/start-dev/SKILL.md) takes an approved spec and runs the full post-spec lifecycle behind it: a design phase run inside the restored `architect` skill's Phase A+B under the full Principles index (start-dev keeps its own attributed copy at `skills/start-dev/references/principles.md`), a dev-lead plan with a unit graph (every phase applies the full index, with its primary principles named in the skill's Principles table), execution through the `dev-owner` agent's ready sets with one worktree per unit and a merge worker as the only writer of the PR branch, and a confrontational review before you land. Human-invoked, like wayfinder.
 
 Auxiliary doors: [`/writing-for-agents`](skills/writing-for-agents/SKILL.md) guides skills, `AGENTS.md`, `CLAUDE.md`, and context pointers; [`/poteto-help`](skills/poteto-help/SKILL.md) helps you pick a skill or recover a run; [`/handoff`](skills/handoff/SKILL.md) compacts a conversation into a handoff document for a fresh agent.
 
-The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. `/start-dev` runs the spec from there through design, plan, execution, and review, adapting to one PR, one feature, or a program. `dev-owner`, the execution agent, is gfunc-owned, not a pstack or Matt Pocock port. Each harness profile's `Role mapping` section resolves the roles and names the continuation mechanism. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
+The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. `/start-dev` runs the spec from there through design, plan, execution, and review as exactly one PR. `dev-owner`, the execution agent, is gfunc-owned, not a pstack or Matt Pocock port. Each harness profile's `Role mapping` section resolves the roles and names the continuation mechanism. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
 
 ### Migrating from 0.2.x
 
@@ -54,6 +54,7 @@ One flat `skills/` root — every skill a peer:
 - pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror at upstream content; only harness adapters, the `.scratch` store convention, and the five declared model-override hunks differ, per `vendor-manifest.txt`; no other workflow modification remains.
 - `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
 - `skills/grilling`, `skills/domain-modeling`, `skills/research`, `skills/prototype` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
+- `skills/improve-codebase-architecture`, `skills/grill-with-docs` — the architecture-scan and docs-writing skills, adapted from the mattpocock pack; the first ships an offline HTML report template.
 - [`skills/writing-for-agents`](skills/writing-for-agents/SKILL.md) is Matt Pocock's reference for agent-facing writing, with host-neutral skill mechanics. Root [`AGENTS.md`](AGENTS.md) uses its task-specific context pointers.
 - [`skills/playwright-expert`](skills/playwright-expert/SKILL.md) — Playwright E2E test authoring, fixtures, CI, and flake debugging, vendored from Jeffallan (MIT); [`skills/playwright-cli`](skills/playwright-cli/SKILL.md) remains the CLI browser driver.
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
@@ -134,7 +135,7 @@ GitHub Releases hold the release notes and provide tag source archives. Workflow
 - Python 3.11 or later, for version and pack checks without additional packages.
 - Docker, for the existing five-harness validation rig.
 - A forge CLI for execution: `gh` (GitHub) or `glab` (GitLab remotes).
-- An existing Playwright harness or the `playwright-cli` skill (`skills/playwright-cli`), detected for UI-surface live lanes.
+- An existing Playwright harness or the `playwright-cli` skill (`skills/playwright-cli`), detected for UI-surface final-gate lanes.
 
 ## Stances
 
