@@ -49,6 +49,30 @@ By default the log is a working artifact, not committed. Keep it at `.scratch/<t
 
 Commit it only when the work is ambitious enough that a reviewer needs the trail to trust the result.
 
+## The progress log
+
+A start-dev run keeps its execution record in `.scratch/<spec>/progress.md`, separate from the decision trail. One line per state a resume would need, appended at the moment it happens.
+
+```
+Run <spec>: armed (plan <sha>, plugin <version>)
+Unit <id>: green (<command> exit 0, evidence <path>)
+Unit <id>: red (round <n>/5, <command> exit <code>, evidence <path>)
+Unit <id>: merged (commits <base7>..<head7>, evidence <path>)
+Review: <PASS|FIX|BLOCK> (<n> findings, evidence <path>)
+Fix round <n>: <addressed> addressed, <open> open (commits <base7>..<head7>)
+Landed (merge <sha>)
+```
+
+**Resume rule.** The first line names the plan the log belongs to. On resume, a unit with a `merged` line is DONE and is never re-dispatched; a unit whose last line is a `red` or fix-round line resumes at the next round; a log whose first line names a different plan is another run's, so leave it untouched and start a fresh one. A log that is missing is a run that never armed, so start at the first ready unit.
+
+Adapted from superpowers' `subagent-driven-development` progress ledger and resume rule, MIT, Jesse Vincent.
+
+## Redaction
+
+Redact every secret before showing a command, an output, or a saved artifact. Replace credentials, tokens, keys, and bearer strings with a stable placeholder such as `<SECRET-1>`, and keep the surrounding command or result structure so the evidence still proves what it claims. If redaction would remove the support for a finding, record the finding and the limitation rather than keeping the secret.
+
+Adapted from superpowers' `diagnosing-superpowers` redaction policy, MIT, Jesse Vincent.
+
 ## Rules
 
 - Append-only. A wrong call gets a new row that supersedes it. Never edit or delete history.

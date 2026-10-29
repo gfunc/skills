@@ -1,28 +1,28 @@
 # Worktree topology
 
-One feature worktree, one wave worktree per parallel wave, one task worktree per atomic task. All live under `.scratch/<effort>/lanes/`.
+One feature worktree holds the PR branch. One unit worktree per unit. Both live under `.scratch/<effort>/lanes/`.
 
 ```
 .scratch/<effort>/lanes/
   feature/          holds the PR branch, checked out once
-  wave-<n>/         one per parallel wave; task branches merge here
-    task-<id>/      one per atomic task, branched from the wave worktree
+  unit-<id>/        one per unit, branched from the feature head
 ```
 
 ## Flow
 
-1. **Feature worktree.** The main agent creates it on the PR branch before the first wave. It survives the whole run and the PR opens from it.
-2. **Parallel wave.** `dev-owner` creates the wave worktree at the feature branch's head. Each task worktree branches from it. Each dev works only in its task worktree. When every task in the wave finishes, the merge worker integrates the task branches into the wave worktree, then the full gate runs on the wave worktree.
-3. **Serial wave.** A wave with one task, or tasks that share a lane, runs directly in the feature worktree. No wave worktree is created.
-4. **After all waves.** The merge worker integrates each wave head into the feature worktree. The full gate and the fixer loop run there. The PR opens from the feature branch.
+1. **Feature worktree.** The owner creates it on the PR branch at the start of the run. It survives the whole run, receives every unit merge, and the PR opens from it.
+2. **Unit worktree.** The merge worker or the owner creates it at the feature head before dispatch. The unit worker edits only its own worktree and runs its scoped tests there.
+3. **Unit merge.** When a unit's scoped tests pass, the merge worker merges the unit branch into the feature worktree. One writer, one merge at a time. A unit whose tests are red never merges.
+4. **Final verify.** The full suite, the final-gate lanes and the formal check run in the feature worktree at the merged head, before the review.
+5. **After the run.** Unit worktrees are removed once their merge is recorded. The feature worktree stays until the PR is landed.
 
 ## Ownership
 
-- One writer per branch. The task branch belongs to its dev; the wave branch to the merge worker during integration; the feature branch to the merge worker at wave integration and to the fixer inside the review loop.
-- A conflict goes back to `dev-owner` named with the two tasks and the files. It is a lane-split defect, not a merge-worker judgment call.
-- Task and wave worktrees are removed after their wave's gate passes and the review has the evidence it needs. The feature worktree stays until the operator lands.
-- A folded creation task commits and merges its artifacts — the verify skill's files and the feature map entry — before its task worktree is removed. Unmerged skill files are lost work, not a later PR's problem. Evidence stays under `.scratch/<effort>/verification/<pr-id>/`, which the run root owns, not the task worktree.
+- The merge worker is the only writer of the PR branch. The owner never edits it; a unit worker never touches it.
+- A conflict goes back to the owner named with the two units and the files. It is a lane-split defect, not a merge-worker judgment call.
+- A unit's artifacts commit inside the unit's worktree before the merge. Uncommitted work is not merged and is not recoverable by a later unit.
+- Evidence stays under `.scratch/<effort>/`, which the run root owns, not the unit worktree.
 
 ## Capability gating
 
-Where the profile reports no nested spawn, the topology collapses: the main orchestrator runs the PR-owner role prompt, executes the waves in the feature worktree sequentially, and records the reduced independence in the ledger. The gates do not change.
+Where the profile reports no nested spawn, the topology collapses: the owner runs the unit work in the feature worktree itself and records the reduced independence in the ledger. The unit gate and the one-writer rule do not change; with no separate writer, the owner becomes the writer and says so.

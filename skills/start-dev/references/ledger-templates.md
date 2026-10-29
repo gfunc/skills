@@ -2,67 +2,34 @@
 
 Copy these into the run root at initialization. Tab-separated rows, one header row, append-only after creation except the state column.
 
-## `program.md`
+## `run.md`
 
 ```markdown
-# <Program> run ledger
+# <PR slug> run
 
-Run root: `.scratch/<effort>/`
-Standing orders: `skills/start-dev/references/standing-orders.md`
-Plan: `<plan path>`
+Run root: `.scratch/<spec>/`
+Plan: `.scratch/<spec>/plan.md`
+Progress log: `.scratch/<spec>/progress.md`
 
-## Features
+## PR
 
-| id | title | state | owner | updated |
-|---|---|---|---|---|
-
-## Program gate
-
-| date | command | exit | evidence |
-|---|---|---|---|---|
-
-## Blockers
-
-| date | blocker | state |
-|---|---|---|
-```
-
-## `features.tsv`
-
-```tsv
-id	title	state	owner	updated
-```
-
-## `features/<id>/run.md`
-
-```markdown
-# <Feature> run
-
-## Tickets
-
-| id | title | file lane | edges | surface | feature entry | state |
-|---|---|---|---|---|---|---|
-
-## PRs
-
-| id | branch | url | owner | state | verdict head |
+| id | branch | url | owner | state | merged sha |
 |---|---|---|---|---|---|
+
+## Units
+
+| id | title | file lane | worktree | scoped test | dependencies | state | merge sha |
+|---|---|---|---|---|---|---|---|
 
 ## Gates
 
 | date | gate | command | exit | evidence |
-|---|---|---|---|---|---|
+|---|---|---|---|---|
 
 ## Review and fix
 
 | round | reviewer | findings | fixer | fixed | rechecked |
 |---|---|---|---|---|---|
-```
-
-## `features/<id>/tickets.tsv`
-
-```tsv
-id	title	file_lane	edges	surface	feature_entry	state
 ```
 
 ## `decisions.tsv`

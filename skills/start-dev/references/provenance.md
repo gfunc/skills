@@ -6,10 +6,9 @@ The execution workflow here moved out of the vendored pstack paths in 0.3.0 so `
 
 | start-dev path | 0.2.1 source | Notes |
 |---|---|---|
-| `playbooks/program-plan.md` | `skills/poteto-mode/playbooks/multi-phase-plan.md` | The 0.2.1 file was itself a rewrite of pstack's `multi-phase-plan.md`. Emitter, checker, and skeleton paths rewritten to `skills/start-dev/`. |
-| `references/plan-skeleton.md` | `skills/poteto-mode/references/plan-skeleton.md` | Unchanged except its owning script. |
-| `scripts/emit-plan` | `skills/poteto-mode/scripts/emit-plan` | `skeletonPath` and `registerPath` now resolve inside this skill. |
-| `scripts/check-plan.mjs` | `skills/poteto-mode/scripts/check-plan.mjs` | Content unchanged. |
+| `playbooks/program-plan.md` | `skills/poteto-mode/playbooks/multi-phase-plan.md` | The 0.2.1 file was itself a rewrite of pstack's `multi-phase-plan.md`. Rewritten again in 0.6.0 to the eleven authoring steps. |
+| `scripts/emit-plan` | `skills/poteto-mode/scripts/emit-plan` | `registerPath` now resolves inside this skill. Rewritten in 0.6.0 to render from `references/plan-shape.mjs`; the `--models` flag is gone. |
+| `scripts/check-plan.mjs` | `skills/poteto-mode/scripts/check-plan.mjs` | Rebuilt as a shape driver in 0.6.0; it parses the plan and walks `references/plan-shape.mjs`. |
 | `tests/check-plan.test.ts` | `skills/poteto-mode/scripts/check-plan.test.ts` | Checker path now resolves `../scripts`. |
 | `references/standing-orders.md` | `references/standing-orders.md` | Order 10 clarified for 0.3.0. |
 
@@ -50,6 +49,16 @@ Every harness profile's Role mapping gained a **Role model table** subsection na
 - **codex:** `spawn_agent.model` is gated by `[features.multi_agent_v2]` and a custom agent TOML `model` outranks an explicit spawn; when the gate is off or a file pins otherwise, fall back and disclose.
 - **pi:** no per-spawn parameter exists; the agent file's `model:` is the only child control, so use the skill default or the parent's model, record it, and disclose.
 
+## 0.6.0 plan contract
+
+The one-spec-one-PR change replaced the plan skeleton with a shape module and rebuilt the tools around it.
+
+- `references/plan-shape.mjs` is new and owns the plan's blocks, order, fields, enums and validators. The emitter renders from it and the checker walks it, so the two cannot drift.
+- `references/plan-skeleton.md` is deleted. Its content moved into the shape module and the emitter.
+- `playbooks/single-pr.md` is new, forked from `skills/poteto-mode/playbooks/autopilot-stack.md` at `9a6784c` and the `autopilot-full.md` it inherits, pstack BASE `e44668c`, with the stack and landing sections replaced by the unit graph and owner landing.
+- `references/review-reception.md` is new, adapted from superpowers' review-reception discipline, MIT, Jesse Vincent.
+- Five capabilities are imported: the progress log and resume rule into `skills/show-me-your-work/`, the fresh-evidence iron law into `skills/principle-prove-it-works/`, feedback-loop-first into `skills/principle-fix-root-causes/`, and the guardrail category into `skills/reflect/`, all from superpowers, MIT, Jesse Vincent; plus `skills/improve-codebase-architecture/` and `skills/grill-with-docs/`, adapted from Matt Pocock, MIT.
+
 ## Preserved but not owned by start-dev
 
 The scratch-listing safety fix from `skills/poteto-mode/scripts/worktree-audit.sh` and `skills/poteto-mode/playbooks/worktree-cleanup.md` (upstream reference cursor/plugins#449) is worth offering to pstack upstream. It was reverted here with the rest of those files because the pack does not modify restored pstack paths. Until upstream takes it, the guard lives in this note.
@@ -66,4 +75,4 @@ The guard, for any operator who wants it back locally.
 
 ## What start-dev deliberately does not carry
 
-`skills/poteto-mode/references/pstack-models.md` was discarded as local runtime state. `emit-plan` reads `~/.agents/pstack-models.md` and falls back to its own default; no pack script reads the discarded file.
+`skills/poteto-mode/references/pstack-models.md` was discarded as local runtime state. The emitter stamps no model alias and reads no model file; each plan's model lines are authored from the active profile at planning time.

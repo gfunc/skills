@@ -14,6 +14,8 @@
 #   skills/handoff/ 2, skills/prototype/ 4, skills/research/ 2, skills/to-questionnaire/ 2.
 # Do not edit these files. Amend this manifest only when provenance changes.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
+# Gfunc addition: skills/improve-codebase-architecture and skills/grill-with-docs are adapted from
+#   the same source, not frozen: their SKILL.md files are rewritten for this pack and carry no hash here.
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
 skills/domain-modeling/GLOSSARY-FORMAT.md	21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801
 skills/domain-modeling/SKILL.md	7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3
