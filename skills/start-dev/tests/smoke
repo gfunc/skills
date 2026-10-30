@@ -86,7 +86,7 @@ def main() -> int:
             ("## How to read this", "the How to read this section"),
             ("## Verification readiness", "the readiness section"),
             ("## Run graph", "the Run graph section"),
-            ("| Unit | Deliverable | File lane | Worktree | Scoped tests | Depends on |", "the lane table"),
+            ("| Unit | Deliverable | File lane | Worktree | Scoped tests | Budget | Depends on |", "the lane table"),
             ("## Close the run", "the Close the run section"),
             ("## Appendix A. Prototype evidence", "the first appendix"),
             ("The root never pushes. Owners push only their own branch.", "standing order 12 in the register"),
@@ -96,7 +96,7 @@ def main() -> int:
         check("Continuation: " in shell, "emitted shell carries the profile-named Continuation line")
 
         skeleton_check = run(
-            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(spec_dir / "plan.md")], repo
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), "--spawn-bound", "120", str(spec_dir / "plan.md")], repo
         )
         check(skeleton_check.returncode == 1, "check-plan rejects the unauthored shell",
               f"exit {skeleton_check.returncode}")
@@ -106,7 +106,7 @@ def main() -> int:
         authored = spec_dir / "plan-authored.md"
         shutil.copyfile(FIXTURE, authored)
         authored_check = run(
-            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(authored)], repo
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), "--spawn-bound", "120", str(authored)], repo
         )
         check(authored_check.returncode == 0, "check-plan accepts the authored plan",
               authored_check.stderr.strip()[:200])
@@ -116,7 +116,7 @@ def main() -> int:
         mutated = spec_dir / "plan-mutated.md"
         mutated.write_text(authored.read_text().replace("graph TD", "graph TD\n  subgraph W1[Wave 1]"))
         mutated_check = run(
-            ["node", str(SKILL / "scripts" / "check-plan.mjs"), str(mutated)], repo
+            ["node", str(SKILL / "scripts" / "check-plan.mjs"), "--spawn-bound", "120", str(mutated)], repo
         )
         check(mutated_check.returncode == 1, "check-plan rejects a wave subgraph",
               f"exit {mutated_check.returncode}")
