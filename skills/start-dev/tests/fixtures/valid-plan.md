@@ -52,9 +52,9 @@ Change: internal
 
 **Build.**
 
-| Unit | Deliverable | File lane | Worktree | Scoped tests | Depends on |
-|---|---|---|---|---|---|
-| U1 | fixture | skills/start-dev/references/ | .scratch/check-fixture/w1/u1 | node --test fixture | None |
+| Unit | Deliverable | File lane | Worktree | Scoped tests | Budget | Depends on |
+|---|---|---|---|---|---|---|
+| U1 | fixture | skills/start-dev/references/ | .scratch/check-fixture/w1/u1 | node --test fixture | 5 | None |
 
 - [ ] Write the fixture change.
 
@@ -68,7 +68,7 @@ Change: internal
 
 **Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Lanes on `model` at the PR head.
 
-- [ ] Lane 1. `fixture#emit`. `Live-only: a real emit renders a real file.` Regression lane on trunk and head. Log `.scratch/check-fixture/lane-1.txt`. Pass when the exit is 0.
+- [ ] Lane 1. `fixture#emit`. `Live-only: a real emit renders a real file.` Regression lane on trunk and head. Log `.scratch/check-fixture/lane-1.txt`. `Timeout 2`. Pass when the exit is 0.
 
 **Verify, formal.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 

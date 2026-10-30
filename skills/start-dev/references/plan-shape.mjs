@@ -51,7 +51,7 @@ export const SUB_BLOCKS = [
 	"Review gate.",
 	"Merge.",
 ];
-export const LANE_TABLE_COLUMNS = ["Unit", "Deliverable", "File lane", "Worktree", "Scoped tests", "Depends on"];
+export const LANE_TABLE_COLUMNS = ["Unit", "Deliverable", "File lane", "Worktree", "Scoped tests", "Budget", "Depends on"];
 export const FORMAL_ITEMS = ["Command.", "Property.", "Covered.", "Run."];
 export const PERF_ITEMS = ["Metric.", "Probe.", "Baseline.", "Rule."];
 
@@ -100,6 +100,26 @@ export const validators = {
 	},
 	gateDuration(value) {
 		return /\d/.test(value) ? null : "must carry minutes per layer";
+	},
+	// A spawn duration in whole minutes. ctx.spawnBound is { minutes } or
+	// { unlimited: true }. ctx.record, when present, names the lane-table row.
+	spawnMinutes(value, ctx) {
+		if (!/^[1-9]\d*$/.test(value)) return "must be a positive whole number of minutes";
+		if (!ctx.spawnBound || ctx.spawnBound.unlimited) return null;
+		return Number(value) > ctx.spawnBound.minutes
+			? `${value} minutes exceeds the spawn bound of ${ctx.spawnBound.minutes}`
+			: null;
+	},
+	unitBudget(value, ctx) {
+		const message = validators.spawnMinutes(value, ctx);
+		if (!message) return null;
+		const id = ctx.record?.id ?? "unit";
+		return `unit "${id}" budget ${message}`;
+	},
+	laneTimeout(value, ctx) {
+		const message = validators.spawnMinutes(value, ctx);
+		if (!message) return null;
+		return `lane ${ctx.lane ?? "?"} timeout ${message}`;
 	},
 	formalProperty(value, ctx) {
 		if (ctx.readiness.Formal === "not-required" && value !== "none")
@@ -300,6 +320,7 @@ export const shape = {
 						{ key: "fileLane", header: "File lane", required: true },
 						{ key: "worktree", header: "Worktree", required: true },
 						{ key: "scopedTests", header: "Scoped tests", required: true },
+						{ key: "budget", header: "Budget", required: true, validator: "unitBudget" },
 						{ key: "dependsOn", header: "Depends on", required: true, validator: "dependsOnIds" },
 					],
 				},
@@ -324,6 +345,7 @@ export const shape = {
 					liveOnly: "a `Live-only:` sentence",
 					passPredicate: "a `Pass when` predicate",
 					featureEntry: "a backticked `<feature-id>#<sub-id>` entry",
+						timeout: "a backticked `Timeout <minutes>`",
 				},
 				artifactBySurface: {
 					ui: { verb: "Save", noun: "screenshot" },
@@ -403,7 +425,7 @@ const READINESS_SHELL = {
 	Evidence: `<launch command, ready signal, one journey, timestamp>`,
 	"Driver proof": `<one mapped journey plus one known-bad control at the head, or none>`,
 	Isolation: `<single-stack at its fixed ports, or per-lane namespaces>`,
-	"Gate duration": `<unit, live, formal, perf in minutes; mark anything above 90 detached>`,
+	"Gate duration": `<unit, live, formal, perf in minutes>`,
 	Skill: `<verify-<app> path>`,
 	Map: `<features/ path>`,
 	Formal: `<exists|exists-stale|create|not-required>`,
@@ -437,7 +459,7 @@ export function renderShell(options) {
 	const laneTable = [
 		`| ${columns.map((column) => column.header).join(" | ")} |`,
 		`|${columns.map(() => "---").join("|")}|`,
-		"| <id> | <one deliverable> | `<glob>` | `<worktree path>` | `<test command>` | <unit ids, or None> |",
+		"| <id> | <one deliverable> | `<glob>` | `<worktree path>` | `<test command>` | <minutes> | <unit ids, or None> |",
 	];
 	const artifactPath = `\`.scratch/${feature}/shots/${pr}/worker-<n>/<slug>${surface === "ui" ? ".png" : ".txt"}\``;
 	return `# ${title} plan
@@ -464,7 +486,7 @@ ${readinessTable.join("\n")}
 
 Fill \`Maintenance route\` only when the app \`Decision\` or \`Formal\` is \`exists-stale\`; name the \`maintain-verification-skill\` and/or \`maintain-formal-verification-skill\` route the stale decision routes to. Keep \`none\` otherwise.
 
-\`exists\` requires a driver proof. A driver being rewritten, or one without a known-bad control, routes to \`exists-stale\` and the maintain skill. \`Isolation\` decides the ready-set size. \`Gate duration\` above 90 minutes names a detached runner.
+\`exists\` requires a driver proof. A driver being rewritten, or one without a known-bad control, routes to \`exists-stale\` and the maintain skill. \`Isolation\` decides the ready-set size. Each final-gate lane runs under the lane procedure in \`skills/start-dev/playbooks/single-pr.md\`, and its \`Timeout\` stays within the spawn bound.
 
 ## Run graph
 
