@@ -16,7 +16,7 @@ const run = (text) => {
 	const file = path.join(dir, "plan.md");
 	fs.writeFileSync(file, text);
 	try {
-		const stdout = execFileSync(process.execPath, [checker, file], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+		const stdout = execFileSync(process.execPath, [checker, "--spawn-bound", "120", file], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 		return { status: 0, stdout, stderr: "" };
 	} catch (error) {
 		return { status: error.status ?? 1, stdout: error.stdout ?? "", stderr: error.stderr ?? "" };
@@ -65,12 +65,14 @@ const mutations = [
 	["curly quote", (t) => t.replace("The fixture itself.", "The fixture’s self."), /curly quote/],
 	["mid-sentence colon", (t) => t.replace("The fixture itself.", "Note: the fixture."), /mid-sentence colon/],
 	["bad files box", (t) => t.replace("- [ ] Create `skills/start-dev/references/plan-shape.mjs`.", "- [ ] Create the shape module."), /Files box is not/],
+	["dropped budget column", (t) => t.replace(" Scoped tests | Budget |", " Scoped tests |"), /lacks the lane table/],
+	["non-numeric budget", (t) => t.replace("| node --test fixture | 5 |", "| node --test fixture | soon |"), /positive whole number of minutes/],
 ];
 
 test("the fixture validates", () => {
 	const result = run(fixture);
 	assert.equal(result.status, 0, result.stderr);
-	assert.match(result.stdout, /1 PR sections, 0 problems/);
+	assert.match(result.stdout, /1 PR sections, 0 problems, spawn bound 120 minutes/);
 });
 
 test("every rule has a mutation, each with harmless decoys, at least 200 in total", () => {

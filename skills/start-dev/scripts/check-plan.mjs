@@ -6,12 +6,29 @@ import path from "node:path";
 import process from "node:process";
 import { shape, validators } from "../references/plan-shape.mjs";
 
-const USAGE = "Usage: node check-plan.mjs <plan.md>";
-const file = process.argv[2];
-if (!file) {
+const USAGE = "Usage: node check-plan.mjs --spawn-bound <minutes|unlimited> <plan.md>";
+const args = process.argv.slice(2);
+let spawnBound = null;
+const positional = [];
+for (let i = 0; i < args.length; i++) {
+	if (args[i] === "--spawn-bound") {
+		const value = args[++i];
+		if (value === "unlimited") spawnBound = { unlimited: true };
+		else if (value && /^[1-9]\d*$/.test(value)) spawnBound = { minutes: Number(value) };
+		else {
+			console.error(USAGE);
+			process.exit(2);
+		}
+	} else if (args[i].startsWith("--")) {
+		console.error(USAGE);
+		process.exit(2);
+	} else positional.push(args[i]);
+}
+if (!spawnBound || positional.length !== 1) {
 	console.error(USAGE);
 	process.exit(2);
 }
+const file = positional[0];
 let text;
 try {
 	text = fs.readFileSync(file, "utf8");
@@ -332,7 +349,7 @@ if (prHead) {
 					if (column.pattern && record[column.key] && !column.pattern.test(record[column.key]))
 						fail(laneTable.start, `lane row "${record.id}" has an invalid ${column.header}`);
 					if (column.validator && record[column.key]) {
-						const result = validators[column.validator](record[column.key], { laneRows, readiness: readinessValues });
+						const result = validators[column.validator](record[column.key], { laneRows, readiness: readinessValues, spawnBound, record });
 						for (const message of [].concat(result ?? [])) if (message) fail(laneTable.start, message);
 					}
 				}
@@ -375,6 +392,12 @@ if (prHead) {
 	const artifact = shape.pr.blocks["Verify, live."].artifactBySurface[surface];
 	for (const lane of laneBoxes) {
 		if (!lane.body.includes("Live-only:")) fail(lane.line, `lane ${lane.match[1]} has no Live-only sentence`);
+		const timeout = lane.body.match(/`Timeout (\d+)`/);
+		if (!timeout) fail(lane.line, `lane ${lane.match[1]} names no backticked timeout`);
+		else {
+			const message = validators.laneTimeout(timeout[1], { spawnBound, lane: lane.match[1] });
+			if (message) fail(lane.line, message);
+		}
 		if (!lane.body.includes("Pass when")) fail(lane.line, `lane ${lane.match[1]} has no pass predicate`);
 		if (!/`[^`]+#[^`]+`/.test(lane.body)) fail(lane.line, `lane ${lane.match[1]} names no backticked feature entry`);
 		if (artifact && !lane.body.includes(artifact.verb)) fail(lane.line, `lane ${lane.match[1]} names no ${artifact.noun}`);
@@ -426,6 +449,7 @@ if (close) {
 
 // ---------- report ----------
 for (const line of lines.slice(0, 0)) void line;
-console.log(`${prHeads.length} PR sections, ${problems.length} problems`);
+const bound = spawnBound.unlimited ? "unlimited" : `${spawnBound.minutes} minutes`;
+console.log(`${prHeads.length} PR sections, ${problems.length} problems, spawn bound ${bound}`);
 for (const problem of problems) console.error(problem);
 process.exit(problems.length ? 1 : 0);

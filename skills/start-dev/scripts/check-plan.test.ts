@@ -19,9 +19,9 @@ const write = (dir, name, text) => {
 	fs.writeFileSync(file, text);
 	return file;
 };
-const run = (file) => {
+const run = (file, bound = "120") => {
 	try {
-		return { status: 0, stdout: execFileSync(process.execPath, [checker, file], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
+		return { status: 0, stdout: execFileSync(process.execPath, [checker, "--spawn-bound", bound, file], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
 	} catch (error) {
 		return { status: error.status ?? 1, stdout: error.stdout ?? "", stderr: error.stderr ?? "" };
 	}
@@ -31,7 +31,7 @@ test("a conforming plan exits 0", () => {
 	const dir = temp();
 	const result = run(write(dir, "plan.md", fixture));
 	assert.equal(result.status, 0, result.stderr);
-	assert.match(result.stdout, /1 PR sections, 0 problems/);
+	assert.match(result.stdout, /1 PR sections, 0 problems, spawn bound 120 minutes/);
 });
 
 test("a plan with a retired heading exits 1 and names it", () => {
@@ -64,7 +64,7 @@ test("the emitter renders the shell from the shape", () => {
 		"## Run graph",
 		"(P1)",
 		"**Build.**",
-		"| Unit | Deliverable | File lane | Worktree | Scoped tests | Depends on |",
+		"| Unit | Deliverable | File lane | Worktree | Scoped tests | Budget | Depends on |",
 		"**Verify, live.**",
 		"**Review gate.**",
 		"## Close the run",
@@ -89,6 +89,39 @@ test("the emitter refuses an occupied path without --force", () => {
 			stdio: ["ignore", "pipe", "pipe"],
 		}),
 	);
+});
+
+test("a unit and a lane at the bound pass, and one minute over fails", () => {
+	const dir = temp();
+	const atBound = fixture.replace("| node --test fixture | 5 |", "| node --test fixture | 120 |").replace("`Timeout 2`", "`Timeout 120`");
+	assert.equal(run(write(dir, "at.md", atBound)).status, 0);
+	const overUnit = fixture.replace("| node --test fixture | 5 |", "| node --test fixture | 121 |");
+	const unitResult = run(write(dir, "unit.md", overUnit));
+	assert.equal(unitResult.status, 1);
+	assert.match(unitResult.stderr, /unit "U1" budget 121 minutes exceeds the spawn bound of 120/);
+	const overLane = fixture.replace("`Timeout 2`", "`Timeout 121`");
+	const laneResult = run(write(dir, "lane.md", overLane));
+	assert.equal(laneResult.status, 1);
+	assert.match(laneResult.stderr, /lane 1 timeout 121 minutes exceeds the spawn bound of 120/);
+});
+
+test("a missing or unrecognized spawn bound exits 2", () => {
+	const dir = temp();
+	const file = write(dir, "plan.md", fixture);
+	for (const args of [[checker, file], [checker, "--spawn-bound", "zero", file], [checker, "--harness", "kimi", file]]) {
+		assert.throws(
+			() => execFileSync(process.execPath, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
+			(error) => error.status === 2,
+		);
+	}
+});
+
+test("an unlimited bound accepts a large budget", () => {
+	const dir = temp();
+	const text = fixture.replace("| node --test fixture | 5 |", "| node --test fixture | 999 |");
+	const result = run(write(dir, "plan.md", text), "unlimited");
+	assert.equal(result.status, 0, result.stderr);
+	assert.match(result.stdout, /spawn bound unlimited/);
 });
 
 test("a missing argument exits 2", () => {
