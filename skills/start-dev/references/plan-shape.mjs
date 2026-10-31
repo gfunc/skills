@@ -236,7 +236,9 @@ export const shape = {
 			"Check a box only when its evidence exists",
 			"playbooks/",
 			RULE,
+			"Continuation: ",
 		],
+			continuationPlaceholder: "copied from the active profile",
 	},
 
 	readiness: {
@@ -472,7 +474,7 @@ One box is one unit of work. Every box names the evidence that checks it. A nest
 
 The run executes \`skills/start-dev/playbooks/${playbook}.md\`. The main agent owns PR ${pr} and lands it on the clean verdict; a merge worker is the only writer of the branch.
 
-Continuation: <the active profile's continuation mechanism. Where the profile has \`/goal\`, a goal whose completion criterion is the landed PR, foreground children, and no background polling and no audit tick. Where it has no goal, normal mode with the same no-polling rule.>
+Continuation: <copied from the active profile's Role mapping Continuation line. The line names the mechanism and is not chosen.>
 
 ${RULE}
 
