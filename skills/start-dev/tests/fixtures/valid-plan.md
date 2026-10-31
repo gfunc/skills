@@ -6,6 +6,8 @@ A fixture used to prove the checker and the emitter.
 
 One box is one unit of work. Every box names the evidence that checks it. Check a box only when its evidence exists. The run executes `skills/start-dev/playbooks/single-pr.md`.
 
+Continuation: /goal is native.
+
 Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
 ## Verification readiness

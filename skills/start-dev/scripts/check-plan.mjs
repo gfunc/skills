@@ -155,6 +155,9 @@ else {
 	const joined = howToRead.body.join("\n");
 	for (const marker of shape.howToRead?.markers ?? [])
 		if (!joined.includes(marker)) fail(howToRead.line, `How to read this lacks "${marker}"`);
+		const continuation = howToRead.body.find((line) => line.trim().startsWith("Continuation:"));
+		if (continuation && continuation.includes(shape.howToRead.continuationPlaceholder))
+			fail(howToRead.line, "Continuation line is still the placeholder");
 }
 
 // ---------- sections order ----------

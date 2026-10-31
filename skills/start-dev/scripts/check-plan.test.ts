@@ -34,6 +34,23 @@ test("a conforming plan exits 0", () => {
 	assert.match(result.stdout, /1 PR sections, 0 problems, spawn bound 120 minutes/);
 });
 
+test("a placeholder continuation line fails and a copied one passes", () => {
+	const dir = temp();
+	assert.equal(run(write(dir, "copied.md", fixture)).status, 0);
+	const placeholder = fixture.replace(
+		"Continuation: /goal is native.",
+		"Continuation: <copied from the active profile's Role mapping Continuation line.>",
+	);
+	const result = run(write(dir, "placeholder.md", placeholder));
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /Continuation line is still the placeholder/);
+	const missing = fixture.replace("Continuation: /goal is native.\n\n", "");
+	const dropped = run(write(dir, "dropped.md", missing));
+	assert.equal(dropped.status, 1);
+	assert.match(dropped.stderr, /How to read this lacks "Continuation: "/);
+});
+
+
 test("a plan with a retired heading exits 1 and names it", () => {
 	const dir = temp();
 	const text = fixture.replace("## Run graph", "## Program checklist\n\n### Arm the program\n\n- [ ] x\n\n## Run graph");
