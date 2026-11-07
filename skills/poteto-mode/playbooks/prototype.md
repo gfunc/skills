@@ -11,4 +11,6 @@ The one playbook where the Laziness Protocol's "smallest change" and the verific
 5. Verify on the matching surface. For a visual decision, screenshot each variant via the control skill and drive the interaction. For a behavioral or timing decision, observe the thing you are deciding by logging the timing, printing the output, or watching the render. The observation is the test here, not an assertion.
 6. Present alternatives, tradeoffs, and a recommendation. The output is the decision plus the throwaway artifact, not shippable code. Hand the chosen direction to **Feature** (or `architect` for the shape) for the real build.
 
+The build and verify steps above run through the prototype skill's scenario branches: route the input and question by the routing table in `skills/prototype/SKILL.md`, then build and verify on the selected branch file — `skills/prototype/LOGIC.md`, `skills/prototype/VARIANTS.md`, `skills/prototype/DESIGN-DOC.md`, or `skills/prototype/REDLINE.md`. The branch file carries the branch's shape and evidence form; this playbook stays the sequence, the decision, and the reply.
+
 **Reply:** the variants explored, the evidence (screenshots for a visual decision, the observed output or timing for a behavioral one), tradeoffs, your recommendation, and the scratch path. Say plainly that the prototype is throwaway.
