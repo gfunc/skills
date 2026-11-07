@@ -1,8 +1,10 @@
-# UI Prototype
+# VARIANTS Prototype
 
 Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
 
-If the question is about logic/state rather than what something looks like, this is the wrong branch. Use [LOGIC.md](LOGIC.md).
+This is the branch for questions about what something **looks like** — not how it behaves; those belong in [LOGIC.md](LOGIC.md). Pick a sub-shape first: **sub-shape A** mounts the variants inside an existing page whenever a plausible host exists, and **sub-shape B** creates a throwaway page only as a last resort.
+
+Evidence for the completion gate comes in this branch's form: a **per-variant screenshot** of every variant, plus **per-id disclosure** where a `modern-web-guidance` guide was applied — one bullet per applied id with a short verbatim quote, or one sentence naming what was checked and why nothing applied.
 
 ## When this is the right shape
 

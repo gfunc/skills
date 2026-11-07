@@ -42,7 +42,10 @@ skills/prototype/LOGIC.md	8b9e9f29fced48cb9c3cff5442539254962d70e242f346d5271c95
 # Gfunc addition (AINX-395, recorded adaptation): skills/prototype/SKILL.md is rewritten for this pack
 #   as the scenario router; its hash here records the rewritten text as pack-owned rather than frozen.
 skills/prototype/SKILL.md	561eee79d4e8a94f014f08cc03448fb21ba1d74df175dab0ca10dc57c9babf75
-skills/prototype/UI.md	723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3
+# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/VARIANTS.md is the renamed
+#   skills/prototype/UI.md with a rewritten routing opening and evidence form; its hash here records
+#   the adapted text as pack-owned rather than frozen.
+skills/prototype/VARIANTS.md	8f4c0c8b18e0f977adeec7d84c10a30275874acd0f5133402056cc0cebb546e2
 skills/prototype/agents/openai.yaml	5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc
 skills/research/SKILL.md	985569f15739c713d6784887c3d186d4ef9ac85bec5ad9c068d25bf0739928e4
 skills/research/agents/openai.yaml	9b4c470d63221c1f68f22df70b83e2f12401b317babe0d1b7b5f24a974474d0d
