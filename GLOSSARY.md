@@ -53,7 +53,7 @@ One branch file under the prototype skill holding the process for one scenario f
 _Avoid_: sub-skill, playbook
 
 **Routing table**:
-The two-axis discriminator at the router's top: input (design doc, existing page, bare question) × question (logic/behavior, appearance, polish). An ambiguous cell falls to a default branch with the assumption stated at the top of the artifact.
+The two-axis discriminator at the router's top: input (design doc, existing page, bare question) × question (logic/behavior, appearance, interaction, polish). An ambiguous cell falls to a default branch with the assumption stated at the top of the artifact.
 _Avoid_: decision tree
 
 **Completion gate**:
