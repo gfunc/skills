@@ -30,7 +30,7 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 ## Models
 
 - **Main-model configuration:** `~/.kimi-code/config.toml` — top-level `default_model`, `[models."<alias>"]` entries, and provider auth; `-m` or `/model` selects per session; `/provider` imports a provider catalog into `[models]`.
-- **Availability gate:** an alias is usable only when it exists in `[models]` and its provider authenticates. Every `[secondary_model]` alias must resolve to a `[models]` entry.
+- **Availability gate:** an alias is usable only when it exists in `[models]` and its provider authenticates. Every `[secondary_model]` alias must resolve to a `[models]` entry; a pool entry alone makes nothing usable. Alias ids match exactly and are case-sensitive — verify the exact id against the serving provider's model listing (for example the gateway's `/v1/models`) instead of normalizing case.
 - **Subagent model mechanism:** the `model` parameter on `Agent`/`AgentSwarm`, offered only when `[secondary_model]` is configured. The pool is a `models` table of aliases, an optional `default_model`, and `force = true`, which pins every spawn and removes the parameter. Agent files cannot set a model; a Claude-style `model:` frontmatter field is ignored. The pre-0.42.0 experimental secondary-model flag no longer exists — the configured pool is the only gate.
 - **Per-spawn model parameter:** yes, while a pool is configured; without one, subagents inherit the caller's model and the parameter is not offered.
 - **Inheritance token:** `primary` — the caller's model and effort. Omitting the parameter inherits the caller's model.
