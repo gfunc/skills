@@ -67,3 +67,11 @@ skills/writing-for-agents/agents/openai.yaml	eacb24b2a618cfb81dacb0416f4fdd75ddf
 #   authored for this pack under skills/prototype/references/; the prototype family exits this
 #   manifest in the Manifest unit of the same plan.
 skills/prototype/references/design-laws.md	c0ee619178422dc51f5202b7b4b1290771dc267f7817d6b3fcec2dcd1804d8e3
+# Gfunc addition (AINX-395, recorded adaptation): REDLINE decision core authored for this pack
+#   under skills/prototype/ (operator contract, rule-as-data shape, walker, tests, adapted
+#   auditor); the prototype family exits this manifest in the Manifest unit of the same plan.
+skills/prototype/REDLINE.md	a8faec136b92330d36f1c4503d8e2cf8d8c3f71ebc4d8d6697c48c972ba081d2
+skills/prototype/references/redline-shape.mjs	5c9108f6989717dc4834f5e0f598ec639c22f85fde5dc25ad07ccd3ccf16c6f3
+skills/prototype/scripts/decide-redline.mjs	9b1e49ebb4c8be6686ae65c7d8067495beb905f43d886cb3c8d276983503b8dd
+skills/prototype/scripts/decide-redline.test.mjs	accb24d1e0b8f39a8b34585961627d2bf6711a34ef88349a8f00bfd63ebe39bc
+skills/prototype/scripts/audit-variant.mjs	cc1aadc1279d79ce7c557fc13b0ee3a8f9f0ca0ed33e2bfeb5c6096b0eb93cf2
