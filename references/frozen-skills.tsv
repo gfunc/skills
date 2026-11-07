@@ -66,7 +66,7 @@ skills/writing-for-agents/agents/openai.yaml	eacb24b2a618cfb81dacb0416f4fdd75ddf
 # Gfunc addition (AINX-395, recorded adaptation): design-law anchors and the authority ladder
 #   authored for this pack under skills/prototype/references/; the prototype family exits this
 #   manifest in the Manifest unit of the same plan.
-skills/prototype/references/design-laws.md	c0ee619178422dc51f5202b7b4b1290771dc267f7817d6b3fcec2dcd1804d8e3
+skills/prototype/references/design-laws.md	456e832eb7fbc8cf473a91243aacd90a9a55d8b3981bf3894891eec904ed8bfc
 # Gfunc addition (AINX-395, recorded adaptation): REDLINE decision core authored for this pack
 #   under skills/prototype/ (operator contract, rule-as-data shape, walker, tests, adapted
 #   auditor); the prototype family exits this manifest in the Manifest unit of the same plan.

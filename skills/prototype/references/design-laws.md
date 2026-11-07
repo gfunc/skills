@@ -2,7 +2,7 @@
 
 Nine design-law anchors plus the authority ladder. Prototype branches cite an anchor (`#choice`) in a REDLINE row, a finding, or a design argument; this file holds each law's claim, its plain gloss, and the limit that bounds it. An anchor's token is its heading: `## Choice` is `#choice`.
 
-Craft guidance (spacing, type, colour scales) and platform-convention surveys live in the sibling reference `design-principles.md`; the two files share no content. On any conflict between sources, follow the ladder in `#authority`.
+Craft guidance (spacing, type, colour scales) and platform-convention surveys live in the sibling reference [design-principles.md](design-principles.md); the two files share no content. On any conflict between sources, follow the ladder in `#authority`.
 
 Paraphrased from `Owl-Listener/designer-skills` (MIT, © 2026 MC Dean) — claims, glosses, and limits rewritten, no upstream text reproduced. The steering law follows Accot–Zhai's published result.
 
