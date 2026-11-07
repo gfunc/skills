@@ -1,5 +1,5 @@
 # Matt Pocock frozen skills: source https://github.com/mattpocock/skills @ 49dd158 (v1.3.1)
-# 29 frozen files: 23 byte-identical, 6 changed.
+# 25 frozen files: 19 byte-identical, 6 changed.
 # The 6 changed files sit inside four adapted families that hold 13 frozen files in total;
 #   the other 7 files in those families are byte-identical companions:
 #   skills/learn/ 6 files (SKILL.md and agents/openai.yaml changed, adapted from productivity/teach
@@ -10,22 +10,18 @@
 #     agents/openai.yaml byte-identical)
 #   skills/writing-for-agents/ 3 files (SKILL.md and SKILL-MECHANICS.md changed: source metadata and
 #     harness-profile invocation; agents/openai.yaml byte-identical)
-# The other six families are 16 byte-identical files: skills/domain-modeling/ 4, skills/grilling/ 2,
-#   skills/handoff/ 2, skills/prototype/ 4, skills/research/ 2, skills/to-questionnaire/ 2.
+# The other five families are 12 byte-identical files: skills/domain-modeling/ 4, skills/grilling/ 2,
+#   skills/handoff/ 2, skills/research/ 2, skills/to-questionnaire/ 2.
 # Do not edit these files. Amend this manifest only when provenance changes.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 # Gfunc addition: skills/improve-codebase-architecture and skills/grill-with-docs are adapted from
 #   the same source, not frozen: their SKILL.md files are rewritten for this pack and carry no hash here.
-# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/DESIGN-DOC.md is a gfunc-authored
 #   gfunc-owned addition inside the frozen prototype family, adapted with credit from anthropics'
 #   frontend-design skill (Apache-2.0) and alchaincyf/huashu-design (MIT); it is not Matt Pocock
 #   content, and its hash here records it as pack-owned rather than frozen.
-skills/prototype/DESIGN-DOC.md	de48b11e068dd3af9cd80cc1562e4e0af1a9308025f6efec0e27720c4923a091
-# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/references/design-principles.md is
 #   a gfunc-authored gfunc-owned addition inside the frozen prototype family, adapted with credit from
 #   the-vibey-project/vibey's ui-ux-design-principles plugin (MIT); it is not Matt Pocock content, and
 #   its hash here records it as pack-owned rather than frozen.
-skills/prototype/references/design-principles.md	1c902a73b2baf546e3c9494217b7481963dde05e113a814fcd59ec372beb8b22
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
 skills/domain-modeling/GLOSSARY-FORMAT.md	21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801
 skills/domain-modeling/SKILL.md	7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3
@@ -40,18 +36,6 @@ skills/learn/MISSION-FORMAT.md	8cacbb3c0644d3ae0ea4965564797099401a6930a23f7cf46
 skills/learn/RESOURCES-FORMAT.md	e9cacf34026e11a8d1c8f9de88abe5bcbf654f4ebdb25cae8c0de0d5f48f44ec
 skills/learn/SKILL.md	8286dbac91d3bfb729bc50029c3d8ed86e7486a4299d9b19c383a6e3a6252ca2
 skills/learn/agents/openai.yaml	58bbc5f1f1015a3429dddf18f4c7f4be82ec1be1c9cf791461ffe8b5d28932f4
-# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/LOGIC.md gains the behavior/timing
-#   sub-shape and the observed-output evidence form; its hash here records the adapted text as
-#   pack-owned rather than frozen.
-skills/prototype/LOGIC.md	8b9e9f29fced48cb9c3cff5442539254962d70e242f346d5271c950c62e177da
-# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/SKILL.md is rewritten for this pack
-#   as the scenario router; its hash here records the rewritten text as pack-owned rather than frozen.
-skills/prototype/SKILL.md	561eee79d4e8a94f014f08cc03448fb21ba1d74df175dab0ca10dc57c9babf75
-# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/VARIANTS.md is the renamed
-#   skills/prototype/UI.md with a rewritten routing opening and evidence form; its hash here records
-#   the adapted text as pack-owned rather than frozen.
-skills/prototype/VARIANTS.md	8f4c0c8b18e0f977adeec7d84c10a30275874acd0f5133402056cc0cebb546e2
-skills/prototype/agents/openai.yaml	5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc
 skills/research/SKILL.md	985569f15739c713d6784887c3d186d4ef9ac85bec5ad9c068d25bf0739928e4
 skills/research/agents/openai.yaml	9b4c470d63221c1f68f22df70b83e2f12401b317babe0d1b7b5f24a974474d0d
 skills/to-questionnaire/SKILL.md	b5eb929842ee0e93d867c5e906d183d350f2f2d149eaeaa86967d94d8eda1d3b
@@ -64,14 +48,6 @@ skills/writing-for-agents/SKILL-MECHANICS.md	2820af2e4a8907cf459a3d9b5734faec314
 skills/writing-for-agents/SKILL.md	fe233fa8a6fb2dc26f57b782dc9a051e0d4d3a7158a1b3d1707b4e3cd796481f
 skills/writing-for-agents/agents/openai.yaml	eacb24b2a618cfb81dacb0416f4fdd75ddf3a8060f8ddb99aae1b1e301907e4b
 # Gfunc addition (AINX-395, recorded adaptation): design-law anchors and the authority ladder
-#   authored for this pack under skills/prototype/references/; the prototype family exits this
 #   manifest in the Manifest unit of the same plan.
-skills/prototype/references/design-laws.md	456e832eb7fbc8cf473a91243aacd90a9a55d8b3981bf3894891eec904ed8bfc
 # Gfunc addition (AINX-395, recorded adaptation): REDLINE decision core authored for this pack
-#   under skills/prototype/ (operator contract, rule-as-data shape, walker, tests, adapted
 #   auditor); the prototype family exits this manifest in the Manifest unit of the same plan.
-skills/prototype/REDLINE.md	a8faec136b92330d36f1c4503d8e2cf8d8c3f71ebc4d8d6697c48c972ba081d2
-skills/prototype/references/redline-shape.mjs	5c9108f6989717dc4834f5e0f598ec639c22f85fde5dc25ad07ccd3ccf16c6f3
-skills/prototype/scripts/decide-redline.mjs	9b1e49ebb4c8be6686ae65c7d8067495beb905f43d886cb3c8d276983503b8dd
-skills/prototype/scripts/decide-redline.test.mjs	accb24d1e0b8f39a8b34585961627d2bf6711a34ef88349a8f00bfd63ebe39bc
-skills/prototype/scripts/audit-variant.mjs	cc1aadc1279d79ce7c557fc13b0ee3a8f9f0ca0ed33e2bfeb5c6096b0eb93cf2
