@@ -1,6 +1,6 @@
 # REDLINE — polish an existing UI by audited variants
 
-Take this branch when the input is an existing page or app and the question is polish (appearance refinement, not new structure). If there is no existing page, route [VARIANTS](VARIANTS.md) and state the assumption; if the question is logic or interaction, route LOGIC or VARIANTS. The real page runs under its own start command.
+Take this branch when the input is an existing page or app and the question is polish (appearance refinement, not new structure). If there is no existing page, route `VARIANTS.md` and state the assumption; if the question is logic or interaction, route LOGIC or VARIANTS. The real page runs under its own start command.
 
 The whole decision is executable. `scripts/decide-redline.mjs` over a run directory of report files is the definition of reject, rank, and pick; this file never restates its field-level logic, so no prose copy can drift. The rule as data lives in `references/redline-shape.mjs`.
 
@@ -14,9 +14,9 @@ Rows to audit are the twelve mandatory rows in `references/redline-shape.mjs` (`
 
 ## Steps
 
-1. **Audit every variant** on the real page, one `?variant=` at a time: run `node scripts/audit-variant.mjs "<url-with-?variant=>" <run-dir>/<variant>` per variant. It drives the tier ladder, auto-scrolls before each shot, and writes `report.json` plus one PNG per tier. A review pass adds human findings to each report, every finding carrying evidence (a screenshot path or a console line) and a fix.
-2. **Decide**: `node scripts/decide-redline.mjs <run-dir> [--pick pick.json]`. It prints the one-line decision and writes `winner.json`. Exit 0 is a winner; 2 means no eligible variant (fix and re-audit) or a bad pick; 3 means a malformed report.
-3. **Capture.** Evidence is the run directory: every report.json, the PNGs, and `winner.json`. Apply the winner to the real code, archive the losing variants with their reports on the throwaway capture branch, then re-audit the real route once without the `?variant=` switch — folding back can itself regress, so the fold-back gate is a fresh audit, and it is skipped (not repeated) when the winner is already the live route.
+1. **Audit every variant** on the real page, one `?variant=` at a time: run `node scripts/audit-variant.mjs "<url-with-?variant=>" <run-dir>/<variant>` per variant. It opens the page once, drives the tier ladder (resize, auto-scroll, screenshot per tier), and writes `report.json` plus one PNG per tier. When the CLI surface cannot tap the console it writes `consoleErrors: null`; the review pass then reads the console and supplies the count — a null count leaves the variant ineligible, never silently clean. The review pass also adds human findings to each report, every finding carrying evidence (a screenshot path or a console line) and a fix.
+2. **Decide**: `node scripts/decide-redline.mjs <run-dir> [--pick pick.json]`. The run directory holds one `<variant>/report.json` per variant (bare report paths also work); the walker prints the one-line decision and writes `winner.json` into the run directory. Exit 0 is a winner; 2 means no eligible variant (fix and re-audit) or a bad pick; 3 means a malformed report.
+3. **Capture** follows the completion gate in `SKILL.md`; REDLINE's evidence form is the run directory (every `report.json`, the PNGs, `winner.json`), losers archived with their reports, and one fold-back re-audit of the real route after the `?variant=` switch comes off.
 
 ## Credits
 

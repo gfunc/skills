@@ -115,6 +115,19 @@ test("decide: auto-tie-broken on the last key with the assumption stated", () =>
 	assert.match(decision.assumption, /auto-broke the tie/);
 });
 
+test("decide: pick agreeing with a unique computed winner is confirmed", () => {
+	const decision = decide(
+		[
+			report({ variant: "a", findings: [] }),
+			report({ variant: "b", findings: [finding()] }),
+		],
+		{ variant: "a" },
+	);
+	assert.equal(decision.kind, "confirmed");
+	assert.equal(decision.winner, "a");
+	assert.deepEqual(decision.tiedAtTop, ["a"]);
+});
+
 test("decide: pick tie-breaks inside tiedAtTop", () => {
 	const decision = decide(
 		[
@@ -175,6 +188,16 @@ test("machine-band mapping: low lands on nit and never gates or ranks", () => {
 	// Zero open mediums both, so order follows input; the nit finding never ranks.
 	assert.deepEqual(rank([lowOnly, plain]).map((entry) => entry.variant), ["low", "plain"]);
 	assert.deepEqual(decide([lowOnly, plain]).tiedAtTop, ["low", "plain"]);
+});
+
+test("walker: bare report paths still work and winner.json lands beside them", () => {
+	const dir = tmp();
+	const file = path.join(dir, "report-a.json");
+	fs.writeFileSync(file, JSON.stringify(report({ variant: "a" })));
+	const out = run([file], dir);
+	assert.equal(out.code, 0);
+	assert.ok(fs.existsSync(path.join(dir, "winner.json")), "winner.json missing beside reports");
+	fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("parseReport: accepts a well-formed report and normalizes findings", () => {
@@ -265,6 +288,30 @@ test("walker: tie with pick resolves as tie-broken", () => {
 	const out = run([dir, "--pick", "pick.json"], dir);
 	assert.equal(out.code, 0);
 	assert.match(out.stdout, /b \(tie-broken\) tied at top: \[a, b\]/);
+	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("eligible: a null console count is not eligible until supplied", () => {
+	assert.equal(eligible(report({ consoleErrors: null })), false);
+	const decision = decide([report({ variant: "a", consoleErrors: null })]);
+	assert.equal(decision.kind, "all-rejected");
+	assert.deepEqual(decision.rejected[0].reasons, ["console errors not yet counted (null)"]);
+	assert.match(parseReport(JSON.stringify(report({ consoleErrors: null })), "r7.json").error ?? "", /^$|^r7\.json/);
+	assert.equal(parseReport(JSON.stringify(report({ consoleErrors: null })), "r7.json").error, undefined);
+});
+
+test("walker: run-dir with variant subdirectories recurses and writes winner.json into the run dir", () => {
+	const dir = tmp();
+	for (const [variant, findings] of [["a", []], ["b", [finding()]]]) {
+		const variantDir = path.join(dir, variant);
+		fs.mkdirSync(variantDir);
+		fs.writeFileSync(path.join(variantDir, "report.json"), JSON.stringify(report({ variant, findings })));
+	}
+	const out = run([dir], dir);
+	assert.equal(out.code, 0);
+	assert.match(out.stdout, /a \(confirmed\)/);
+	const winner = JSON.parse(fs.readFileSync(path.join(dir, "winner.json"), "utf8"));
+	assert.equal(winner.winner, "a");
 	fs.rmSync(dir, { recursive: true, force: true });
 });
 

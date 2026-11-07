@@ -83,8 +83,9 @@ export function parseReport(text, name = "report.json") {
 		problems.push(`${name}: field "url" is missing or not a non-empty string`);
 	if (!validTiers(parsed.tiers))
 		problems.push(`${name}: field "tiers" is missing or holds tiers outside ${TIER_LADDER.join("/")}`);
-	if (typeof parsed.consoleErrors !== "number" || !Number.isInteger(parsed.consoleErrors) || parsed.consoleErrors < 0)
-		problems.push(`${name}: field "consoleErrors" is not a non-negative integer`);
+	if (parsed.consoleErrors !== null &&
+		(typeof parsed.consoleErrors !== "number" || !Number.isInteger(parsed.consoleErrors) || parsed.consoleErrors < 0))
+		problems.push(`${name}: field "consoleErrors" is not a non-negative integer or null`);
 	if (!Array.isArray(parsed.overflowTiers) || parsed.overflowTiers.some((tier) => !TIER_LADDER.includes(tier)))
 		problems.push(`${name}: field "overflowTiers" is not a list of ladder tiers`);
 	if (!Array.isArray(parsed.findings))
@@ -116,8 +117,11 @@ const mediumCount = (report) =>
 	report.findings.filter((finding) => finding.band === "medium").length;
 
 // Eligibility is the predicate: zero open blocker or high findings, zero
-// console errors, no overflow at any tier. Nits never gate.
+// console errors, no overflow at any tier. Nits never gate. A null
+// consoleErrors is the audit's honest "not captured": the variant stays
+// ineligible until the review pass supplies the count.
 export function eligible(report) {
+	if (report.consoleErrors === null) return false;
 	return (
 		report.findings.every((finding) => finding.band !== "blocker" && finding.band !== "high") &&
 		report.consoleErrors === 0 &&
@@ -129,7 +133,8 @@ const ineligibilityReasons = (report) => {
 	const reasons = [];
 	const blocking = report.findings.filter((finding) => finding.band === "blocker" || finding.band === "high");
 	if (blocking.length) reasons.push(`${blocking.length} open blocker/high findings: ${blocking.map((finding) => finding.row ?? finding.phase).join(", ")}`);
-	if (report.consoleErrors > 0) reasons.push(`${report.consoleErrors} console errors`);
+	if (report.consoleErrors === null) reasons.push("console errors not yet counted (null)");
+	else if (report.consoleErrors > 0) reasons.push(`${report.consoleErrors} console errors`);
 	if (report.overflowTiers.length) reasons.push(`overflow at tier(s) ${report.overflowTiers.join(", ")}`);
 	return reasons;
 };
@@ -178,11 +183,13 @@ export function decide(reports, pick) {
 				throw new Error("pick.dissent: reason is missing or empty");
 		}
 		const winner = pick.variant;
-		if (tiedAtTop.includes(winner)) {
+		const tiedAtTopGenuinely = tiedAtTop.length > 1;
+		if (tiedAtTopGenuinely && tiedAtTop.includes(winner)) {
 			// The pick resolves an open tie from inside tiedAtTop.
 			return { winner, kind: "tie-broken", tiedAtTop, rejected, ...(pick.dissent ? { dissent: pick.dissent } : {}) };
 		}
 		if (survivors[0].variant === winner) {
+			// The pick agrees with a unique computed winner.
 			return { winner, kind: "confirmed", tiedAtTop, rejected, ...(pick.dissent ? { dissent: pick.dissent } : {}) };
 		}
 		// An override: the pick names a survivor the computed ranking did not
