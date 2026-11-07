@@ -45,3 +45,7 @@ skills/wayfinder/agents/openai.yaml	88bc81a11a6d52ac67aeaa76b8b619e387020d47c513
 skills/writing-for-agents/SKILL-MECHANICS.md	2820af2e4a8907cf459a3d9b5734faec314f6d2d17f8b570fc46ff962650736b
 skills/writing-for-agents/SKILL.md	fe233fa8a6fb2dc26f57b782dc9a051e0d4d3a7158a1b3d1707b4e3cd796481f
 skills/writing-for-agents/agents/openai.yaml	eacb24b2a618cfb81dacb0416f4fdd75ddf3a8060f8ddb99aae1b1e301907e4b
+# Gfunc addition (AINX-395, recorded adaptation): design-law anchors and the authority ladder
+#   authored for this pack under skills/prototype/references/; the prototype family exits this
+#   manifest in the Manifest unit of the same plan.
+skills/prototype/references/design-laws.md	c0ee619178422dc51f5202b7b4b1290771dc267f7817d6b3fcec2dcd1804d8e3
