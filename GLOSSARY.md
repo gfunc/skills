@@ -42,6 +42,24 @@ _Avoid_: boundary, layer
 The leverage of a module: how much behavior hides behind how small an interface. A deep module hides more behind less.
 _Avoid_: size, complexity
 
+### Prototyping
+
+**Prototype**:
+Throwaway code that answers one design question; the question decides its shape, the validated decision folds back into real code, and the artifact archives out of main.
+_Avoid_: mockup, spike, demo
+
+**Scenario branch**:
+One branch file under the prototype skill holding the process for one scenario family — LOGIC, VARIANTS, DESIGN-DOC, REDLINE — selected by the routing table.
+_Avoid_: sub-skill, playbook
+
+**Routing table**:
+The two-axis discriminator at the router's top: input (design doc, existing page, bare question) × question (logic/behavior, appearance, interaction, polish). An ambiguous cell falls to a default branch with the assumption stated at the top of the artifact.
+_Avoid_: decision tree
+
+**Completion gate**:
+The triple hard gate closing every scenario branch: runnable with one command, verification executed with evidence, capture done. Missing any means the prototype is not finished.
+_Avoid_: definition of done
+
 ### Execution
 
 **Plan**:

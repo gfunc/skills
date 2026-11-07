@@ -11,7 +11,7 @@ Because it's one file with nothing to install, you can hand it to a non-develope
 - "I want to feel out what the API should look like before writing it."
 - Anything where someone wants to **press buttons and watch state change**.
 
-If the question is "what should this look like," this is the wrong branch. Use [UI.md](UI.md).
+If the question is "what should this look like," this is the wrong branch. Use [VARIANTS.md](VARIANTS.md).
 
 ## Process
 
@@ -32,7 +32,13 @@ The right shape depends on the question:
 
 Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This is what makes the prototype useful past its own lifetime: once the question's answered, the validated reducer / machine / function set lifts into the real module on its own.
 
-### 3. Build the shareable HTML file
+### 3. Run the smallest script that answers it
+
+Before building any page, write the smallest script that exercises the question: the module from the previous step, driven by a few calls at the bottom of the same file, with no HTML, no build, no server — just the module and a loop or a few invocations. Run it with the project's task runner and watch the printed state transition by transition. The behavior/timing sub-shape is this script plus its observed run: a question about how state moves (or *when* it moves) is answered by watching actual transitions, not by clicking a page.
+
+The observed output is the evidence. Keep the run's output — a log tail of the transitions, or a recorded walkthrough of the script driving the module — as the proof the question was answered; the completion gate in the [SKILL](SKILL.md) tells you where it's saved. Don't build the shareable page at all unless the answer needs a non-developer's eyes; a timing or behavior question is usually settled by the log alone.
+
+### 4. Build the shareable HTML file
 
 One file, plain HTML/CSS/JS: no framework, no bundler, no server, everything inline so it opens by double-click and survives being emailed around. Anyone should be able to run it by opening it.
 
@@ -49,11 +55,11 @@ Choose scenarios that demonstrate the awkward cases, the ones hard to reason abo
 
 Keep it beautiful but restrained: clean typography, generous spacing, one accent colour. No animations, no gimmicks: nothing that competes with the state and the buttons.
 
-### 4. Hand it over
+### 5. Hand it over
 
 Send them the file, or open it for them. They'll click through the walkthroughs and free-play whenever they get to it; the interesting moments are when they say "wait, that shouldn't be possible" or "huh, I assumed X would be different"; those are the bugs in the _idea_, which is the whole point. If they want new actions or a new scenario, add them. Prototypes evolve.
 
-### 5. Capture the answer and the prototype
+### 6. Capture the answer and the prototype
 
 Once the prototype has answered its question, capture the answer, then capture the prototype the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set lifts into the real module (the decision, absorbed); the HTML shell rides along to the throwaway branch that keeps the prototype as a primary source, and being one self-contained file, it stays trivially re-runnable there.
 

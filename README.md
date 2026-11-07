@@ -53,7 +53,8 @@ One flat `skills/` root — every skill a peer:
 
 - pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror at upstream content; only harness adapters, the `.scratch` store convention, and the five declared model-override hunks differ, per `vendor-manifest.txt`; no other workflow modification remains.
 - `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
-- `skills/grilling`, `skills/domain-modeling`, `skills/research`, `skills/prototype` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
+- `skills/grilling`, `skills/domain-modeling`, `skills/research` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
+- `skills/prototype` — absorbed from the mattpocock pack, then reworked gfunc-side into the scenario router: four branches (LOGIC, VARIANTS, DESIGN-DOC, REDLINE) behind a routing table, one completion gate, and an executable redline decision.
 - `skills/improve-codebase-architecture`, `skills/grill-with-docs` — the architecture-scan and docs-writing skills, adapted from the mattpocock pack; the first ships an offline HTML report template.
 - [`skills/writing-for-agents`](skills/writing-for-agents/SKILL.md) is Matt Pocock's reference for agent-facing writing, with host-neutral skill mechanics. Root [`AGENTS.md`](AGENTS.md) uses its task-specific context pointers.
 - [`skills/playwright-expert`](skills/playwright-expert/SKILL.md) — Playwright E2E test authoring, fixtures, CI, and flake debugging, vendored from Jeffallan (MIT); [`skills/playwright-cli`](skills/playwright-cli/SKILL.md) remains the CLI browser driver.

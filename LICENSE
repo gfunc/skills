@@ -5,6 +5,11 @@ Copyright (c) 2026 gfunc
 Includes portions copyright (c) 2026 Lauren Tan (pstack), copyright (c) 2026 Matt Pocock (the skills pack), and copyright (c) 2025 Jeffallan (playwright-expert),
 vendored and ported under the MIT License (see vendor-manifest.txt and skills/playwright-expert/PROVENANCE.md).
 
+Includes portions adapted from: the-vibey-project/vibey ui-ux-design-principles (MIT), Owl-Listener/designer-skills (MIT),
+nextlevelbuilder/ui-ux-pro-max-skill (MIT), anthropics/claude-plugins-official frontend-design (Apache-2.0, two quoted
+enumerations; license text in LICENSE-Apache-2.0.txt), alchaincyf/huashu-design (MIT),
+wondelai/skills (design-checklists and ux-heuristics lineage) (MIT).
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
