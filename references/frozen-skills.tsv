@@ -35,7 +35,10 @@ skills/learn/MISSION-FORMAT.md	8cacbb3c0644d3ae0ea4965564797099401a6930a23f7cf46
 skills/learn/RESOURCES-FORMAT.md	e9cacf34026e11a8d1c8f9de88abe5bcbf654f4ebdb25cae8c0de0d5f48f44ec
 skills/learn/SKILL.md	8286dbac91d3bfb729bc50029c3d8ed86e7486a4299d9b19c383a6e3a6252ca2
 skills/learn/agents/openai.yaml	58bbc5f1f1015a3429dddf18f4c7f4be82ec1be1c9cf791461ffe8b5d28932f4
-skills/prototype/LOGIC.md	f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9
+# Gfunc addition (AINX-395, recorded adaptation): skills/prototype/LOGIC.md gains the behavior/timing
+#   sub-shape and the observed-output evidence form; its hash here records the adapted text as
+#   pack-owned rather than frozen.
+skills/prototype/LOGIC.md	8b9e9f29fced48cb9c3cff5442539254962d70e242f346d5271c950c62e177da
 # Gfunc addition (AINX-395, recorded adaptation): skills/prototype/SKILL.md is rewritten for this pack
 #   as the scenario router; its hash here records the rewritten text as pack-owned rather than frozen.
 skills/prototype/SKILL.md	561eee79d4e8a94f014f08cc03448fb21ba1d74df175dab0ca10dc57c9babf75
