@@ -41,15 +41,24 @@ for (const entry of paths) {
 		process.exit(1);
 	}
 	if (stat.isDirectory()) {
-		const found = fs
+		// A run directory holds one report.json per variant subdirectory
+		// (`<run-dir>/<variant>/report.json`); bare report*.json at its root
+		// still count.
+		const direct = fs
 			.readdirSync(entry)
 			.filter((name) => /^report(-.*)?\.json$/.test(name))
 			.map((name) => path.join(entry, name));
-		if (!found.length) {
-			console.error(`decide-redline: directory ${entry} holds no report*.json`);
+		const nested = [];
+		for (const name of fs.readdirSync(entry, { withFileTypes: true })) {
+			if (!name.isDirectory()) continue;
+			const nestedReport = path.join(entry, name.name, "report.json");
+			if (fs.existsSync(nestedReport)) nested.push(nestedReport);
+		}
+		if (!direct.length && !nested.length) {
+			console.error(`decide-redline: directory ${entry} holds no report*.json or <variant>/report.json`);
 			process.exit(1);
 		}
-		reportPaths.push(...found);
+		reportPaths.push(...direct, ...nested);
 	} else reportPaths.push(entry);
 }
 reportPaths.sort();
@@ -101,8 +110,18 @@ try {
 	process.exit(2);
 }
 
+// winner.json lands inside the run directory when the first positional is
+// one; beside the reports otherwise (cwd for bare paths).
+const targetDir = (() => {
+	const first = paths[0];
+	try {
+		return fs.statSync(first).isDirectory() ? first : path.dirname(path.resolve(first));
+	} catch {
+		return process.cwd();
+	}
+})();
 fs.writeFileSync(
-	path.join(process.cwd(), "winner.json"),
+	path.join(targetDir, "winner.json"),
 	`${JSON.stringify(decision, null, "\t")}\n`,
 );
 const summary =
