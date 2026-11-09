@@ -12,7 +12,7 @@ The lifecycle is spec intake → architect → verification readiness → dev-le
 
 ## Entry and exit
 
-**Entry.** `/start-dev <spec>` reads the spec at the given path. The spec acceptance checklist: problem, solution, stories, implementation decisions, testing decisions, out of scope, open questions. A thin or contradictory spec, or a missing product decision, routes back to wayfinder or to-spec rather than being silently filled in; start-dev settles only what an experiment can settle. When no spec document exists, run the `to-spec` synthesis inline, write the spec into the run root, and continue. The run root is the spec's parent directory, and a wayfinder map keeps its own slug and is linked, never merged.
+**Entry.** `/start-dev <spec>` reads the spec at the given path. The spec acceptance checklist: problem, solution, stories, implementation decisions, testing decisions, out of scope, open questions. A thin or contradictory spec, or a missing product decision, routes back to wayfinder or to-spec rather than being silently filled in; start-dev settles only what an experiment can settle. When no spec document exists, run the `to-spec` synthesis inline, write the spec into the effort tree, and continue — but first scan `.scratch/*/spec.md` and `map.md` for a matching effort and propose it, so the run lives in that effort tree; mint a new effort only on zero matches or an explicit choice. The spec's parent directory is the effort tree, and a wayfinder map keeps its own slug and is linked, never merged.
 
 **Exit.** A merge-ready PR: the review's PASS verdict, the merge recommendation, the decision trail, open risks, and follow-ups. One spec is one PR, and the owner lands it on the clean verdict. Start-dev never tags, publishes, or installs, and never rewrites the spec.
 
@@ -65,7 +65,7 @@ The main agent runs the design phase inside the restored [`architect`](../archit
 
 For a contested design, run `interrogate` before the design review; for a question a run can settle, run `prototype`. Do not run the `architect` skill's Phase C checkpoint; the design review is that gate here.
 
-The design artifact is the Phase B synthesized package, its types, signatures, module boundaries, rationale, base and grafts, plus the design review. It records the surface (`ui`, `cli`, `library`, or `backend`); drivability evidence (the launch or e2e setup command, ready signal, one driven journey, timestamp, and any production boundary that requires a supported seam); and the formal signal (`concurrency/interleaving`, `retries/timeouts`, `state machine/protocol`, `parser/serializer`, `unsafe/FFI`, or `distributed ordering`) with a one-sentence property, or `none`. It lives in the run root and is referenced from the plan. When the design contradicts the spec, route back to wayfinder or to-spec; do not silently rewrite the spec.
+The design artifact is the Phase B synthesized package, its types, signatures, module boundaries, rationale, base and grafts, plus the design review. It records the surface (`ui`, `cli`, `library`, or `backend`); drivability evidence (the launch or e2e setup command, ready signal, one driven journey, timestamp, and any production boundary that requires a supported seam); and the formal signal (`concurrency/interleaving`, `retries/timeouts`, `state machine/protocol`, `parser/serializer`, `unsafe/FFI`, or `distributed ordering`) with a one-sentence property, or `none`. It lives in the effort tree and is referenced from the plan. When the design contradicts the spec, route back to wayfinder or to-spec; do not silently rewrite the spec.
 
 ## Verification readiness
 
@@ -83,7 +83,7 @@ Record one drivability state:
 
 **Formal.** Decide `exists`, `exists-stale`, `create`, or `not-required`. Route `exists-stale` to `maintain-formal-verification-skill`. For `not-required`, record the checked signal list and `none`; the design review can challenge it.
 
-**Recording.** Hand the decision and evidence to the plan lead. The plan records them in `## Verification readiness` between `## How to read this` and `## Run graph`, including the driver proof, the isolation mode, and the gate durations, and the run root gains one append-only `decisions.tsv` row referencing that section. A creation decision becomes a unit with dependents, as the spec's readiness mapping states.
+**Recording.** Hand the decision and evidence to the plan lead. The plan records them in `## Verification readiness` between `## How to read this` and `## Run graph`, including the driver proof, the isolation mode, and the gate durations, and the effort tree gains one append-only `decisions.tsv` row referencing that section. A creation decision becomes a unit with dependents, as the spec's readiness mapping states.
 
 ## Maintenance
 

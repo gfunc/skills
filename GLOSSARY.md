@@ -10,6 +10,10 @@ The operator's own stack: the original pstack vendored at upstream content, with
 The index of one wayfinding effort: its destination, decisions so far, uncharted fog, and scope boundary.
 _Avoid_: roadmap, epic
 
+**Effort**:
+One body of work in the store, named by its slug — the kebab-case directory name under `.scratch/`. May carry a map (wayfinder), a spec (to-spec), and runs (start-dev executions); a spec-only or standalone-prototype effort has no map. Everything an effort produces lives in its tree, `.scratch/<effort>/` — the wayfinder effort directory and the start-dev run root are the same tree, and a map is linked into it, never merged.
+_Avoid_: story folder, run folder
+
 **Decision ticket**:
 A ticket whose resolution is a decision; wayfinder's unit of planning, closed by an answer, not by code.
 _Avoid_: task
@@ -71,7 +75,7 @@ The smallest execution work item: one file lane, its own worktree and its own sc
 _Avoid_: box, task
 
 **Run**:
-The execution of one plan: its ready sets, unit gates, final verify, review and landing, recorded in the progress log and the run ledger.
+The execution of one plan: its ready sets, unit gates, final verify, review and landing, recorded in the progress log and the run ledger. A run's artifacts (plan, briefs, reports, shots, decisions) live in its effort tree; the spec's parent is that tree.
 
 **Progress log**:
 The run's append-only execution record at `.scratch/<spec>/progress.md`, one line per state a resume needs. `show-me-your-work` owns its format and resume rule.
@@ -123,7 +127,7 @@ _Avoid_: progress log
 The numbered constraint register — model policy, verification bar, forbidden paths, escalation — pasted verbatim into every plan, spawn, and resume.
 
 **Store**:
-The repo-local artifact root for all stack activity in one repository: its `.scratch/` directory, with each run under `.scratch/<spec>/`. The local stand-in for Cursor's injected per-agent store.
+The repo-local artifact root for all stack activity in one repository: its `.scratch/` directory, with each effort under `.scratch/<effort>/`. The local stand-in for Cursor's injected per-agent store.
 
 **Vendor manifest**:
 The list of upstream-origin (pstack) paths in this repo and the base SHA they came from; the sync script diffs mirror@old→new per path and reports drift for human resolution.

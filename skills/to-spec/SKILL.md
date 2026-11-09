@@ -16,7 +16,7 @@ The issue tracker is resolved per repo: a repo may commit `docs/issue-tracker.md
 
 Check with the user that these seams match their expectations.
 
-3. Write the spec using the template below. Confirm the finished spec with the user — this is the chain's first human gate — then publish it to the project issue tracker.
+3. Write the spec using the template below. Confirm the finished spec with the user — this is the chain's first human gate — then publish it to the project issue tracker. When an existing matching effort tree is named or found, publish into it instead of minting a new one.
 
 4. The chain then continues without further user calls: the multi-phase-plan playbook (`skills/poteto-mode/playbooks/multi-phase-plan.md`, relative to the stack root, two directories up from this skill file) decomposes the spec into units and emits the pstack execution plan. The next human gate is the plan confirmation, whose approval starts execution. When the user wanted only the spec (no further chain), stop after publishing and say so.
 
