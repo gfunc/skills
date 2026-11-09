@@ -2,7 +2,7 @@
 
 Take this branch when the input is an existing page or app and the question is polish (appearance refinement, not new structure). If there is no existing page, route [VARIANTS](VARIANTS.md) and state the assumption; if the question is logic or interaction, route LOGIC or VARIANTS. The real page runs under its own start command.
 
-The whole decision is executable. `scripts/decide-redline.mjs` over a run directory of report files is the definition of reject, rank, and pick; this file never restates its field-level logic, so no prose copy can drift. The rule as data lives in `references/redline-shape.mjs`.
+The whole decision is executable. `scripts/decide-redline.mjs` over a run directory of report files is the definition of reject, rank, and pick; this file never restates its field-level logic, so no prose copy can drift. The rule as data lives in `references/redline-shape.mjs`. The run directory lives inside the prototype directory (`.scratch/<effort>/prototype/<slug>/redline/<run>/`).
 
 ## The three clauses
 

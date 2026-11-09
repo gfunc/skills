@@ -4,16 +4,16 @@ Issues and specs for this repo live as markdown files in `.scratch/`. This is th
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The spec is `.scratch/<feature-slug>/spec.md`
-- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
+- One effort per directory: `.scratch/<effort>/`
+- The spec is `.scratch/<effort>/spec.md`
+- Implementation issues are one file per ticket at `.scratch/<effort>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
 - State is recorded as a `Status:` line near the top of each issue file: `open`, `claimed`, `resolved`, or `closed`. This stack has no triage labels; type markers (`Type:` lines locally, `wayfinder:*` labels on real trackers) route resolution
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 - The same feature directory also receives the run's execution artifacts — the plan (`plan.md`), decision trail, logs, and lane worktrees. `.scratch/` is the artifact root for all pack and pstack activity in the repo (see the pack README's store convention)
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+Create a new file under `.scratch/<effort>/` (creating the directory if needed). When an existing matching effort tree is named or found, publish there instead of minting a new one.
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -29,3 +29,6 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
 - **Claim**: set `Status: claimed` and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+- **Map link**: a start-dev run's `progress.md` first line carries `Map: .scratch/<effort>/map.md`.
+- **Prototype assets**: a prototype's home is `.scratch/<effort>/prototype/<slug>/`, linked from its ticket; never `/tmp`. A standalone prototype creates its own effort (same shape).
+- **Worktrees**: every git worktree a run creates (unit, PR, research) lives under `.scratch/<effort>/lanes/`, per `skills/start-dev/references/worktree-topology.md`; at close the worktrees are removed while the branches and evidence remain in the effort tree.

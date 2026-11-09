@@ -28,7 +28,7 @@ The branches:
 
 ## Rules that apply to every branch
 
-1. **Throwaway from day one, and clearly marked as such.** Locate the prototype code close to where it will actually be used (next to the module or page it's prototyping for) so context is obvious, but name it so a casual reader can see it's a prototype, not production. For throwaway UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure.
+1. **Throwaway from day one, and clearly marked as such.** Locate the prototype code close to where it will actually be used (next to the module or page it's prototyping for) so context is obvious, but name it so a casual reader can see it's a prototype, not production. For throwaway UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure. A prototype answering a ticket (wayfinder ticket or plan unit) lives in that effort's tree at `.scratch/<effort>/prototype/<slug>/`; a standalone prototype gets its own effort tree with the same shape. The artifact and its evidence never live in `/tmp` — `/tmp` holds only disposable process scratch (trunk worktrees, browser profiles), whose evidence files still save into the effort tree.
 2. **No persistence by default.** State lives in memory. Persistence is the thing the prototype is _checking_, not something it should depend on. If the question explicitly involves a database, hit a scratch DB or a local file with a clear "PROTOTYPE, wipe me" name.
 3. **Skip the polish.** No tests, no error handling beyond what makes the prototype _runnable_, no abstractions. The point is to learn something fast.
 
