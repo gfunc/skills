@@ -170,7 +170,7 @@ test("the emitted skeleton's ten lane lines carry Timeout markers", () => {
 });
 
 test("the inlined spawn-bound rules match start-dev's plan-shape.mjs", () => {
-	const sibling = join(import.meta.dir, "..", "..", "..", "start-dev", "references", "plan-shape.mjs");
+	const sibling = join(import.meta.dir, "..", "..", "start-dev", "references", "plan-shape.mjs");
 	if (!existsSync(sibling)) {
 		console.log("SKIP drift test: skills/start-dev/references/plan-shape.mjs is absent (not vendored in this checkout); the inlined copies are unguarded here");
 		return;

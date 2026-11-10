@@ -631,7 +631,7 @@ describe("Store", () => {
       currentRows: JSON.stringify([
         {
           iid: 11,
-          state: "locked",
+          state: "bogus",
           source_branch: "stack/open",
           target_branch: "stack/closed",
         },

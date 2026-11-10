@@ -1038,6 +1038,7 @@ const FORGE_PULL_REQUEST_QUERIES: Readonly<
     baseField: "target_branch",
     states: new Map<string, FrontierPrState>([
       ["opened", "OPEN"],
+      ["locked", "OPEN"],
       ["merged", "MERGED"],
       ["closed", "CLOSED"],
     ]),
