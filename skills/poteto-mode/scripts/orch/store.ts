@@ -968,19 +968,26 @@ function countLine(value: Counts): string {
     : entries.map(([name, count]) => `${name}=${count}`).join(", ");
 }
 
-export type Forge = "gh" | "origin";
+export type Forge = "gh" | "origin" | "glab";
 
 interface ForgePullRequestQuery {
+  readonly numberField: string;
   readonly stateField: string;
   readonly headField: string;
   readonly baseField: string;
   readonly states: ReadonlyMap<string, FrontierPrState>;
+  readonly listSubcommand: string;
+  readonly listFilterArgs: ReadonlyMap<"--head" | "--base", string>;
+  readonly listStateArgs: readonly string[];
+  readonly outputArgs: readonly string[];
+  readonly displayListCommand: string;
 }
 
 const FORGE_PULL_REQUEST_QUERIES: Readonly<
   Record<Forge, ForgePullRequestQuery>
 > = {
   gh: {
+    numberField: "number",
     stateField: "state",
     headField: "headRefName",
     baseField: "baseRefName",
@@ -989,8 +996,20 @@ const FORGE_PULL_REQUEST_QUERIES: Readonly<
       ["MERGED", "MERGED"],
       ["CLOSED", "CLOSED"],
     ]),
+    listSubcommand: "pr",
+    listFilterArgs: new Map<
+      "--head" | "--base",
+      string
+    >([
+      ["--head", "--head"],
+      ["--base", "--base"],
+    ]),
+    listStateArgs: ["--state", "all"],
+    outputArgs: ["--json"],
+    displayListCommand: "gh pr list",
   },
   origin: {
+    numberField: "number",
     stateField: "status",
     headField: "headRef",
     baseField: "baseRef",
@@ -1000,14 +1019,47 @@ const FORGE_PULL_REQUEST_QUERIES: Readonly<
       ["merged", "MERGED"],
       ["closed", "CLOSED"],
     ]),
+    listSubcommand: "pr",
+    listFilterArgs: new Map<
+      "--head" | "--base",
+      string
+    >([
+      ["--head", "--head"],
+      ["--base", "--base"],
+    ]),
+    listStateArgs: ["--state", "all"],
+    outputArgs: ["--json"],
+    displayListCommand: "origin pr list",
+  },
+  glab: {
+    numberField: "iid",
+    stateField: "state",
+    headField: "source_branch",
+    baseField: "target_branch",
+    states: new Map<string, FrontierPrState>([
+      ["opened", "OPEN"],
+      ["merged", "MERGED"],
+      ["closed", "CLOSED"],
+    ]),
+    listSubcommand: "mr",
+    listFilterArgs: new Map<
+      "--head" | "--base",
+      string
+    >([
+      ["--head", "--source-branch"],
+      ["--base", "--target-branch"],
+    ]),
+    listStateArgs: ["--all"],
+    outputArgs: ["--output", "json"],
+    displayListCommand: "glab mr list",
   },
 };
 
 export function parseForge(value: string): Forge {
-  if (value === "gh" || value === "origin") {
+  if (value === "gh" || value === "origin" || value === "glab") {
     return value;
   }
-  throw new UserError("forge must be gh or origin");
+  throw new UserError("forge must be gh, origin, or glab");
 }
 
 interface ForgePullRequest {
@@ -1052,22 +1104,24 @@ function listPullRequests({
   repo: string;
 }): readonly ForgePullRequest[] {
   const query = FORGE_PULL_REQUEST_QUERIES[forge];
-  const command = `${forge} pr list ${filter} ${branch}`;
+  const command = `${query.displayListCommand} ${query.listFilterArgs.get(filter)} ${branch}`;
   // Every state is fetched because a merged or closed PR still anchors the
   // chain, and a draft counts as OPEN.
   const raw = runTool({
     command: forge,
     args: [
-      "pr",
+      query.listSubcommand,
       "list",
-      filter,
+      query.listFilterArgs.get(filter),
       branch,
-      "--state",
-      "all",
-      "--json",
-      ["number", query.stateField, query.headField, query.baseField].join(
-        ","
-      ),
+      ...query.listStateArgs,
+      ...query.outputArgs,
+      [
+        query.numberField,
+        query.stateField,
+        query.headField,
+        query.baseField,
+      ].join(","),
     ],
     repo,
   });
@@ -1086,11 +1140,12 @@ function listPullRequests({
       typeof status === "string" ? (query.states.get(status) ?? null) : null;
     const head = isRecord(row) ? row[query.headField] : undefined;
     const base = isRecord(row) ? row[query.baseField] : undefined;
+    const number = isRecord(row) ? row[query.numberField] : undefined;
     if (
       !isRecord(row) ||
-      typeof row.number !== "number" ||
-      !Number.isSafeInteger(row.number) ||
-      row.number < 1 ||
+      typeof number !== "number" ||
+      !Number.isSafeInteger(number) ||
+      number < 1 ||
       state === null ||
       typeof head !== "string" ||
       head.length === 0 ||
@@ -1099,7 +1154,7 @@ function listPullRequests({
     ) {
       throw new UserError(`${command} output has an invalid PR row`);
     }
-    return { pr: row.number, state, branch: head, base };
+    return { pr: number, state, branch: head, base };
   });
 }
 
