@@ -47,6 +47,12 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 ## Scheduler
 
 - **Scheduler:** CronCreate — a timed job that injects a stored prompt. Jobs persist under the session directory's `cron/`.
+- **Who may arm:** the main agent only. `CronCreate`, `CronList`, and `CronDelete` are refused outside the main agent ("Cron tools are only supported by the main agent."), so a subagent's armed tick never exists; tasks live only in the main session.
+- **Firing condition:** the session process is alive and the main loop is idle. The scheduler is an in-process poll that is skipped while the main agent's turn is running, so background children do not block ticks, while a foreground child or an active goal keeps the loop running and starves them; a missed due time is not lost.
+- **Delivery:** a fire lands as a user message in the main session's context with origin kind `cron_job`, carrying the stored prompt. It opens a new main-agent turn; it is never delivered to a subagent.
+- **Coalescing:** missed fires collapse into one delivery whose `coalescedCount` records how many occurrences were missed. `stale="true"` marks a recurring task's final fire at age 7 days, after which the task is deleted. A tick prompt acts once on the latest state — the count is elapsed periods, not a queue — and treats `stale="true"` as re-arm-or-stop: recreate the task if the schedule is still wanted, otherwise stop.
+- **Session end:** nothing fires while the CLI is closed. A resumed session gets exactly one coalesced catch-up delivery; a brand-new session starts empty. Overnight auditing needs the CLI alive — the SIGUSR1 forced-tick and system-cron-driving-`kimi -p` paths exist in code but stay unexercised and are not adopted.
+- **Goal interaction:** a tick and a goal compete for the same idle loop and serialize; in the race between the idle check and delivery, a tick can be steered into a live goal turn. Delete an armed tick on pause, completion, or cancel.
 
 ## Goal mode
 
@@ -87,7 +93,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 
 - **Optional runtimes:** bun (the `poteto-mode` skill's bundled `scripts/orch` bookkeeping; `scripts/watch-pr` is intentionally unused), Playwright (`skills/playwright-cli`), tmux or a PTY for driving CLIs, and any MCP server a workflow names.
 
-None is required by the pack. A missing runtime stops only the step or lane that needs it, with the reason disclosed; harness-neutral work continues. The installer warns when a known optional runtime is absent.
+None is required by the pack. A missing runtime stops only the step or lane that needs it, with the reason disclosed; harness-neutral work continues. The installer warns when a known optional runtime is absent. bun installs with `curl -fsSL https://bun.sh/install | bash`; a playbook that needs it offers that command and installs only on the operator's consent, with no setup-flow edits. The install lands at `~/.bun/bin/bun`, and PATH gains it only via the `~/.bashrc` lines the installer appends — non-interactive shells do not read `~/.bashrc`, so invoking `bun` by name fails; call `~/.bun/bin/bun` by full path or export `PATH="$HOME/.bun/bin:$PATH"` in the invoking script.
 
 ## Capabilities
 
@@ -122,6 +128,10 @@ start-dev carries one `Model: <role>=<model>` line per role in each brief; the p
 | `Model: plan-lead=<alias>` | plan lead when it is a child; the main agent ignores it |
 | `Model: review-lead=<alias>` | review lead — a different model family from the parent's |
 | `Model: how explorer=<alias>` / `how explainer=<alias>` / `why investigators=<alias>` / `why synthesizer=<alias>` / `architect runners=<alias>` / `arena runners=<alias>` / `arena cross-judge pool=<alias>` / `swarm workers=<alias>` | the pstack skill role lines, consumed by that skill |
+| `Model: feature=<alias>` / `bug-fix=<alias>` / `perf-issue=<alias>` / `refactoring=<alias>` / `hillclimb=<alias>` | poteto-mode's code playbook role lines, consumed by that playbook's delegates |
+| `Model: hardest tasks=<alias>` / `judgment and prose=<alias>` | poteto-mode's difficulty and prose tiers |
+
+poteto-mode requires the resolved value written into every delegation brief and treats a brief omitting a role line as a finding: stop and name the role. A role with no configured line resolves its documented default, and that value still appears in the brief. `inherit-parent`, `auto`, and `primary` are deliberate choices, not omissions.
 
 **Lane model line.** The plan may name a fast-tier alias for `Model: swarm workers=` only when every lane is one asserted subcommand and the verdict stays with the PR owner. The qualitative lanes (sanitization, state honesty, stale or retry behavior, cross-page agreement) keep a stronger alias and an owner-read verdict.
 

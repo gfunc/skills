@@ -17,7 +17,9 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_MARKERS = ["git show origin/main:", "/loop 1h", "status message"];
+const PROGRAM_MARKERS = ["git show origin/main:", "status message"];
+const CONTINUATION_MARKERS = ["/loop 1h", "/goal", "CronCreate"];
+const USAGE = "Usage: node check-plan.mjs --spawn-bound <minutes|unlimited> <plan.md>";
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -27,14 +29,48 @@ const HOW_TO_READ_MARKERS = [
 ];
 const PERF_ITEMS = ["Metric.", "Probe.", "Baseline.", "Rule."];
 const BOX = /^\s*- \[[ x]\] (.*)$/;
+const spawnMinutes = (value, ctx) => {
+	if (!/^[1-9]\d*$/.test(value)) return "must be a positive whole number of minutes";
+	if (!ctx.spawnBound || ctx.spawnBound.unlimited) return null;
+	return Number(value) > ctx.spawnBound.minutes
+		? `${value} minutes exceeds the spawn bound of ${ctx.spawnBound.minutes}`
+		: null;
+};
+const laneTimeout = (value, ctx) => {
+	const message = spawnMinutes(value, ctx);
+	if (!message) return null;
+	return `lane ${ctx.lane ?? "?"} timeout ${message}`;
+};
 
-const file = process.argv[2];
-if (!file) {
-	console.error("Usage: node check-plan.mjs <plan.md>");
+const args = process.argv.slice(2);
+let spawnBound = null;
+const positional = [];
+for (let i = 0; i < args.length; i++) {
+	if (args[i] === "--spawn-bound") {
+		const value = args[++i];
+		if (value === "unlimited") spawnBound = { unlimited: true };
+		else if (value && /^[1-9]\d*$/.test(value)) spawnBound = { minutes: Number(value) };
+		else {
+			console.error(USAGE);
+			process.exit(2);
+		}
+	} else if (args[i].startsWith("--")) {
+		console.error(USAGE);
+		process.exit(2);
+	} else positional.push(args[i]);
+}
+if (!spawnBound || positional.length !== 1) {
+	console.error(USAGE);
 	process.exit(2);
 }
-
-const raw = fs.readFileSync(file, "utf8").split(/\r?\n/);
+const file = positional[0];
+let raw;
+try {
+	raw = fs.readFileSync(file, "utf8").split(/\r?\n/);
+} catch (error) {
+	console.error(`check-plan: cannot read ${file}: ${error.message}`);
+	process.exit(2);
+}
 const problems = [];
 const fail = (line, message) => problems.push(`${file}:${line}: ${message}`);
 
@@ -116,6 +152,8 @@ else {
 	for (const marker of PROGRAM_MARKERS) {
 		if (!bodyText(program).includes(marker)) fail(program.n, `Program checklist lacks "${marker}"`);
 	}
+	if (!CONTINUATION_MARKERS.some((m) => bodyText(program).includes(m)))
+		fail(program.n, `Program checklist lacks a continuation marker ("/loop 1h", "/goal", or "CronCreate")`);
 }
 
 const close = find("Close the program");
@@ -164,6 +202,11 @@ for (const pr of prSections) {
 			else if (!/Save `[^`]+`/.test(lane.text)) fail(lane.n, `${pr.title}: lane ${lane.m[1]} names no screenshot`);
 			else if (!lane.text.includes("Pass when")) fail(lane.n, `${pr.title}: lane ${lane.m[1]} has no pass predicate`);
 		}
+		for (const lane of lanes) {
+			const m = lane.text.match(/`Timeout ([^`]+)`/);
+			const message = m ? laneTimeout(m[1], { spawnBound, lane: lane.m[1] }) : `lane ${lane.m[1]} names no backticked \`Timeout <minutes>\``;
+			if (message) fail(lane.n, `${pr.title}: ${message}`);
+		}
 	}
 
 	const perf = block("Verify, perf.");
@@ -200,6 +243,6 @@ if (closeIndex !== -1) {
 }
 
 for (const line of report) console.log(line);
-console.log(`${prSections.length} PR sections, ${problems.length} problems`);
+console.log(`${prSections.length} PR sections, ${problems.length} problems, spawn bound ${spawnBound.unlimited ? "unlimited" : `${spawnBound.minutes} minutes`}`);
 for (const p of problems) console.error(p);
 process.exit(problems.length ? 1 : 0);

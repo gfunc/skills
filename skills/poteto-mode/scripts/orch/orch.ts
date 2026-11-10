@@ -489,7 +489,7 @@ function createProgram(io: Io): Command {
     )
     .addOption(
       new Option("--forge <forge>", "pull request forge")
-        .choices(["gh", "origin"])
+        .choices(["gh", "origin", "glab"])
         .default("gh")
     )
     .option(

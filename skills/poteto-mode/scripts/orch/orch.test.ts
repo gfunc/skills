@@ -145,6 +145,15 @@ const FORGE_FIXTURES: Readonly<
       baseRef: base,
     }),
   },
+  glab: {
+    fields: "iid,state,source_branch,target_branch",
+    row: ({ number, state, head, base }) => ({
+      iid: number,
+      state: state === "merged" || state === "closed" ? state : "opened",
+      source_branch: head,
+      target_branch: base,
+    }),
+  },
 };
 
 function forgeRows(
@@ -189,7 +198,11 @@ async function withFakeForge<T>({
   );
   const { fields } = FORGE_FIXTURES[forge];
   const list = (filter: string, branch: string): string =>
-    `pr list ${filter} ${branch} --state all --json ${fields}`;
+    forge === "glab"
+      ? `mr list ${
+          filter === "--head" ? "--source-branch" : "--target-branch"
+        } ${branch} --all --output json ${fields}`
+      : `pr list ${filter} ${branch} --state all --json ${fields}`;
   const fake = join(bin, forge);
   await writeFile(
     fake,
@@ -230,6 +243,20 @@ case "$*" in
 esac
 `
   );
+  if (forge === "glab") {
+    await writeFile(
+      fake,
+      (await readFile(fake, "utf8")).replace(
+        "  *)",
+        `  "pr list --head stack/open --state all --json ${fields}"|\\
+  "pr list --source-branch stack/open --all --output json ${fields}")
+    printf 'glab must not serve pr list: %s\\n' "$*" >&2
+    exit 3
+    ;;
+  *)`
+      )
+    );
+  }
   await chmod(fake, 0o755);
 
   const originalPath = process.env.PATH;
@@ -492,7 +519,7 @@ describe("Store", () => {
     ]);
   });
 
-  for (const forge of ["gh", "origin"] as const) {
+  for (const forge of ["gh", "origin", "glab"] as const) {
     it(`resolves the ordered frontier from the ${forge} base chain and validates an optional pin`, async () => {
       const { directory, store } = await initializedStore();
       const stack = await makeGitStack(directory);
@@ -582,15 +609,61 @@ describe("Store", () => {
         forge,
         currentRows: "this line is not forge output",
         operation: async () => {
+          const headArg =
+            forge === "glab" ? "--source-branch" : "--head";
           await expect(
             store.frontier.set({ repo: stack.repo, forge })
           ).rejects.toThrow(
-            `${forge} pr list --head stack/open output is not valid JSON`
+            `${forge} ${forge === "glab" ? "mr" : "pr"} list ${headArg} stack/open output is not valid JSON`
           );
         },
       });
     });
   }
+
+  it("rejects glab rows with unknown states or missing fields", async () => {
+    const { directory, store } = await initializedStore();
+    const stack = await makeGitStack(directory);
+
+    await withFakeForge({
+      directory,
+      forge: "glab",
+      currentRows: JSON.stringify([
+        {
+          iid: 11,
+          state: "bogus",
+          source_branch: "stack/open",
+          target_branch: "stack/closed",
+        },
+      ]),
+      operation: async () => {
+        await expect(
+          store.frontier.set({ repo: stack.repo, forge: "glab" })
+        ).rejects.toThrow(
+          "glab mr list --source-branch stack/open output has an invalid PR row"
+        );
+      },
+    });
+
+    await withFakeForge({
+      directory,
+      forge: "glab",
+      currentRows: JSON.stringify([
+        {
+          iid: 11,
+          state: "opened",
+          source_branch: "stack/open",
+        },
+      ]),
+      operation: async () => {
+        await expect(
+          store.frontier.set({ repo: stack.repo, forge: "glab" })
+        ).rejects.toThrow(
+          "glab mr list --source-branch stack/open output has an invalid PR row"
+        );
+      },
+    });
+  });
 
   it("names the missing pull request when a chain branch has none", async () => {
     const { directory, store } = await initializedStore();
@@ -680,7 +753,18 @@ describe("orch CLI", () => {
       "gt",
     ]);
     expect(badForge.code).toBe(1);
-    expect(badForge.stderr).toContain("Allowed choices are gh, origin");
+    expect(badForge.stderr).toContain("Allowed choices are gh, origin, glab");
+
+    const glabForge = runCli([
+      "--store",
+      directory,
+      "frontier",
+      "set",
+      "--forge",
+      "glab",
+    ]);
+    expect(glabForge.code).toBe(1);
+    expect(glabForge.stderr).toContain("set --repo <dir> or ORCH_REPO");
   });
 
   it("accepts ORCH_STORE and emits complete JSON", async () => {
