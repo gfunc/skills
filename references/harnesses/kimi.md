@@ -93,7 +93,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 
 - **Optional runtimes:** bun (the `poteto-mode` skill's bundled `scripts/orch` bookkeeping; `scripts/watch-pr` is intentionally unused), Playwright (`skills/playwright-cli`), tmux or a PTY for driving CLIs, and any MCP server a workflow names.
 
-None is required by the pack. A missing runtime stops only the step or lane that needs it, with the reason disclosed; harness-neutral work continues. The installer warns when a known optional runtime is absent. bun installs with `curl -fsSL https://bun.sh/install | bash`; a playbook that needs it offers that command and installs only on the operator's consent, with no setup-flow edits.
+None is required by the pack. A missing runtime stops only the step or lane that needs it, with the reason disclosed; harness-neutral work continues. The installer warns when a known optional runtime is absent. bun installs with `curl -fsSL https://bun.sh/install | bash`; a playbook that needs it offers that command and installs only on the operator's consent, with no setup-flow edits. The install lands at `~/.bun/bin/bun`, and PATH gains it only via the `~/.bashrc` lines the installer appends — non-interactive shells do not read `~/.bashrc`, so invoking `bun` by name fails; call `~/.bun/bin/bun` by full path or export `PATH="$HOME/.bun/bin:$PATH"` in the invoking script.
 
 ## Capabilities
 
