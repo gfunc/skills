@@ -16,7 +16,7 @@
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 # Gfunc addition: skills/improve-codebase-architecture and skills/grill-with-docs are adapted from
 #   the same source, not frozen: their SKILL.md files are rewritten for this pack and carry no hash here.
-# AINX-395: the prototype family (skills/prototype/) is retired from this frozen list. Its files
+# The prototype family (skills/prototype/) is retired from this frozen list. Its files
 #   were reworked gfunc-side into the scenario router and are gfunc-owned now; no prototype path
 #   carries a hash here. Adapted provenance is credited in README.md and LICENSE.
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
