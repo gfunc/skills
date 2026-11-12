@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""Validate spawn model aliases against the configured subagent pool.
+
+`Agent`/`AgentSwarm` accept only the keys of `[secondary_model.models]`. An alias
+that exists in `[models]` and authenticates is still rejected at spawn with
+`Invalid model ... Available models: <pool>`, which costs a seat. This checks the
+value before any spawn: a brief's `Model:` lines, the operator's
+`~/.agents/pstack-models.md`, or one alias named directly.
+
+Exit 1 names every unspawnable alias, the line that carried it, and the pool.
+"""
+
+import argparse
+import json
+import re
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+
+DEFAULT_CONFIG = Path("~/.kimi-code/config.toml")
+DEFAULT_ROLES = Path("~/.agents/pstack-models.md")
+NON_ALIASES = {"auto", "inherit-parent", "primary"}
+ROLE_LINE = re.compile(r"^\s*([A-Za-z][^:=]*?)\s*[:=]\s*(\S.*?)\s*$")
+BRIEF_LINE = re.compile(r"^\s*Model:\s*(.+?)\s*=\s*(\S.*?)\s*$")
+
+
+def split_aliases(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def load_pool(config_path: Path) -> tuple[list[str], bool, str | None]:
+    """Return (spawnable aliases, forced, error)."""
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [], False, f"{config_path}: not found"
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+        return [], False, f"{config_path}: {error}"
+    secondary = data.get("secondary_model")
+    if not isinstance(secondary, dict):
+        return [], False, None
+    models = secondary.get("models")
+    pool = sorted(models) if isinstance(models, dict) else []
+    return pool, secondary.get("force") is True, None
+
+
+def parse_roles(text: str) -> list[dict]:
+    entries = []
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = ROLE_LINE.match(line)
+        if not match:
+            continue
+        role, value = match.group(1).strip(), match.group(2)
+        for alias in split_aliases(value):
+            entries.append({"alias": alias, "role": role, "source": f"roles:{number}"})
+    return entries
+
+
+def parse_brief(text: str) -> list[dict]:
+    entries = []
+    for number, line in enumerate(text.splitlines(), 1):
+        match = BRIEF_LINE.match(line)
+        if not match:
+            continue
+        role, value = match.group(1).strip(), match.group(2)
+        for alias in split_aliases(value):
+            entries.append({"alias": alias, "role": role, "source": f"brief:{number}"})
+    return entries
+
+
+def judge(entries: list[dict], pool: list[str], forced: bool) -> list[dict]:
+    problems = []
+    for entry in entries:
+        alias = entry["alias"]
+        if alias in NON_ALIASES or not pool or forced:
+            continue
+        if alias not in pool:
+            problems.append({**entry, "reason": "not in [secondary_model.models]"})
+    return problems
+
+
+def report(problems: list[dict], pool: list[str], forced: bool, as_json: bool) -> int:
+    if as_json:
+        print(json.dumps({
+            "pool": pool,
+            "forced": forced,
+            "problems": problems,
+        }, indent=1))
+        return 1 if problems else 0
+    if forced:
+        print("pinned: [secondary_model] force = true, so every spawn uses default_model "
+              "and no alias is needed")
+        return 0
+    if not pool:
+        print("no pool: [secondary_model] is absent, so the model parameter is not offered "
+              "and every child inherits the caller's model")
+        return 0
+    if not problems:
+        print(f"ok: {len(pool)} spawnable aliases")
+        return 0
+    for problem in problems:
+        print(f"FAIL {problem['alias']}")
+        print(f"  from: {problem['source']} ({problem['role']})")
+        print(f"  {problem['reason']}")
+    print("spawnable: " + ", ".join(pool))
+    return 1
+
+
+def collect_pool_entries(config: Path) -> tuple[list[str], bool, str | None]:
+    return load_pool(config)
+
+
+def run(args: argparse.Namespace) -> int:
+    pool, forced, error = load_pool(args.config.expanduser())
+    if error:
+        print(f"check-models: {error}", file=sys.stderr)
+        return 2
+    entries: list[dict] = []
+    for alias in args.file or []:
+        entries.append({"alias": alias, "role": "command line", "source": "--file"})
+    for path in args.brief or []:
+        if path == "-":
+            text, source = sys.stdin.read(), "stdin"
+        else:
+            try:
+                text = Path(path).expanduser().read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as read_error:
+                print(f"check-models: {path}: {read_error}", file=sys.stderr)
+                return 2
+            source = str(path)
+        found = parse_brief(text)
+        for entry in found:
+            entry["source"] = f"{source}:{entry['source'].split(':', 1)[1]}"
+        entries.extend(found)
+    if args.all:
+        try:
+            text = args.roles.expanduser().read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as read_error:
+            print(f"check-models: {args.roles}: {read_error}", file=sys.stderr)
+            return 2
+        entries.extend(parse_roles(text))
+    if not entries and not (forced or not pool):
+        print("check-models: nothing to check; pass --file, --brief, or --all",
+              file=sys.stderr)
+        return 2
+    return report(judge(entries, pool, forced), pool, forced, args.json)
+
+
+def self_test() -> int:
+    config = """
+[secondary_model]
+default_model = "a/one"
+
+[secondary_model.models]
+"a/one" = "one"
+"b/two" = "two"
+"""
+    forced_config = """
+[secondary_model]
+force = true
+
+[secondary_model.models]
+"a/one" = "one"
+"""
+    brief = (
+        "Intro text.\n"
+        "Model: arena runners=b/two, c/three\n"
+        "Model: feature=a/one\n"
+        "Model: judgment and prose=inherit-parent\n"
+    )
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "config.toml"
+        path.write_text(config, encoding="utf-8")
+        forced_path = Path(tmp) / "forced.toml"
+        forced_path.write_text(forced_config, encoding="utf-8")
+
+        pool, forced, error = load_pool(path)
+        cases.append(("pool parsed", pool == ["a/one", "b/two"] and not forced and error is None))
+        problems = judge(parse_brief(brief), pool, forced)
+        cases.append(("one bad alias", [p["alias"] for p in problems] == ["c/three"]))
+        cases.append(("non-aliases ignored",
+                      all(p["alias"] not in NON_ALIASES for p in problems)))
+        cases.append(("role kept", problems and problems[0]["role"] == "arena runners"))
+        roles = "feature, refactoring: a/one\nreviewer: z/nine\n# comment: a/one\n"
+        problems = judge(parse_roles(roles), pool, forced)
+        cases.append(("roles good and bad", [p["alias"] for p in problems] == ["z/nine"]))
+        fpool, fforced, ferror = load_pool(forced_path)
+        cases.append(("force detected", fforced and ferror is None))
+        cases.append(("force skips validation",
+                      judge(parse_brief(brief), fpool, fforced) == []))
+    failures = [name for name, ok in cases if not ok]
+    for name, ok in cases:
+        print(f"{'ok' if ok else 'FAIL'}: {name}")
+    return 1 if failures else 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG,
+                        help="Kimi config carrying [secondary_model] (default: %(default)s)")
+    parser.add_argument("--roles", type=Path, default=DEFAULT_ROLES,
+                        help="operator role file for --all (default: %(default)s)")
+    parser.add_argument("--brief", action="append", metavar="PATH",
+                        help="file of `Model: <role>=<alias>` lines, or - for stdin")
+    parser.add_argument("--file", action="append", metavar="ALIAS",
+                        help="one alias to check; repeatable")
+    parser.add_argument("--all", action="store_true", help="check every roles-file alias")
+    parser.add_argument("--json", action="store_true", help="print the report as JSON")
+    parser.add_argument("--self-test", action="store_true",
+                        help="run the built-in fixture tests and exit")
+    args = parser.parse_args()
+    if args.self_test:
+        return self_test()
+    return run(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

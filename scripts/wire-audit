@@ -19,6 +19,13 @@ all deterministic:
                      scope, so it never appears in /tasks and the operator
                      loses the progress panel. Subagents run their children in
                      the foreground.
+  no-work            The wire parses no tool calls at all. A seat that never
+                     ran (invalid alias, refused spawn) looks like this, and it
+                     is not a clean agent.
+  seat-failure       A child ended in `subagent.failed`, or completed with a
+                     provider banner as its result summary (rate limit, no
+                     deployments, quota, 429, 503). The task status reads
+                     completed; the work never happened.
 
 Parsed event schema. Every wire line is one JSON object; `type` selects the
 record. Only these records are consumed, everything else is ignored:
@@ -80,6 +87,8 @@ class ChildSpawned:
 @dataclass(frozen=True)
 class ChildEnded:
     subagent_id: str
+    kind: str = "subagent.completed"
+    detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -98,6 +107,11 @@ class CronAdded:
 
 
 CHILD_ENDED_TYPES = ("subagent.completed", "subagent.cancelled", "subagent.failed")
+
+PROVIDER_BANNER = re.compile(
+    r"(?i)rate limit|no deployments|quota|overloaded|capacity"
+    r"|(?:^|\D)(?:429|503)(?:\D|$)"
+)
 
 POLL_COMMAND = re.compile(
     r"\bgit\s+status\b|\bgit\s+log\b|\bsleep\s+[0-9]+(?:\.[0-9]+)?[smh]?\b"
@@ -139,7 +153,17 @@ def parse_wire(
                 ),
             )
         elif rtype in CHILD_ENDED_TYPES:
-            yield ChildEnded(subagent_id=str(record.get("subagentId", "")))
+            detail = ""
+            if rtype == "subagent.failed":
+                detail = str(record.get("error") or "")
+            elif rtype == "subagent.completed":
+                detail = str(record.get("resultSummary") or "")
+            first = detail.strip().splitlines()[0].strip() if detail.strip() else ""
+            yield ChildEnded(
+                subagent_id=str(record.get("subagentId", "")),
+                kind=str(rtype),
+                detail=first,
+            )
         elif rtype == "goal.create":
             yield GoalStarted()
         elif rtype == "goal.update":
@@ -152,6 +176,11 @@ def parse_wire(
 
 def is_poll_command(command: object) -> bool:
     return isinstance(command, str) and bool(POLL_COMMAND.search(command))
+
+
+def provider_failure(detail: str) -> bool:
+    """True when a child's closing text is a provider banner, not work."""
+    return bool(detail) and bool(PROVIDER_BANNER.search(detail))
 
 
 def is_product_path(path: object) -> bool:
@@ -179,6 +208,8 @@ class Report:
     goal_cron_adds: int
     nested_background_spawns: int
     nested_background_ids: list[str]
+    no_work: bool
+    seat_failures: list[dict]
 
 
 def audit(
@@ -195,6 +226,7 @@ def audit(
     goal_background_ids: list[str] = []
     goal_cron_adds = 0
     nested_background_ids: list[str] = []
+    seat_failures: list[dict] = []
 
     def end_run() -> None:
         nonlocal current_run
@@ -222,6 +254,14 @@ def audit(
                     )
         elif isinstance(event, ChildEnded):
             live.discard(event.subagent_id)
+            if event.kind == "subagent.failed" or provider_failure(event.detail):
+                seat_failures.append(
+                    {
+                        "subagent_id": event.subagent_id,
+                        "kind": event.kind,
+                        "detail": event.detail,
+                    }
+                )
         else:
             tool_calls += 1
             args = event.args if isinstance(event.args, dict) else {}
@@ -254,6 +294,8 @@ def audit(
         goal_cron_adds=goal_cron_adds,
         nested_background_spawns=len(nested_background_ids),
         nested_background_ids=nested_background_ids,
+        no_work=tool_calls == 0,
+        seat_failures=seat_failures,
     )
 
 
@@ -298,6 +340,13 @@ def print_text(report: Report, wire_name: str) -> None:
     )
     for label in report.nested_background_ids[:10]:
         print(f"  {label}")
+    print(
+        f"no-work: {'yes' if report.no_work else 'no'} "
+        f"({report.tool_calls} tool calls in the wire)"
+    )
+    print(f"seat-failure findings: {len(report.seat_failures)} seats ended in a provider error")
+    for failure in report.seat_failures[:10]:
+        print(f"  {failure['subagent_id']} {failure['kind']}: {failure['detail'][:140]}")
 
 
 def report_json(report: Report) -> dict:
@@ -320,6 +369,8 @@ def report_json(report: Report) -> dict:
         "goal_cron_adds": report.goal_cron_adds,
         "nested_background_spawns": report.nested_background_spawns,
         "nested_background_ids": report.nested_background_ids,
+        "no_work": report.no_work,
+        "seat_failures": report.seat_failures,
     }
 
 
@@ -332,6 +383,10 @@ def selected_finding(report: Report, fail_on: str) -> bool:
         return report.goal_background_spawns > 0 or report.goal_cron_adds > 0
     if fail_on == "nested-background":
         return report.nested_background_spawns > 0
+    if fail_on == "no-work":
+        return report.no_work
+    if fail_on == "seat-failure":
+        return bool(report.seat_failures)
     return False
 
 
@@ -388,6 +443,14 @@ def run_session(session_dir: Path, fail_on: str, as_json: bool) -> int:
                     "agents": {name: report_json(report) for name, report in reports.items()},
                     "nested_background_spawns": len(nested),
                     "nested_background_ids": nested,
+                    "no_work_agents": sorted(
+                        name for name, report in reports.items() if report.no_work
+                    ),
+                    "seat_failures": [
+                        {"agent": name, **failure}
+                        for name, report in reports.items()
+                        for failure in report.seat_failures
+                    ],
                 },
                 indent=2,
             )
@@ -409,14 +472,19 @@ def run_session(session_dir: Path, fail_on: str, as_json: bool) -> int:
                 report.authoring_calls if name == "main" else 0,
                 report.goal_background_spawns + report.goal_cron_adds,
                 report.nested_background_spawns,
+                int(report.no_work),
+                len(report.seat_failures),
             )
             if not any(row):
                 continue
             flagged += 1
             print(
                 f"  {name}: poll={row[0]} runs, authoring={row[1]}, "
-                f"goal={row[2]}, nested={row[3]}"
+                f"goal={row[2]}, nested={row[3]}, no-work={row[4]}, "
+                f"seat-failure={row[5]}"
             )
+        empty = sorted(name for name, report in reports.items() if report.no_work)
+        print(f"  no-work agents: {', '.join(empty) if empty else 'none'}")
         print(f"  clean agents: {len(reports) - flagged}")
     failed = any(
         selected_finding(report, fail_on)
@@ -460,8 +528,20 @@ def envelope_spawn(
     )
 
 
-def envelope_end(subagent_id: str, kind: str = "subagent.completed", time: int = 0) -> str:
-    return json.dumps({"type": kind, "subagentId": subagent_id, "time": time})
+def envelope_end(
+    subagent_id: str,
+    kind: str = "subagent.completed",
+    time: int = 0,
+    *,
+    result: str = "",
+    error: str = "",
+) -> str:
+    record = {"type": kind, "subagentId": subagent_id, "time": time}
+    if result:
+        record["resultSummary"] = result
+    if error:
+        record["error"] = error
+    return json.dumps(record)
 
 
 def envelope_goal_create(time: int = 0) -> str:
@@ -542,12 +622,36 @@ GOAL_CLEAN_WIRE = [
 
 NESTED_WIRE = [
     METADATA,
+    envelope_tool("t1", "Read", {"path": "/repo/README.md"}, 99),
     envelope_spawn("agent-272", True, 100, caller="agent-270"),
     envelope_spawn("agent-273", False, 101, caller="agent-270"),
     envelope_spawn("agent-300", True, 102, caller="main"),
 ]
 
 MALFORMED_WIRE = [METADATA, '{"type": "subagent.spawned", ']
+
+SEAT_FAILURE_WIRE = [
+    METADATA,
+    envelope_tool("t1", "Read", {"path": "/repo/README.md"}, 99),
+    envelope_spawn("agent-1", False, 100),
+    envelope_end("agent-1", time=101, result='❌ {"detail":"Rate limit exceeded"}'),
+    envelope_spawn("agent-2", False, 102),
+    envelope_end(
+        "agent-2",
+        kind="subagent.failed",
+        time=103,
+        error="Remote magpie: no deployments available: billing/quota filtered all "
+        "candidates (503: you can retry your request)",
+    ),
+    envelope_spawn("agent-3", False, 104),
+    envelope_end("agent-3", time=105, result="Done. Both deliverables are in place."),
+]
+
+NO_WORK_WIRE = [
+    METADATA,
+    envelope_spawn("agent-9", False, 100),
+    envelope_end("agent-9", time=101, result="Nothing to do."),
+]
 
 
 def scan_args(*args: str) -> tuple[int, dict | None]:
@@ -587,6 +691,8 @@ def self_test() -> int:
             "goal-clean.jsonl": GOAL_CLEAN_WIRE,
             "nested.jsonl": NESTED_WIRE,
             "malformed.jsonl": MALFORMED_WIRE,
+            "seat-failure.jsonl": SEAT_FAILURE_WIRE,
+            "no-work.jsonl": NO_WORK_WIRE,
         }
         for name, records in cases.items():
             (root / name).write_text("\n".join(records) + "\n", encoding="utf-8")
@@ -661,16 +767,23 @@ def self_test() -> int:
         session = root / "session"
         (session / "agents" / "main").mkdir(parents=True)
         (session / "agents" / "agent-270").mkdir(parents=True)
+        (session / "agents" / "agent-271").mkdir(parents=True)
         (session / "agents" / "main" / "wire.jsonl").write_text(
             "\n".join(CLEAN_WIRE) + "\n", encoding="utf-8"
         )
         (session / "agents" / "agent-270" / "wire.jsonl").write_text(
             "\n".join(NESTED_WIRE) + "\n", encoding="utf-8"
         )
+        (session / "agents" / "agent-271" / "wire.jsonl").write_text(
+            "\n".join(NO_WORK_WIRE) + "\n", encoding="utf-8"
+        )
         code, data = scan_args("--session", str(session), "--json")
         ok &= check("exit --fail-on none", code, 0)
         assert data is not None
-        ok &= check("agents scanned", sorted(data["agents"]), ["agent-270", "main"])
+        ok &= check("agents scanned", sorted(data["agents"]), ["agent-270", "agent-271", "main"])
+        ok &= check("no_work_agents", data["no_work_agents"], ["agent-271"])
+        code, _ = scan_args("--session", str(session), "--fail-on", "no-work")
+        ok &= check("exit --fail-on no-work", code, 1)
         ok &= check("nested_background_spawns", data["nested_background_spawns"], 1)
         ok &= check(
             "nested_background_ids",
@@ -679,6 +792,30 @@ def self_test() -> int:
         )
         code, _ = scan_args("--session", str(session), "--fail-on", "nested-background")
         ok &= check("exit --fail-on nested-background", code, 1)
+
+        print("seat-failure.jsonl: a provider banner or failed child is a dead seat")
+        code, data = scan(root / "seat-failure.jsonl")
+        ok &= check("exit --fail-on none", code, 0)
+        assert data is not None
+        ok &= check(
+            "seat_failures",
+            [failure["subagent_id"] for failure in data["seat_failures"]],
+            ["agent-1", "agent-2"],
+        )
+        ok &= check("no_work", data["no_work"], False)
+        code, _ = scan(root / "seat-failure.jsonl", "--fail-on", "seat-failure")
+        ok &= check("exit --fail-on seat-failure", code, 1)
+        code, _ = scan(root / "clean.jsonl", "--fail-on", "seat-failure")
+        ok &= check("clean wire has no dead seat", code, 0)
+
+        print("no-work.jsonl: a wire with no tool calls is not a clean agent")
+        code, data = scan(root / "no-work.jsonl", "--fail-on", "no-work")
+        ok &= check("exit --fail-on no-work", code, 1)
+        assert data is not None
+        ok &= check("tool_calls", data["tool_calls"], 0)
+        ok &= check("no_work", data["no_work"], True)
+        code, _ = scan(root / "clean.jsonl", "--fail-on", "no-work")
+        ok &= check("clean wire has work", code, 0)
 
         print("malformed.jsonl: input errors exit 2")
         code, _ = scan(root / "malformed.jsonl")
@@ -693,7 +830,8 @@ def main(argv: list[str]) -> int:
         prog="wire-audit",
         description=(
             "Audit one agent's Kimi wire.jsonl, or every agent wire in a session, "
-            "for polling, parent authoring, goal-mode, and nested-background breaches."
+            "for polling, parent authoring, goal-mode, nested-background, dead-seat, "
+            "and empty-wire breaches."
         ),
     )
     parser.add_argument("wire", nargs="?", help="path to one agent's wire.jsonl")
@@ -708,6 +846,8 @@ def main(argv: list[str]) -> int:
             "parent-authoring",
             "goal-mode",
             "nested-background",
+            "no-work",
+            "seat-failure",
             "none",
         ],
         default="none",

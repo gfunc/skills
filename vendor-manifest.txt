@@ -3,12 +3,12 @@
 # scripts/sync-upstream reads this file: first BASE line, then one path per line.
 # Since 0.3.0 the vendored paths keep upstream pstack content except for
 # harness-adapter hunks, the .scratch store convention, the five declared
-# model-override hunks, the operator-confirmed AINX-395 prototype hunk, the
-# declared AINX-395 poteto-kimi-ready adaptation hunks, and the
-# operator-confirmed AINX-395 checklist-discipline hunk, all in
-# skills/poteto-mode/ and listed below. The directories below still report as
-# "local modification (intended)" because those allowed hunks live inside them;
-# no other workflow modification remains in any vendored path.
+# model-override hunks, the operator-confirmed prototype hunk, the
+# declared poteto-kimi-ready adaptation hunks, and the
+# operator-confirmed checklist-discipline hunk, all listed below. The
+# directories below still report as "local modification (intended)" because
+# those allowed hunks live inside them; no other workflow modification remains
+# in any vendored path.
 #   skills/architect/  skills/arena/  skills/automate-me/  skills/create-verification-skill/
 #   skills/figure-it-out/  skills/how/  skills/interrogate/  skills/maintain-verification-skill/
 #   skills/no-comments/  skills/poteto-help/  skills/poteto-mode/  skills/recall/  skills/reflect/  skills/setup-pstack/
@@ -19,23 +19,24 @@
 #   skills/how/ — honors brief `Model: how explorer=` and `how explainer=` lines before the pstack models file
 #   skills/swarm/ — honors a brief `Model: swarm workers=` line before the pstack models file
 #   skills/why/ — honors brief `Model: why investigators=` and `why synthesizer=` lines before the pstack models file
-#   skills/poteto-mode/ — the prototype playbook references the scenario branches (AINX-395, operator-confirmed)
-#   skills/poteto-mode/SKILL.md — poteto-kimi-ready: model-line standing rule, smoke paragraph, /goal trigger (AINX-395)
-#   skills/poteto-mode/SKILL.md — checklist discipline: routed-skill lines, literal triggers with skip evidence, closing self-check (AINX-395, operator-confirmed)
-#   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate (AINX-395)
-#   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create (AINX-395)
-#   skills/poteto-mode/playbooks/babysit.md — poteto-kimi-ready: forge-CLI watchers, glab MR branch, api reply path (AINX-395)
-#   skills/poteto-mode/playbooks/shipping.md — poteto-kimi-ready: forge-CLI merge watching, glab merge/readback branches (AINX-395)
-#   skills/poteto-mode/playbooks/orchestrate.md — poteto-kimi-ready: background-worker continuation, CronCreate tick, --forge glab (AINX-395)
-#   skills/poteto-mode/playbooks/autopilot-full.md — poteto-kimi-ready: owner Timeout/wrapper/recovery, main-agent tick, glab forge (AINX-395)
-#   skills/poteto-mode/playbooks/autopilot-stack.md — poteto-kimi-ready: owner Timeout/wrapper/wakeups, glab retarget branch (AINX-395)
-#   skills/poteto-mode/playbooks/opening-a-pr.md — poteto-kimi-ready: GitLab create/retarget/ready/view branches (AINX-395)
-#   skills/poteto-mode/scripts/check-plan.mjs — poteto-kimi-ready: spawn-bound + lane Timeout checks, continuation markers (AINX-395)
-#   skills/poteto-mode/scripts/check-plan.test.ts — poteto-kimi-ready: tests for the new checker behavior (AINX-395)
-#   skills/poteto-mode/scripts/orch/orch.ts — poteto-kimi-ready: glab forge descriptor and parsing (AINX-395)
-#   skills/poteto-mode/scripts/orch/store.ts — poteto-kimi-ready: glab MR list invocation mapping (AINX-395)
-#   skills/poteto-mode/scripts/orch/orch.test.ts — poteto-kimi-ready: three-forge test suite (AINX-395)
-#   skills/poteto-mode/references/glab-forge.md — poteto-kimi-ready: new GitLab forge verb reference (AINX-395; file lands in U1)
+#   skills/poteto-mode/ — the prototype playbook references the scenario branches (operator-confirmed)
+#   skills/poteto-mode/SKILL.md — poteto-kimi-ready: model-line standing rule, smoke paragraph, /goal trigger
+#   skills/poteto-mode/SKILL.md — checklist discipline: routed-skill lines, literal triggers with skip evidence, closing self-check (operator-confirmed)
+#   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate
+#   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create
+#   skills/poteto-mode/playbooks/babysit.md — poteto-kimi-ready: forge-CLI watchers, glab MR branch, api reply path
+#   skills/poteto-mode/playbooks/shipping.md — poteto-kimi-ready: forge-CLI merge watching, glab merge/readback branches
+#   skills/poteto-mode/playbooks/orchestrate.md — poteto-kimi-ready: background-worker continuation, CronCreate tick, --forge glab
+#   skills/poteto-mode/playbooks/autopilot-full.md — poteto-kimi-ready: owner Timeout/wrapper/recovery, main-agent tick, glab forge
+#   skills/poteto-mode/playbooks/autopilot-stack.md — poteto-kimi-ready: owner Timeout/wrapper/wakeups, glab retarget branch
+#   skills/poteto-mode/playbooks/opening-a-pr.md — poteto-kimi-ready: GitLab create/retarget/ready/view branches
+#   skills/poteto-mode/scripts/check-plan.mjs — poteto-kimi-ready: spawn-bound + lane Timeout checks, continuation markers
+#   skills/poteto-mode/scripts/check-plan.test.ts — poteto-kimi-ready: tests for the new checker behavior
+#   skills/poteto-mode/scripts/orch/orch.ts — poteto-kimi-ready: glab forge descriptor and parsing
+#   skills/poteto-mode/scripts/orch/store.ts — poteto-kimi-ready: glab MR list invocation mapping
+#   skills/poteto-mode/scripts/orch/orch.test.ts — poteto-kimi-ready: three-forge test suite
+#   skills/poteto-mode/references/glab-forge.md — poteto-kimi-ready: new GitLab forge verb reference (file lands in U1)
+#   agents/poteto-agent.md — resolves the plugin root from its own definition when a brief omits the skill and profile paths, and reports the omission (harness-adapter hunk)
 BASE e44668c2aad92eacf4e84df47984121fefb11b82
 skills/architect/
 skills/arena/
