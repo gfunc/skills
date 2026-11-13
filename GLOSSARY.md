@@ -11,7 +11,7 @@ The index of one wayfinding effort: its destination, decisions so far, uncharted
 _Avoid_: roadmap, epic
 
 **Effort**:
-One body of work in the store, named by its slug — the kebab-case directory name under `.scratch/`. May carry a map (wayfinder), a spec (to-spec), and runs (start-dev executions); a spec-only or standalone-prototype effort has no map. Everything an effort produces lives in its tree, `.scratch/<effort>/` — the wayfinder effort directory, a direct prototype-led spec effort, and the start-dev run root are the same tree, and a map is linked into it, never merged.
+One body of work in the store, named by its slug, the kebab-case directory name under `.scratch/`. May carry a map (wayfinder), a spec (to-spec), and runs (start-dev executions); a spec-only or standalone-prototype effort has no map. Everything an effort produces lives in its tree, `.scratch/<effort>/`. The wayfinder effort directory, a direct prototype-led spec effort, and the start-dev run root are the same tree. A map is linked into it, never merged.
 _Avoid_: story folder, run folder
 
 **Decision ticket**:
@@ -49,7 +49,7 @@ _Avoid_: size, complexity
 ### Prototyping
 
 **Prototype**:
-Throwaway code that answers one design question; the question decides its shape, the validated decision folds back into the owning spec or the real code, and the artifact archives out of main. Direct `/prototype` runs spec-led: it works the question frontier, and the observed answers become the effort's spec.
+Throwaway code that answers one design question; the question decides its shape, the validated decision folds back into the owning spec or the real code, and the artifact archives out of main. Direct `/prototype` is spec-led by default: it works the question frontier, and the observed answers become the effort's spec.
 _Avoid_: mockup, spike, demo
 
 **Scenario branch**:
