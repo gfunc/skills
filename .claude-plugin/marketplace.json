@@ -8,7 +8,7 @@
     {
       "name": "gfunc-skills",
       "source": "./",
-      "description": "pstack vendored and modified, with the wayfinder planning chain integrated. Two front doors (/poteto-mode automatic, /wayfinder HITL), one executor (autopilot-stack).",
+      "description": "pstack vendored and modified, with the wayfinder planning chain integrated. Four front doors (/prototype, /poteto-mode, /wayfinder, /start-dev).",
       "category": "engineering",
       "keywords": [
         "gfunc-skills",

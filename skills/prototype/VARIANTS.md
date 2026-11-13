@@ -103,8 +103,6 @@ Once a variant has won, capture which variant and why, then capture the prototyp
 
 Keep the full set of variants and the switcher on the throwaway branch as the primary source. Main keeps only the validated decision.
 
-The full set of variants is the primary source, so it lands on the throwaway branch, not the bin, since variant components and the switcher left in the main branch rot fast and confuse the next reader.
-
 ## Anti-patterns
 
 - **Variants that differ only in colour or copy.** That's a tweak, not a prototype. Real variants disagree about structure.

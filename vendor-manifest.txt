@@ -22,7 +22,6 @@
 #   skills/poteto-mode/: the prototype playbook references the scenario branches (operator-confirmed); its Scope/verify/capture steps distinguish new prototypes, revisions, and broken artifacts, route open UX through Arena, verify single-file HTML through file://, and capture into the owning spec or real code; SKILL.md Playbooks routing keeps prototype revisions and spec-plus-prototype evolution on Prototype, out of Feature
 #   skills/poteto-mode/SKILL.md — poteto-kimi-ready: model-line standing rule, smoke paragraph, /goal trigger
 #   skills/poteto-mode/SKILL.md: checklist discipline: routed-skill lines, literal triggers with skip evidence, closing self-check (operator-confirmed)
-#   skills/arena/SKILL.md: provider-failed seats follow the profile retry/substitution rule, sub-two-viable comparisons are degraded and stop before the selected build, and the synthesis record gates Phase E and downstream builds
 #   skills/setup-pstack/SKILL.md: the default cross-judge pool includes a third family and setup selects a judge from a family that authored none of the viable candidates
 #   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate
 #   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create
