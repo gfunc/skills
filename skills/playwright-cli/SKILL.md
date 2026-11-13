@@ -390,6 +390,16 @@ playwright-cli open https://example.com
 playwright-cli show --annotate
 ```
 
+## Open a local HTML file
+
+Use the exact `file://` URL for a static artifact. Do not substitute an HTTP server.
+
+Set `TMPDIR` to a short writable path. A long path can exceed the Unix socket limit, and the default `/tmp/playwright-cli` may not be writable. Builds that block local files also need `PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS=1`.
+
+```bash
+PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS=1 TMPDIR=/tmp/pw playwright-cli open "file:///absolute/path/to/artifact.html"
+```
+
 ## Specific tasks
 
 * **Running and Debugging Playwright tests** [references/playwright-tests.md](references/playwright-tests.md)
