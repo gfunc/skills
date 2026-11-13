@@ -94,7 +94,7 @@ This branch's evidence form, captured through the [router's completion gate](SKI
 1. **`direction-approved.md`** — the user's verbatim choice, the directions shown, the screenshot paths.
 2. **A screenshot of the built artifact** — the approved direction as actually rendered.
 
-Then capture as the [SKILL](SKILL.md) describes: fold the approved design decision back into the real code, and archive the prototype — plan files, cards, thumbnails, and builds — on the throwaway branch with a pointer.
+Then capture through the [completion gate](SKILL.md#completion-gate). Fold the approved design decision into the owning spec or real code as appropriate, and archive the plan files, cards, thumbnails, and builds on the throwaway branch with a pointer. Production implementation is a later explicit operator invocation.
 
 ## Anti-patterns
 
