@@ -23,21 +23,27 @@ Every candidate gets the same prompt, so the prompt is the contract.
 
 Spawn all N subagents in one message using the tool and arguments the profile's Subagents section names, each with the task, the path to the shared grounding, its own output path, the active `harness=`/`profile=` paths, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected. Where parallel spawn is unsupported, run them sequentially and disclose the reduced independence in the reply and trail.
 
-If a candidate produces no output, proceed with N-1 and note the dropout.
+Distinguish a dropout from a failed seat. A candidate that ran and produced no artifact is a **dropout**: proceed with N-1 and note it. A child that never ran as work — a provider banner in its result (rate limit, quota, no deployments, 503) or a `subagent.failed` termination — is a **provider-failed seat**: follow the active profile's retry/substitution rule for provider failures instead of silently continuing with N-1, and record what was retried or substituted.
+
+Before judging, count the **viable** candidates: ones that ran to completion on independently authored artifacts. The requested comparison is intact only with two or more. With fewer, the run is **degraded**: disclose it, and stop before the selected build (Phase E) for an operator decision on whether a degraded comparison, a re-run, or an abandonment serves the task. A surviving candidate is never its own independent judge — when only one candidate survives, cross-judging cannot happen, and that fact is part of the degraded disclosure.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, choose one model from the `arena cross-judge pool` line in `~/.agents/pstack-models.md`, unless the caller's brief carries a `Model: arena cross-judge pool=<model>` line, which wins first. If the file or that line is missing, choose from `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. Prefer a different model family from the parent's. Spawn one fresh judge subagent on that model in the profile's read-only mode where it has one; if the job needs external context, use a mode that keeps MCP access. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
+After all Phase B candidates complete, choose one model from the `arena cross-judge pool` line in `~/.agents/pstack-models.md`, unless the caller's brief carries a `Model: arena cross-judge pool=<model>` line, which wins first. If the file or that line is missing, choose from `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. Prefer a different model family from the parent's. Spawn one fresh judge subagent on that model in the profile's read-only mode where it has one; if the job needs external context, use a mode that keeps MCP access. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It starts only after the candidates finish; never spawn it while candidates are still writing, and never on a surviving candidate's own model seat judging its own work.
 
 ## Phase D: Pick a base
 
-Read every candidate end to end before picking. Score each against the rubric criterion by criterion, not on holistic feel, and compare with the cross-judge. Agreement on the base confirms the pick. Disagreement means one of you is biased or the rubric was ambiguous. Read both rationales before deciding.
+Phase D finishes only after the judge returns: read every candidate end to end before picking, score each against the rubric criterion by criterion, not on holistic feel, and compare your scoring with the judge's verdict. Agreement on the base confirms the pick. Disagreement means one of you is biased or the rubric was ambiguous. Read both rationales before deciding.
 
 Pick the base a future maintainer can extend most easily without breaking invariants. When two feel tied, prefer the cleaner boundary or smaller API, per the Laziness Protocol.
 
+Then write the synthesis note's decision core — the base picked and why, the judge's verdict, and each graft you plan to port with its source candidate — before Phase E starts. Verification results are appended later; the note exists first.
+
 ## Phase E: Graft
 
-Walk each losing candidate once more for what is worth porting into the base, usually one or two things per candidate, not most of it. Fold each graft in by hand, per the **redesign-from-first-principles** principle skill, so the result stays coherent under one mental model. Don't paste mechanically.
+Phase E waits for the Phase D record: the synthesis note's decision core (base, verdict, planned grafts) must exist before grafting starts.
+
+Walk each losing candidate once more for what is worth porting into the base, usually one or two things per candidate, not most of it. Fold each graft in by hand, per the **redesign-from-first-principles** principle skill, so the result stays coherent under one mental model. Don't paste mechanically. Downstream selected builds built from this arena's output wait for the same record plus Phase F's verification result.
 
 If the candidates converge on one shape, that is strong agreement. Note it and ship the consensus shape. No graft is needed. If they wildly diverge, Phase A was under-specified. Reframe and re-run rather than averaging the divergence.
 
@@ -47,4 +53,4 @@ Verify the synthesized artifact like any other output, per the **prove-it-works*
 
 ## Outputs
 
-One synthesized artifact, with a short synthesis note alongside naming the base and why, the cross-judge's verdict, each graft with its source candidate, what was rejected and why, any convergence or dropouts, and the verification result.
+One synthesized artifact, with a short synthesis note alongside naming the base and why, the cross-judge's verdict, each graft with its source candidate, what was rejected and why, any convergence or dropouts, provider-failed seats with their retry or substitution, and the verification result (appended after Phase F).
