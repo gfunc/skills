@@ -1,7 +1,7 @@
 {
   "name": "gfunc-skills",
   "description": "gfunc's own agent stack: original pstack vendored, with the wayfinder planning chain and a start-dev execution front door. Four front doors (/poteto-mode, /wayfinder, /start-dev, /prototype).",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "author": {
     "name": "gfunc"
   },
