@@ -15,13 +15,14 @@
 #   skills/show-me-your-work/  skills/swarm/  skills/why/  agents/  docs/  .cursor-plugin/
 # Intended local modifications beyond the harness-adapter hunks, one reason per path:
 #   skills/architect/ — honors a brief `Model: architect runners=` line before the pstack models file
-#   skills/arena/ — honors brief `Model: arena runners=` and `arena cross-judge pool=` lines before the pstack models file
+#   skills/arena/ — honors brief `Model: arena runners=` and `arena cross-judge pool=` lines before the pstack models file; provider-failed seats follow the profile retry/substitution rule, sub-two-viable comparisons are degraded and stop before the selected build, and the synthesis record gates Phase E and downstream builds
 #   skills/how/ — honors brief `Model: how explorer=` and `how explainer=` lines before the pstack models file
 #   skills/swarm/ — honors a brief `Model: swarm workers=` line before the pstack models file
 #   skills/why/ — honors brief `Model: why investigators=` and `why synthesizer=` lines before the pstack models file
-#   skills/poteto-mode/ — the prototype playbook references the scenario branches (operator-confirmed)
+#   skills/poteto-mode/ — the prototype playbook references the scenario branches (operator-confirmed); its Scope/verify/capture steps distinguish new prototypes, revisions, and broken artifacts, route open UX through Arena, verify single-file HTML through file://, and capture into the owning spec or real code
 #   skills/poteto-mode/SKILL.md — poteto-kimi-ready: model-line standing rule, smoke paragraph, /goal trigger
-#   skills/poteto-mode/SKILL.md — checklist discipline: routed-skill lines, literal triggers with skip evidence, closing self-check (operator-confirmed)
+#   skills/poteto-mode/SKILL.md — checklist discipline: routed-skill lines, literal triggers with skip evidence, closing self-check (operator-confirmed); its Playbooks routing keeps prototype revisions and spec-plus-prototype evolution on Prototype, out of Feature
+#   skills/arena/SKILL.md — provider-failed seats follow the profile retry/substitution rule, sub-two-viable comparisons are degraded and stop before the selected build, and the synthesis record gates Phase E and downstream builds
 #   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate
 #   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create
 #   skills/poteto-mode/playbooks/babysit.md — poteto-kimi-ready: forge-CLI watchers, glab MR branch, api reply path

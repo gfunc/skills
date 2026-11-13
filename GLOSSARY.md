@@ -11,7 +11,7 @@ The index of one wayfinding effort: its destination, decisions so far, uncharted
 _Avoid_: roadmap, epic
 
 **Effort**:
-One body of work in the store, named by its slug — the kebab-case directory name under `.scratch/`. May carry a map (wayfinder), a spec (to-spec), and runs (start-dev executions); a spec-only or standalone-prototype effort has no map. Everything an effort produces lives in its tree, `.scratch/<effort>/` — the wayfinder effort directory and the start-dev run root are the same tree, and a map is linked into it, never merged.
+One body of work in the store, named by its slug — the kebab-case directory name under `.scratch/`. May carry a map (wayfinder), a spec (to-spec), and runs (start-dev executions); a spec-only or standalone-prototype effort has no map. Everything an effort produces lives in its tree, `.scratch/<effort>/` — the wayfinder effort directory, a direct prototype-led spec effort, and the start-dev run root are the same tree, and a map is linked into it, never merged.
 _Avoid_: story folder, run folder
 
 **Decision ticket**:
@@ -49,7 +49,7 @@ _Avoid_: size, complexity
 ### Prototyping
 
 **Prototype**:
-Throwaway code that answers one design question; the question decides its shape, the validated decision folds back into real code, and the artifact archives out of main.
+Throwaway code that answers one design question; the question decides its shape, the validated decision folds back into the owning spec or the real code, and the artifact archives out of main. Direct `/prototype` runs spec-led: it works the question frontier, and the observed answers become the effort's spec.
 _Avoid_: mockup, spike, demo
 
 **Scenario branch**:
@@ -61,7 +61,7 @@ The two-axis discriminator at the router's top: input (design doc, existing page
 _Avoid_: decision tree
 
 **Completion gate**:
-The triple hard gate closing every scenario branch: runnable with one command, verification executed with evidence, capture done. Missing any means the prototype is not finished.
+The triple hard gate closing every scenario branch: runnable with one command, verification executed with evidence, capture done into the owning spec or the real code. Missing any means the prototype is not finished.
 _Avoid_: definition of done
 
 ### Execution
