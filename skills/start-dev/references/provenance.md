@@ -27,14 +27,14 @@ These hunks were removed from pstack-owned files and re-homed here. The restored
 
 ## Declared hunks in vendored pstack paths
 
-The verification wiring needs the caller's brief to carry the model source, so five pstack-owned skills gained one hunk each. Each is declared in `vendor-manifest.txt` and keeps its upstream attribution; the four verification skills and `setup-pstack` stay untouched.
+The verification wiring needs the caller's brief to carry the model source, so five pstack-owned skills gained model-override hunks. Each is declared in `vendor-manifest.txt` and keeps its upstream attribution; the four verification skills stay untouched. `setup-pstack` later gained a candidate-independent judge default, declared separately in `vendor-manifest.txt`.
 
 | Vendored path | Hunk |
 |---|---|
 | `skills/how/SKILL.md` | A brief `Model: how explorer=` / `Model: how explainer=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
 | `skills/why/SKILL.md` | A brief `Model: why investigators=` / `Model: why synthesizer=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
 | `skills/architect/SKILL.md` | A brief `Model: architect runners=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
-| `skills/arena/SKILL.md` | Brief `Model: arena runners=` and `Model: arena cross-judge pool=` lines win before `~/.agents/pstack-models.md`, then the file, then the stated default. |
+| `skills/arena/SKILL.md` | Brief `Model: arena runners=` and `Model: arena cross-judge pool=` lines win before `~/.agents/pstack-models.md`, then the file, then the stated default. Provider-failure handling and the independent-judging gate are separate declared hunks in `vendor-manifest.txt`. |
 | `skills/swarm/SKILL.md` | A brief `Model: swarm workers=` line wins before `~/.agents/pstack-models.md`, then the file, then the stated default. |
 
 Each hunk also states that a brief line does not make a model available: the profile's availability check still runs, and a value the profile cannot express is substituted, recorded, and disclosed.

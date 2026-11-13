@@ -30,7 +30,7 @@ The right shape depends on the question:
 - **A small set of pure functions** over a plain data type. Good when there's no implicit current state, just transformations.
 - **A class or module with a clear method surface** when the logic genuinely owns ongoing internal state.
 
-Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This is what makes the prototype useful past its own lifetime: once the question's answered, the validated reducer / machine / function set lifts into the real module on its own.
+Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This keeps the validated logic portable when a later explicit invocation promotes it into the real module.
 
 ### 3. Run the smallest script that answers it
 
@@ -61,7 +61,7 @@ Send them the file, or open it for them. They'll click through the walkthroughs 
 
 ### 6. Capture the answer and the prototype
 
-Once the prototype has answered its question, capture the answer, then capture the prototype the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set lifts into the real module (the decision, absorbed); the HTML shell rides along to the throwaway branch that keeps the prototype as a primary source, and being one self-contained file, it stays trivially re-runnable there.
+Once the prototype has answered its question, capture the answer and prototype through the [completion gate](SKILL.md#completion-gate). The validated reducer, machine, or function set goes into the owning spec or decision record when one exists. Promotion into the real module is a later explicit operator invocation, not a continuation of this run. The self-contained HTML shell stays re-runnable on the throwaway branch as a primary source.
 
 ## Anti-patterns
 

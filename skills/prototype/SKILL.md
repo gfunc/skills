@@ -7,6 +7,35 @@ description: Build a throwaway prototype to answer a design question. Use when t
 
 A prototype is **throwaway code that answers a question**. The input the operator brings and the question being asked decide the branch; the table below is the whole discriminator.
 
+## Direct invocation: spec-led by default
+
+Invoked directly, `/prototype` builds a spec through questions and observed artifacts. It asks only for missing product decisions and researches facts itself. Paths below are relative to the pack root, two directories up from this file.
+
+1. **Create or reuse one effort tree.** Resume an existing effort with a `spec.md`, a `map.md`, or a matching prototype before minting a new `.scratch/<effort>/`. A multi-repo effort names one owning repo and links the other repos and branches from that tree.
+2. **Start or update `spec.md`** using the template in `skills/to-spec/SKILL.md`. Fill what the request, the code, and the environment already answer.
+3. **Interview through `skills/grill-with-docs/SKILL.md`.** Follow its `grilling` and `domain-modeling` rules for interview order and glossary and ADR timing. Ask only the missing product decisions the template needs, batched by the current decision frontier, with a recommendation each. Use the harness's structured question tool when the active profile permits it.
+4. **Run prototype-shaped questions through the six steps of `skills/poteto-mode/playbooks/prototype.md`.** These questions ask about layout, interaction, timing, or an approach that observation settles better than discussion. Route the input and question through the table below. Reading the playbook by path runs its steps without invoking `/poteto-mode`. Capture the selected direction, rejected alternatives, evidence, branch or commit, and remaining questions in `spec.md` and `decisions.tsv` before the dependent interview branch continues.
+5. **Repeat until the spec frontier is clear.** Ask the operator to confirm the shared understanding and final spec. Do not publish to a tracker, chain into another workflow, or begin implementation.
+
+The boundaries are:
+
+- `/poteto-mode` and `/start-dev` are later, explicit human invocations. Direct `/prototype` invokes neither.
+- An explicit "artifact only, no spec" request keeps the previous lightweight behavior: route, build, verify, capture.
+- A prototype invoked inside `/poteto-mode` or `/wayfinder` follows the caller's contract and never forces a second spec interview.
+
+Wayfinder maps stay optional. Reuse an existing `map.md` when one is present. A small direct prototype creates none. Chart or reuse a map only when discovery exposes fog that cannot be resolved safely in one session, then follow the HITL Prototype ticket contract in `skills/wayfinder/SKILL.md`.
+
+Artifacts keep the existing layout. No map, manifest, coverage file, or checker is required:
+
+```text
+.scratch/<effort>/
+  spec.md
+  decisions.tsv
+  prototype/<slug>/
+```
+
+`spec.md` links each settled decision to its prototype evidence under `prototype/<slug>/`.
+
 ## Route by input and question
 
 Name the **input** (a design doc or brief, an existing page or app, a bare question) and the **question** (logic-behavior, appearance, interaction, polish), using the user's prompt, the surrounding code, or by asking if the user is around. The four branches produce very different artifacts, so a wrong pick wastes the whole prototype.
@@ -39,10 +68,10 @@ How a prototype starts, proves itself, and closes is not a rule per branch — i
 A prototype is done only when all three clauses hold. Every branch closes through this one gate; no branch file restates it.
 
 1. **Runnable with one command.** Playwright's `webServer` starts a server-backed prototype, a static artifact opens as a file, and REDLINE uses the existing app's own start command. No thinking required to start it.
-2. **Verified with the branch's evidence form, with the state surfaced.** LOGIC prints or renders the full relevant state after every action and records observed state output or a walkthrough recording. VARIANTS renders the full relevant state on every variant switch and records per-variant screenshots, with per-id disclosure where a modern-web-guidance guide was applied. DESIGN-DOC records the approved-direction file plus a screenshot of the built artifact. REDLINE records the per-variant reports plus `winner.json`.
-3. **Captured.** The validated decision — the verdict and the question it settled — folds back into the real code, and the prototype is archived as a primary source on a throwaway branch, out of main, with a context pointer to that branch left where the decision lands (the issue or the commit). REDLINE applies the winner and archives the losing variants with their reports. Main keeps only the validated decision.
+2. **Verified with the branch's evidence form, with the state surfaced.** LOGIC prints or renders the full relevant state after every action and records observed state output or a walkthrough recording. VARIANTS renders the full relevant state on every variant switch and records per-variant screenshots, with per-id disclosure where a modern-web-guidance guide was applied. DESIGN-DOC records the approved-direction file plus a screenshot of the built artifact. REDLINE records the per-variant reports plus `winner.json`. For a single-file HTML deliverable, open the exact exported file through `file://` and prove a non-empty application mount, no browser console errors, and the selected journeys. HTTP evidence does not substitute because it is a different runtime.
+3. **Captured.** Fold the validated decision and the question it settled into the owning effort's `spec.md` and `decisions.tsv` when one exists, otherwise into the real code or decision record. Archive the prototype as a primary source on a throwaway branch, out of main, with a context pointer from the spec, issue, or commit. REDLINE archives the losing variants with their reports. Main keeps only the validated decision. Applying a REDLINE winner or any other implementation is a separate explicit operator invocation, never a continuation of this run.
 
-Capture is idempotent: re-running it amends the archive commit, updates the pointer in place, and REDLINE's fold-back checks the winner is already applied before reapplying.
+Capture is idempotent: re-running it amends the archive commit and updates the pointer in place. REDLINE's later application checks whether the winner is already applied before reapplying it, outside this run.
 
 ## Verify with a browser
 

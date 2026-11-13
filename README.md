@@ -31,15 +31,16 @@ Use `/plugins` to inspect available updates. The repository URL follows the late
 
 ## Choose a workflow
 
-Three front doors.
+Four front doors.
 
+- [`/prototype`](skills/prototype/SKILL.md) turns design questions into a spec through throwaway artifacts. Direct invocation is spec-led by default. It researches facts, asks only for missing product decisions, and captures each observed answer in the effort's `spec.md`. Ask for "artifact only, no spec" to keep the previous lightweight behavior. A small prototype creates no map and reuses an existing one. [`/poteto-mode`](skills/poteto-mode/SKILL.md) and [`/start-dev`](skills/start-dev/SKILL.md) are later, explicit human invocations; direct `/prototype` invokes neither.
 - [`/poteto-mode`](skills/poteto-mode/SKILL.md) takes a goal and a check, selects a playbook, and runs it. This is the original pstack path, restored to upstream content.
 - [`/wayfinder`](skills/wayfinder/SKILL.md) discusses a loose idea with you and maps the decisions, resolved one per session. It also works standalone.
 - [`/start-dev`](skills/start-dev/SKILL.md) takes an approved spec and runs the full post-spec lifecycle behind it: a design phase run inside the restored `architect` skill's Phase A+B under the full Principles index (start-dev keeps its own attributed copy at `skills/start-dev/references/principles.md`), a dev-lead plan with a unit graph (every phase applies the full index, with its primary principles named in the skill's Principles table), execution through the `dev-owner` agent's ready sets with one worktree per unit and a merge worker as the only writer of the PR branch, and a confrontational review before you land. Human-invoked, like wayfinder.
 
 Auxiliary doors: [`/writing-for-agents`](skills/writing-for-agents/SKILL.md) guides skills, `AGENTS.md`, `CLAUDE.md`, and context pointers; [`/poteto-help`](skills/poteto-help/SKILL.md) helps you pick a skill or recover a run; [`/handoff`](skills/handoff/SKILL.md) compacts a conversation into a handoff document for a fresh agent.
 
-The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. `/start-dev` runs the spec from there through design, plan, execution, and review as exactly one PR. `dev-owner`, the execution agent, is gfunc-owned, not a pstack or Matt Pocock port. Each harness profile's `Role mapping` section resolves the roles and names the continuation mechanism. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
+The planning chain starts with `/wayfinder` discussion, then `/to-spec` synthesizes the agreed spec for your confirmation. `/prototype` reaches the same spec-shaped output from the design side: the question frontier drives throwaway artifacts, and the observed answers become the spec. `/start-dev` runs a confirmed spec from there through design, plan, execution, and review as exactly one PR. `dev-owner`, the execution agent, is gfunc-owned, not a pstack or Matt Pocock port. Each harness profile's `Role mapping` section resolves the roles and names the continuation mechanism. Other effects still need their workflow's scoped approvals. Work tickets are an optional artifact, written on request.
 
 ### Migrating from 0.2.x
 
