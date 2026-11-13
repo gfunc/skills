@@ -69,7 +69,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 - Under a goal, spawn every child in the foreground. Foreground calls in one message still run concurrently. A goal continues the turn as soon as one ends, so a background child leaves the next turn with nothing to do but poll.
 - Outside a goal, a background child covers work the parent does not need now. After dispatch, end the turn; the completion notification is the wakeup. `TaskOutput`, `TaskList`, `WaitFor`, and repeated `git status` are not.
 - A timed audit tick and a goal are mutually exclusive. The goal is the continuation. Delete an armed tick on pause, completion, or cancel.
-- **Operator gates end the turn.** Goal or cron continuation never carries work through an Arena direction choice, a degraded-comparison decision, a spec confirmation, or another operator gate. The operator's reply resumes the same effort. A continuation that answers the gate for the operator is a violation, not progress.
+- **Operator gates stop continuation.** Before waiting for an Arena direction choice, a degraded-comparison decision, a spec confirmation, or another operator decision, mark the active goal as blocked or paused and delete any armed tick. End the turn. The operator's reply resumes the same effort and, when still wanted, the goal or schedule. A continuation that answers the gate for the operator is a violation, not progress.
 
 ## Plan mode
 
