@@ -27,7 +27,7 @@ These hunks were removed from pstack-owned files and re-homed here. The restored
 
 ## Declared hunks in vendored pstack paths
 
-The verification wiring needs the caller's brief to carry the model source, so five pstack-owned skills gained model-override hunks. Each is declared in `vendor-manifest.txt` and keeps its upstream attribution; the four verification skills and `setup-pstack` stay untouched.
+The verification wiring needs the caller's brief to carry the model source, so five pstack-owned skills gained model-override hunks. Each is declared in `vendor-manifest.txt` and keeps its upstream attribution; the four verification skills stay untouched. `setup-pstack` later gained a candidate-independent judge default, declared separately in `vendor-manifest.txt`.
 
 | Vendored path | Hunk |
 |---|---|
