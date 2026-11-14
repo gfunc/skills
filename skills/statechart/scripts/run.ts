@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { inspect } from "node:util";
-import { boundRun, chartRun, configText } from "./backends/cfg.ts";
+import { boundRun, chartNames, chartRun, configText } from "./backends/cfg.ts";
 import { plainText } from "./backends/plain-text.ts";
 import { readConfig } from "./frontends/config.ts";
 import { parseDot } from "./frontends/dot.ts";
@@ -270,10 +270,13 @@ function* only(marks: Iterable<Mark>, rules: Set<string>) {
 export async function check(specFile: string, configFile: string): Promise<CheckResult> {
   const cfg = readConfig({ file: configFile, text: fs.readFileSync(configFile, "utf8") });
   const checks = readChecks({ configFile, config: cfg });
-  const folder = path.dirname(path.resolve(specFile));
+  const source = path.dirname(path.resolve(specFile));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "statechart-"));
+  const folder = path.join(dir, "model");
   try {
+    fs.symlinkSync(source, folder, "dir");
     const tlc = await findTlc(dir);
+    const javaEnv = process.platform === "darwin" ? process.env : { ...process.env, LC_ALL: "C.UTF-8" };
     const config = (name: string, sections: ConfigSection[], extra: string[]) => {
       fs.writeFileSync(path.join(dir, `${name}.cfg`), configText(sections, extra));
       return [`-metadir`, path.join(dir, `meta-${name}`), "-config", path.join(dir, `${name}.cfg`)];
@@ -295,14 +298,14 @@ export async function check(specFile: string, configFile: string): Promise<Check
         {
           cwd: dir,
           out: path.join(dir, name),
-          env: process.platform === "darwin" ? process.env : { ...process.env, LC_ALL: "C.UTF-8" },
+          env: javaEnv,
         },
       );
     };
     const xml = await runJava(
       "sany",
       "tla2sany.xml.XMLExporter",
-      ["-o", "-I", folder, path.resolve(specFile)],
+      ["-o", "-I", folder, path.join(folder, path.basename(specFile))],
       ["-XX:TieredStopAtLevel=1"],
     );
     if (xml.status !== 0)
@@ -310,6 +313,8 @@ export async function check(specFile: string, configFile: string): Promise<Check
     const sany = readSany(fs.readFileSync(xml.stdout, "utf8"));
     const module = path.basename(specFile, ".tla");
     const spec = { ...readSpec({ module, sany, checks }), folder };
+    const tag = `chart-${randomBytes(16).toString("hex")}`;
+    const generated = chartNames(tag, sany.names);
     const rules = stateRules(spec);
     const all = [...rules];
     for (const name of spec.properties) all.push({ kind: "property", name });
@@ -335,13 +340,13 @@ export async function check(specFile: string, configFile: string): Promise<Check
         if (invariants.length) extra.push(`INVARIANT ${invariants.join(" ")}`);
         if (properties.length) extra.push(`PROPERTY ${properties.join(" ")}`);
         const bounded = first !== undefined && !states.complete;
-        if (bounded) extra.push("CONSTRAINT ChartBound");
+        if (bounded) extra.push(`CONSTRAINT ${generated.bound}`);
         const r = await runJava(name, "tlc2.TLC", [
           "-tool",
           ...PINNED_FLAGS,
           ...(names(group, "deadlock").length ? [] : ["-deadlock"]),
           ...config(name, spec.written, extra),
-          bounded ? "ChartBound" : spec.module,
+          bounded ? generated.bound : spec.module,
         ]);
         first ??= r;
         const { broke, distinct, initial } = readVerdict(messagesOf(r.output));
@@ -379,7 +384,7 @@ export async function check(specFile: string, configFile: string): Promise<Check
       for (const rule of all) if (!verdicts.has(ruleKey(rule))) decide(rule, "not checked");
       return { first: first!, stop, states };
     };
-    fs.writeFileSync(path.join(dir, "ChartBound.tla"), boundRun(spec.module));
+    fs.writeFileSync(path.join(dir, `${generated.bound}.tla`), boundRun(spec.module, generated));
     const judged = await judge();
     const exit = exitClass(judged.first.status);
     const failed = (r: FileResult) =>
@@ -410,17 +415,19 @@ export async function check(specFile: string, configFile: string): Promise<Check
       rules: checked,
     };
     if (judged.states.distinct <= CHART_STATES) {
-      const tag = `chart-${randomBytes(16).toString("hex")}`;
-      fs.writeFileSync(path.join(dir, "ChartRun.tla"), chartRun(spec, tag));
+      fs.writeFileSync(path.join(dir, `${generated.run}.tla`), chartRun(spec, tag, generated));
       const drawn = await runJava("ChartRun", "tlc2.TLC", [
         "-tool",
         ...PINNED_FLAGS,
         "-deadlock",
-        ...config("ChartRun", spec.written, ["INVARIANT ChartMark", "CONSTRAINT ChartBudget"]),
+        ...config("ChartRun", spec.written, [
+          `INVARIANT ${generated.mark}`,
+          `CONSTRAINT ${generated.budget}`,
+        ]),
         "-dump",
         "dot,actionlabels",
         path.join(dir, "graph"),
-        "ChartRun",
+        generated.run,
       ]);
       const file = path.join(dir, "graph.dot");
       if (!fs.existsSync(file)) throw failed(drawn);

@@ -101,6 +101,41 @@ for (const name of fs.readdirSync(corpus)) {
   });
 }
 
+test("comment-only names do not change generated operators", () => {
+  const dir = copyCase("Counter", (dir) => {
+    fs.appendFileSync(path.join(dir, "Counter.tla"), "\n(* ChartBudget *)\n");
+  });
+  const first = run(dir);
+  const second = run(dir);
+  assert.equal(first.status, 0);
+  assert.equal(second.status, 0);
+  assert.equal(first.configs.ChartRun, second.configs.ChartRun);
+});
+
+test(
+  "scoped parameters do not change generated operators",
+  { skip: !process.env.TLA2TOOLS && "set TLA2TOOLS to the path of tla2tools.jar to run TLC" },
+  () => {
+    const dir = copyCase("Counter", (dir) => {
+      const file = path.join(dir, "Counter.tla");
+      fs.writeFileSync(
+        file,
+        read(file).replace("====", "Within(ChartBudget) == ChartBudget \\in 0..2\nStable == TRUE\n===="),
+      );
+    });
+    const env = () => ({
+      STATECHART_RECORD: fs.mkdtempSync(path.join(os.tmpdir(), "statechart-scoped-")),
+      STATECHART_JAVA: process.env.JAVA ?? "java",
+      TLA2TOOLS: process.env.TLA2TOOLS,
+    });
+    const first = run(dir, { env: env() });
+    const second = run(dir, { env: env() });
+    assert.equal(first.status, 0);
+    assert.equal(second.status, 0);
+    assert.equal(first.configs.ChartRun, second.configs.ChartRun);
+  },
+);
+
 const launcher = path.join(here, "../statechart");
 
 const launcherTools = () => {

@@ -77,6 +77,38 @@ test("a spec in a folder whose name is not ASCII checks under the POSIX locale",
   assert.equal(read(path.join(out, "chart.mmd")), read(path.join(corpus, "Login", "chart.mmd")));
 });
 
+test("non-ASCII paths work without an en_US locale", { skip }, () => {
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "statechart-corpus-")), "spec-é");
+  fs.cpSync(path.join(corpus, "Login"), dir, { recursive: true });
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), "statechart-locale-"));
+  fs.writeFileSync(path.join(bin, "locale"), "#!/bin/sh\nprintf 'C\\nC.utf8\\nPOSIX\\n'\n", { mode: 0o755 });
+  const out = path.join(dir, "out");
+  const r = spawnSync(
+    process.execPath,
+    [
+      path.join(here, "../statechart.ts"),
+      path.join(dir, "Login.tla"),
+      "--view",
+      path.join(dir, "view.mjs"),
+      "--out",
+      out,
+    ],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        LC_ALL: "C.utf8",
+        LC_CTYPE: "",
+        LANG: "",
+      },
+    },
+  );
+  assert.equal(r.stderr, "");
+  assert.equal(r.status, 0);
+  assert.equal(read(path.join(out, "chart.mmd")), read(path.join(corpus, "Login", "chart.mmd")));
+});
+
 test("an invariant named NoDeadlock and a deadlock break as two rules", { skip }, () => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "statechart-corpus-")), "out");
   const r = spawnSync(
@@ -108,6 +140,83 @@ const writeSpec = (name: string, tla: string[], cfg: string) => {
   fs.writeFileSync(`${base}.cfg`, cfg);
   return base;
 };
+
+test("generated operators do not collide with model operators", { skip }, () => {
+  const base = writeSpec(
+    "Example",
+    [
+      "---- MODULE Example ----",
+      "EXTENDS Naturals",
+      "VARIABLE phase",
+      "Init == phase = 0",
+      "Advance == phase < 2 /\\ phase' = phase + 1",
+      "Hold == phase = 2 /\\ UNCHANGED phase",
+      "Next == Advance \\/ Hold",
+      "ChartTLC == 0",
+      "ChartNaturals == 0",
+      "ChartBudget == phase < 2",
+      "ChartBroken == {}",
+      "ChartMark == TRUE",
+      "ChartBound == TRUE",
+      "ChartRun == TRUE",
+      "====",
+    ],
+    "INIT Init\nNEXT Next\nINVARIANT ChartBudget\n",
+  );
+  const out = path.join(path.dirname(base), "out");
+  const r = spawnSync(process.execPath, [path.join(here, "../statechart.ts"), `${base}.tla`, "--out", out], {
+    encoding: "utf8",
+  });
+  assert.equal(r.stderr, "");
+  assert.equal(r.status, 1);
+  const report = read(path.join(out, "report.md"));
+  assert.match(report, /^## ChartBudget breaks\nThe shortest path has 2 steps:\n0\. 0\n1\. Advance: 1\n2\. Advance: 2$/m);
+  assert.match(report, /^## Rules that hold\nNoDeadlock$/m);
+  assert.match(read(path.join(out, "chart.mmd")), /^stateDiagram-v2/m);
+});
+
+test("inherited generated operators do not collide", { skip }, () => {
+  const base = writeSpec(
+    "InheritedCollision",
+    [
+      "---- MODULE InheritedCollision ----",
+      "EXTENDS BaseNames",
+      "Init == phase = 0",
+      "Advance == phase < 2 /\\ phase' = phase + 1",
+      "Hold == phase = 2 /\\ UNCHANGED phase",
+      "Next == Advance \\/ Hold",
+      "====",
+    ],
+    "INIT Init\nNEXT Next\nINVARIANT ChartBudget\n",
+  );
+  fs.writeFileSync(
+    path.join(path.dirname(base), "BaseNames.tla"),
+    [
+      "---- MODULE BaseNames ----",
+      "EXTENDS Naturals",
+      "VARIABLE phase",
+      "ChartTLC == 0",
+      "ChartNaturals == 0",
+      "ChartBudget == phase < 2",
+      "ChartBroken == {}",
+      "ChartMark == TRUE",
+      "ChartBound == TRUE",
+      "ChartRun == TRUE",
+      "====",
+      "",
+    ].join("\n"),
+  );
+  const out = path.join(path.dirname(base), "out");
+  const r = spawnSync(process.execPath, [path.join(here, "../statechart.ts"), `${base}.tla`, "--out", out], {
+    encoding: "utf8",
+  });
+  assert.equal(r.stderr, "");
+  assert.equal(r.status, 1);
+  const report = read(path.join(out, "report.md"));
+  assert.match(report, /^## ChartBudget breaks\nThe shortest path has 2 steps:\n0\. 0\n1\. Advance: 1\n2\. Advance: 2$/m);
+  assert.match(report, /^## Rules that hold\nNoDeadlock$/m);
+});
+
 const login = path.join(corpus, "Login", "Login");
 const broken = () =>
   writeSpec(
