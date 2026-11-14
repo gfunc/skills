@@ -17,7 +17,7 @@
 17. Generated code off-limits.
 18. Reviewers never edit.
 19. Long gates tee to `.scratch/<feature>/logs/`.
-20. Never touch the pstack mirror repo.
+20. Never touch the official pstack checkout.
 21. Never commit `.scratch`.
 22. Run subagent commands in the foreground with a timeout; no detached fire-and-forget.
 23. Prove new or changed tests can fail. Run them against the pre-change code or a known-bad state (negative control).
