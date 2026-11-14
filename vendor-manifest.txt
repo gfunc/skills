@@ -15,14 +15,17 @@
 #   skills/show-me-your-work/  skills/swarm/  skills/why/  agents/  docs/  .cursor-plugin/
 # Intended local modifications beyond the harness-adapter hunks, one reason per path:
 #   skills/architect/ — honors a brief `Model: architect runners=` line before the pstack models file
-#   skills/arena/: honors brief `Model: arena runners=` and `arena cross-judge pool=` lines before the pstack models file; provider-failed seats follow the profile retry/substitution rule, sub-two-viable comparisons are degraded and stop before the selected build, and the synthesis record gates Phase E and downstream builds
+#   skills/arena/: honors brief `Model: arena runners=` and `arena cross-judge pool=` lines before the pstack models file; provider-failed seats follow the profile retry/substitution rule, sub-two-viable comparisons are degraded and stop before the selected build, and the synthesis record gates Phase E and downstream builds; inherited parent-model entries never judge
 #   skills/how/ — honors brief `Model: how explorer=` and `how explainer=` lines before the pstack models file
 #   skills/swarm/ — honors a brief `Model: swarm workers=` line before the pstack models file
 #   skills/why/ — honors brief `Model: why investigators=` and `why synthesizer=` lines before the pstack models file
 #   skills/poteto-mode/: the prototype playbook references the scenario branches (operator-confirmed); it requires the six-step verbatim checklist, distinguishes new prototypes, revisions, and broken artifacts, routes open UX through Arena, verifies single-file HTML through file://, and captures into the owning spec or real code; SKILL.md Playbooks routing keeps prototype revisions and spec-plus-prototype evolution on Prototype, out of Feature
 #   skills/poteto-mode/SKILL.md — poteto-kimi-ready: model-line standing rule, smoke paragraph, /goal trigger
 #   skills/poteto-mode/SKILL.md: checklist discipline: routed-skill lines, literal triggers with skip evidence, closing self-check (operator-confirmed)
-#   skills/setup-pstack/SKILL.md: the default cross-judge pool includes a third family and setup selects a judge from a family that authored none of the viable candidates
+#   skills/setup-pstack/SKILL.md: the default cross-judge pool includes a third family and setup selects a judge from a family that authored none of the viable candidates; inherited parent-model entries never judge
+#   skills/interrogate/SKILL.md — uses the profile reviewer role for executable repros and scopes Arena's candidate-selection gate out of adversarial review
+#   skills/reflect/SKILL.md — routes approved edits to the active profile's project or user skill folder instead of a plugin cache or managed install
+#   skills/statechart/scripts/test/cli.test.ts — accepts Node 26's module-location prefix for thrown null while rejecting application stack traces
 #   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate
 #   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create
 #   skills/poteto-mode/playbooks/babysit.md — poteto-kimi-ready: forge-CLI watchers, glab MR branch, api reply path
@@ -53,6 +56,7 @@ skills/how/
 skills/in-your-own-words/
 skills/interrogate/
 skills/ketchup/
+skills/ketchup-video/
 skills/maintain-formal-verification-skill/
 skills/maintain-verification-skill/
 skills/make-bot-ui/
@@ -88,6 +92,7 @@ skills/reflect/
 skills/setup-pstack/
 skills/sharpen/
 skills/show-me-your-work/
+skills/statechart/
 skills/swarm/
 skills/tdd/
 skills/teach/
