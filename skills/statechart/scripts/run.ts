@@ -314,7 +314,7 @@ export async function check(specFile: string, configFile: string): Promise<Check
     const module = path.basename(specFile, ".tla");
     const spec = { ...readSpec({ module, sany, checks }), folder };
     const tag = `chart-${randomBytes(16).toString("hex")}`;
-    const generated = chartNames(tag, sany.names);
+    const generated = chartNames(tag, sany.operators, sany.modules);
     const rules = stateRules(spec);
     const all = [...rules];
     for (const name of spec.properties) all.push({ kind: "property", name });

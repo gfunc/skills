@@ -7,17 +7,25 @@ export function configText(sections: ConfigSection[], extra: string[]) {
   return lines.join("\n");
 }
 
-export const chartNames = (tag: string, used: ReadonlySet<string> = new Set()) => {
+export const chartNames = (
+  tag: string,
+  operators: ReadonlySet<string> = new Set(),
+  modules: ReadonlySet<string> = new Set(),
+) => {
   const suffix = tag.replaceAll("-", "_");
-  const unique = (name: string) => (used.has(name) ? `${name}_${suffix}` : name);
+  const uniqueModule = (name: string) => (modules.has(name) ? `${name}_${suffix}` : name);
+  const uniqueOperator = (name: string) => (operators.has(name) ? `${name}_${suffix}` : name);
   return {
-    run: unique("ChartRun"),
-    bound: unique("ChartBound"),
-    tlc: unique("ChartTLC"),
-    naturals: unique("ChartNaturals"),
-    budget: unique("ChartBudget"),
-    broken: unique("ChartBroken"),
-    mark: unique("ChartMark"),
+    run: uniqueModule("ChartRun"),
+    bound:
+      modules.has("ChartBound") || operators.has("ChartBound")
+        ? `ChartBound_${suffix}`
+        : "ChartBound",
+    tlc: uniqueOperator("ChartTLC"),
+    naturals: uniqueOperator("ChartNaturals"),
+    budget: uniqueOperator("ChartBudget"),
+    broken: uniqueOperator("ChartBroken"),
+    mark: uniqueOperator("ChartMark"),
   };
 };
 

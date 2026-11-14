@@ -161,6 +161,31 @@ test(
   },
 );
 
+test(
+  "module names do not rename generated operators",
+  { skip: !process.env.TLA2TOOLS && "set TLA2TOOLS to the path of tla2tools.jar to run TLC" },
+  () => {
+    const dir = copyCase("Counter", (dir) => {
+      const file = path.join(dir, "Counter.tla");
+      fs.writeFileSync(file, read(file).replace("====", "Names == INSTANCE ChartBudget\n===="));
+      fs.writeFileSync(
+        path.join(dir, "ChartBudget.tla"),
+        "---- MODULE ChartBudget ----\nValue == TRUE\n====\n",
+      );
+    });
+    const env = () => ({
+      STATECHART_RECORD: fs.mkdtempSync(path.join(os.tmpdir(), "statechart-module-name-")),
+      STATECHART_JAVA: process.env.JAVA ?? "java",
+      TLA2TOOLS: process.env.TLA2TOOLS,
+    });
+    const first = run(dir, { env: env() });
+    const second = run(dir, { env: env() });
+    assert.equal(first.status, 0);
+    assert.equal(second.status, 0);
+    assert.equal(first.configs.ChartRun, second.configs.ChartRun);
+  },
+);
+
 const launcher = path.join(here, "../statechart");
 
 const launcherTools = () => {
