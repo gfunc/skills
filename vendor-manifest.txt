@@ -25,8 +25,8 @@
 #   skills/reflect/SKILL.md — routes approved edits to the active profile's project or user skill folder instead of a plugin cache or managed install
 #   skills/statechart/scripts/test/cli.test.ts — accepts Node 26's module-location prefix for thrown null while rejecting application stack traces
 #   skills/statechart/scripts/run.ts — stages the model directory through an ASCII symlink so supported Java runtimes can read non-ASCII paths without a locale install
-#   skills/statechart/scripts/backends/cfg.ts, frontends/spec.ts, and run.ts — uses declarations referenced directly by SANY modules to suffix only colliding generated module and operator names
-#   skills/statechart/scripts/test/corpus.test.ts and cli.test.ts — covers inherited and bounded collisions, C-only locales, comments, and scoped parameters
+#   skills/statechart/scripts/backends/cfg.ts, frontends/spec.ts, and run.ts — uses root-exported declarations and SANY module names to suffix only colliding generated names
+#   skills/statechart/scripts/test/corpus.test.ts and cli.test.ts — covers inherited and bounded collisions, C-only locales, comments, formal parameters, and instance-scoped declarations
 #   skills/poteto-help/SKILL.md — retains current Autopilot trigger wording and carries gfunc installation guidance
 #   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate
 #   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create, and the current verdict checklist

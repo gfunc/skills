@@ -67,17 +67,8 @@ export function readSany(xml: string): Sany {
     symbols.set(textOf(entry, "UID"), entry.children[1]);
   const root = textOf(modules, "RootModule");
   let module: XmlNode | undefined;
-  const names = new Set<string>();
-  for (const node of symbols.values()) {
-    if (node.tag !== "ModuleNode") continue;
-    if (textOf(node, "uniquename") === root) module = node;
-    names.add(textOf(node, "uniquename"));
-    for (const ref of node.children) {
-      if (ref.tag !== "OpDeclNodeRef" && ref.tag !== "UserDefinedOpKindRef") continue;
-      const name = textOf(symbols.get(textOf(ref, "UID")), "uniquename");
-      if (name) names.add(name);
-    }
-  }
+  for (const node of symbols.values())
+    if (node.tag === "ModuleNode" && textOf(node, "uniquename") === root) module = node;
   const definitions = new Map<string, XmlNode>();
   const variables: { uid: number; name: string }[] = [];
   for (const ref of module?.children ?? []) {
@@ -91,6 +82,9 @@ export function readSany(xml: string): Sany {
       variables.push({ uid: Number(uid), name });
   }
   variables.sort((a, b) => a.uid - b.uid);
+  const names = new Set(definitions.keys());
+  for (const node of symbols.values())
+    if (node.tag === "ModuleNode") names.add(textOf(node, "uniquename"));
   return { variables: variables.map((v) => v.name), definitions, names };
 }
 
