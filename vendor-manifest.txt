@@ -1,5 +1,5 @@
 # Vendor manifest: paths in this repo that originate from pstack.
-# Mirror: ~/projects/pstack (upstream cursor/plugins, pstack subtree).
+# Official checkout: ~/projects/cursor-plugins/pstack.
 # scripts/sync-upstream reads this file: first BASE line, then one path per line.
 # Since 0.3.0 the vendored paths keep upstream pstack content except for
 # harness-adapter hunks, the .scratch store convention, the five declared
@@ -36,9 +36,9 @@
 #   skills/poteto-mode/scripts/orch/orch.ts — poteto-kimi-ready: glab forge descriptor and parsing
 #   skills/poteto-mode/scripts/orch/store.ts — poteto-kimi-ready: glab MR list invocation mapping
 #   skills/poteto-mode/scripts/orch/orch.test.ts — poteto-kimi-ready: three-forge test suite
-#   skills/poteto-mode/references/glab-forge.md — poteto-kimi-ready: new GitLab forge verb reference (file lands in U1)
+#   skills/poteto-mode/references/glab-forge.md — poteto-kimi-ready: GitLab forge verb reference
 #   agents/poteto-agent.md — resolves the plugin root from its own definition when a brief omits the skill and profile paths, and reports the omission (harness-adapter hunk)
-BASE e44668c2aad92eacf4e84df47984121fefb11b82
+BASE d457567332aa6989e753ea289f30ea2bfbc80bc0
 skills/architect/
 skills/arena/
 skills/automate-me/

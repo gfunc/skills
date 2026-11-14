@@ -1,6 +1,6 @@
 # gfunc-skills
 
-gfunc's agent skill pack combines the original [pstack](https://github.com/backnotprop/pstack), vendored and kept at upstream content except for harness adapters and the `.scratch` store, with planning and writing skills from [Matt Pocock](https://github.com/mattpocock/skills). It supports Kimi Code, Claude Code, Codex, Pi, and Cursor through host-specific profiles.
+gfunc's agent skill pack combines the original [pstack](https://github.com/cursor/plugins/tree/main/pstack), vendored with manifest-tracked local adaptations, with planning and writing skills from [Matt Pocock](https://github.com/mattpocock/skills). It supports Kimi Code, Claude Code, Codex, Pi, and Cursor through host-specific profiles.
 
 [Latest release](https://github.com/gfunc/skills/releases/latest) · [Setup guide](docs/guide/01-setup.md) · [Full guide](docs/guide/README.md)
 
@@ -52,7 +52,7 @@ Contributors should read [`AGENTS.md`](AGENTS.md) for repository-specific writin
 
 One flat `skills/` root — every skill a peer:
 
-- pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the mirror at upstream content; only harness adapters, the `.scratch` store convention, and the five declared model-override hunks differ, per `vendor-manifest.txt`; no other workflow modification remains.
+- pstack's skills (poteto-mode, swarm, show-me-your-work, the principle-*, and the rest), vendored from the official Cursor checkout; harness adapters, the `.scratch` store convention, and the declared local hunks differ, per `vendor-manifest.txt`.
 - `skills/wayfinder`, `skills/to-spec` — the planning chain, ported from the mattpocock pack.
 - `skills/grilling`, `skills/domain-modeling`, `skills/research` — the discussion skills the chain invokes, absorbed from the mattpocock pack.
 - `skills/prototype` — absorbed from the mattpocock pack, then reworked gfunc-side into the scenario router: four branches (LOGIC, VARIANTS, DESIGN-DOC, REDLINE) behind a routing table, one completion gate, and an executable redline decision.
@@ -60,7 +60,7 @@ One flat `skills/` root — every skill a peer:
 - [`skills/writing-for-agents`](skills/writing-for-agents/SKILL.md) is Matt Pocock's reference for agent-facing writing, with host-neutral skill mechanics. Root [`AGENTS.md`](AGENTS.md) uses its task-specific context pointers.
 - [`skills/playwright-expert`](skills/playwright-expert/SKILL.md) — Playwright E2E test authoring, fixtures, CI, and flake debugging, vendored from Jeffallan (MIT); [`skills/playwright-cli`](skills/playwright-cli/SKILL.md) remains the CLI browser driver.
 - `references/trackers/` — the tracker-doc indirection: `local-markdown.md` (default), `github.md`, `gitlab.md`.
-- `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs mirror@base→HEAD per path and reports what needs a three-way merge.
+- `vendor-manifest.txt` + `scripts/sync-upstream` — the drift discipline for the vendored paths: the manifest lists every pstack-origin path and its base SHA; the script diffs upstream@base→HEAD per path and reports what needs a three-way merge.
 - `GLOSSARY.md` — the dual vocabulary: planning terms, execution terms, and the seam between them.
 - `references/harnesses/` holds one profile per supported harness. The host's adapter or `scripts/resolve-harness` names the active profile without copying it to a separate selection file.
 - `references/adapters/` — the thin per-host adapters and the clone/Codex selection contract.
@@ -94,7 +94,7 @@ Use `/setup-pstack` directly for model preferences only. It neither installs the
 
 ## Syncing upstream
 
-`~/projects/pstack` stays a pure mirror of upstream pstack. When it fetches new upstream, run `scripts/sync-upstream` here: it reports per vendored path whether upstream changed, whether we modified it, and which rows need a human three-way merge. Local modifications are intended — they are what makes this stack ours — but they stay visible per path through the manifest and git history.
+`~/projects/cursor-plugins/pstack` is a sparse checkout of the official `cursor/plugins` repository. After fetching upstream, run `scripts/sync-upstream` here. It reports per vendored path whether upstream changed, whether we modified it, and which rows need a human three-way merge. Local modifications are intentional and stay visible per path through the manifest and git history.
 
 ## Releases
 
@@ -141,7 +141,7 @@ GitHub Releases hold the release notes and provide tag source archives. Workflow
 
 ## Stances
 
-- The pstack mirror stays pure; the vendored copy here keeps upstream content, and the remaining divergence, harness adapters and the `.scratch` store, is deliberate and manifest-tracked.
+- The official pstack checkout stays unmodified; the vendored copy here keeps upstream content, and the remaining divergence is deliberate and manifest-tracked.
 - Ported and absorbed skills keep their upstream names and attribution. The gfunc installer does not overwrite separately installed Matt Pocock skills.
 - No triage labels. Type markers route ticket resolution. The plan file plus the operator's plan confirmation is the handoff to execution.
 - `skills/setup-workspace/` is local gfunc work, not a pstack-origin path. The vendor manifest keeps its pstack-only scope.
