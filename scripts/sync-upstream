@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# sync-upstream: report drift between pstack-origin paths vendored here and the mirror.
+# sync-upstream: report drift between pstack-origin paths vendored here and upstream.
 #
-# Usage: scripts/sync-upstream [mirror-dir]   (default: ~/projects/pstack)
+# Usage: scripts/sync-upstream [upstream-dir]   (default: ~/projects/cursor-plugins/pstack)
 #
-# Reads vendor-manifest.txt: the BASE line (mirror SHA the vendor came from) and
+# Reads vendor-manifest.txt: the BASE line (upstream SHA the vendor came from) and
 # one repo-relative path per line. For each path reports:
-#   upstream: mirror history BASE..HEAD touched the path
-#   local:    the vendored copy differs from mirror@BASE
+#   upstream: upstream history BASE..HEAD touched the path
+#   local:    the vendored copy differs from upstream@BASE
 # Paths showing both need a human three-way merge. This is a report, not a gate.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MIRROR="${1:-$HOME/projects/pstack}"
+MIRROR="${1:-$HOME/projects/cursor-plugins/pstack}"
 MANIFEST="$ROOT/vendor-manifest.txt"
 
 BASE="$(grep -m1 '^BASE ' "$MANIFEST" | awk '{print $2}')"
@@ -22,7 +22,7 @@ if [ -z "$BASE" ]; then
 fi
 
 if ! git -C "$MIRROR" cat-file -e "$BASE^{commit}" 2>/dev/null; then
-  echo "mirror at $MIRROR does not have base commit $BASE — fetch it first" >&2
+  echo "upstream at $MIRROR does not have base commit $BASE — fetch it first" >&2
   exit 2
 fi
 
@@ -63,7 +63,7 @@ while IFS= read -r line; do
     action='3-WAY MERGE'
     needs_merge=1
   elif [ "$upstream" = changed ]; then
-    action='fast-forward copy from mirror'
+    action='fast-forward copy from upstream'
   elif [ "$local" = mod ]; then
     action='local modification (intended)'
   fi
@@ -74,5 +74,5 @@ echo
 if [ "$needs_merge" -eq 0 ]; then
   echo "No path needs a three-way merge."
 else
-  echo "Resolve the 3-WAY MERGE rows: mirror@$BASE is the base, ours is the vendored path, theirs is mirror@HEAD."
+  echo "Resolve the 3-WAY MERGE rows: upstream@$BASE is the base, ours is the vendored path, theirs is upstream@HEAD."
 fi
