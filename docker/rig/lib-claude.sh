@@ -7,7 +7,7 @@
 # visible in the stream and in the transcript. Inventory (`plugin details`) is
 # never accepted as context proof; it only proves the plugin registered.
 
-SMOKE_PHRASE="ask how a top expert would approach this task"
+SMOKE_PHRASE="I want a deeper version of this task, not a bigger one"
 
 harness_prepare() {
   export CLAUDE_CONFIG_DIR="$HOME/.claude"

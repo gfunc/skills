@@ -8,7 +8,7 @@
 # developer_instructions=...` shows it in the model-visible developer message.
 # `codex plugin list` is inventory only.
 
-SMOKE_PHRASE="ask how a top expert would approach this task"
+SMOKE_PHRASE="I want a deeper version of this task, not a bigger one"
 
 harness_prepare() {
   export CODEX_HOME="$HOME/.codex"

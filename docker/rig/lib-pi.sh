@@ -6,7 +6,7 @@
 # prompt section, and the mock model request contains it. `pi list` is
 # inventory only; it never satisfies the context cell.
 
-SMOKE_PHRASE="ask how a top expert would approach this task"
+SMOKE_PHRASE="I want a deeper version of this task, not a bigger one"
 
 harness_prepare() {
   export PI_CODING_AGENT_DIR="$HOME/.pi/agent"
