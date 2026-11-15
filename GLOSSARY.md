@@ -130,7 +130,7 @@ The numbered constraint register — model policy, verification bar, forbidden p
 The repo-local artifact root for all stack activity in one repository: its `.scratch/` directory, with each effort under `.scratch/<effort>/`. The local stand-in for Cursor's injected per-agent store.
 
 **Vendor manifest**:
-The list of upstream-origin (pstack) paths in this repo and the base SHA they came from; the sync script diffs mirror@old→new per path and reports drift for human resolution.
+The list of upstream-origin (pstack) paths in this repo and the base SHA they came from; the sync script diffs upstream@old→new per path and reports drift for human resolution.
 
 **Operator**:
 The human the run serves: lands PRs, answers escalations, holds stand-down authority.
