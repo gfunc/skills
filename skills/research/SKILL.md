@@ -10,7 +10,7 @@ metadata:
 
 Spin up a **background agent** to do the research, so you keep working while it reads.
 
-Have it verify the repo's real mainline and record the actual baseline commit in the report header before starting the investigation. A tracker's configured default branch can be a placeholder. If the caller uses a findings branch or worktree, create it only after that check.
+Have it verify the repo's real mainline before starting the investigation. A tracker's configured default branch can be a placeholder. If the caller uses a findings branch or worktree, create it only after that check. Put the actual baseline commit in the report header when writing the report.
 
 Its job:
 
