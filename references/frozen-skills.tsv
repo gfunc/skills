@@ -10,9 +10,12 @@
 #     harness-profile invocation; agents/openai.yaml byte-identical)
 # The other three families are 8 byte-identical files: skills/domain-modeling/ 4, skills/handoff/ 2,
 #   skills/to-questionnaire/ 2.
-# Integrated local skills, no longer hash-frozen: skills/grilling/ (from productivity/grilling),
-#   skills/research/ (from engineering/research), and skills/wayfinder/ (from engineering/wayfinder).
-#   Their origin lives in each skill's frontmatter; local edits to them are allowed.
+# Integrated local skills below are not hash-frozen. Source and revision are recorded here,
+#   not in their agent-loaded SKILL.md files; local edits to them are allowed.
+# Source https://github.com/mattpocock/skills @ 49dd158d1076134a641b33efb035946536778336; license MIT.
+#   skills/grilling/ from skills/productivity/grilling
+#   skills/research/ from skills/engineering/research
+#   skills/wayfinder/ from skills/engineering/wayfinder
 # Do not edit files listed below. Amend this manifest only when provenance changes.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 # Gfunc addition: skills/improve-codebase-architecture and skills/grill-with-docs are adapted from
