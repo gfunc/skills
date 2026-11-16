@@ -32,7 +32,7 @@ Word each question so "yes" accepts your recommended answer.
 
 An answer that is itself a question or a challenge is design input, not friction. Answer it first with a concrete two-row example or a source-cited current-state list, then ask the sharpened question. When your own example exposes a conflation in your recommendation, withdraw the recommendation and say so.
 
-Mark every option you invented yourself (rather than drew from the user's words, the code, or a source) as self-generated. When a round's options are all self-generated, produce a concrete artifact first — example rows, a source-cited list, a sketch — before asking that round: typed rebuttals to concrete material are the highest-signal answers you get.
+Mark options that you generate rather than derive from the user's words, the code, or a source. When every option in a round is self-generated, produce a concrete artifact first, such as example rows, a source-cited list, or a sketch. This gives the user something specific to challenge.
 
 Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 

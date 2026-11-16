@@ -13,7 +13,7 @@
 # Integrated local skills, no longer hash-frozen: skills/grilling/ (from productivity/grilling),
 #   skills/research/ (from engineering/research), and skills/wayfinder/ (from engineering/wayfinder).
 #   Their origin lives in each skill's frontmatter; local edits to them are allowed.
-# Do not edit these files. Amend this manifest only when provenance changes.
+# Do not edit files listed below. Amend this manifest only when provenance changes.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 # Gfunc addition: skills/improve-codebase-architecture and skills/grill-with-docs are adapted from
 #   the same source, not frozen: their SKILL.md files are rewritten for this pack and carry no hash here.

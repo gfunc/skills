@@ -305,7 +305,7 @@ playwright-cli click "getByRole('button', { name: 'Submit' })"
 playwright-cli click "getByTestId('submit-button')"
 ```
 
-Refs can go stale after a re-render: prefer stable `data-*` attributes scoped to the container the interaction implies. A shown popover can keep its DOM `open` property false; assert with `el.matches(':popover-open')` instead.
+Refs can go stale after a re-render. In dynamic apps, prefer stable `data-*` attributes scoped to the container the interaction implies. A shown popover can keep its DOM `open` property false, so assert with `el.matches(':popover-open')`.
 
 ## Browser Sessions
 
