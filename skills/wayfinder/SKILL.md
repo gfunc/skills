@@ -130,3 +130,9 @@ User invokes with a map (URL or number). A ticket is **optional**: without one, 
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
+
+The research-branch push (Chart the map, step 5) is best-effort: where the account cannot push, keep the branch local and note it in the ticket.
+
+Before cutting the worktree, verify the repo's real mainline (a tracker's default branch can be a placeholder) and record the actual baseline commit in the report header.
+
+When the question is an enumeration ('which systems consume X'), bound the study set with an independent workspace sweep for consumers and treat the caller's list as a supplement, not the census.

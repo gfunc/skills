@@ -80,3 +80,15 @@ Every branch's evidence comes from driving the real artifact. Reuse [playwright-
 - **Server lifecycle belongs to Playwright.** Where a server exists, start it through Playwright's `webServer` — it runs the start command, waits for readiness, and tears the server down. The options are documented in the [playwright-expert configuration reference](../playwright-expert/references/configuration.md).
 - **Static artifacts need no server.** A single HTML file opens directly.
 - **A server started outside Playwright** obeys three rules: drain the server's stdout and stderr pipes (a full pipe buffer stalls the server), probe HTTP rather than the TCP port (a bound socket is not readiness), and kill the whole process group rather than the parent PID.
+
+## Completion gate additions
+When the prototype claims fidelity to an existing system, audit the donor's source for the money/units/formula contracts before building fixtures, and label every represented behavior source-parity or new target decision — internal consistency and source fidelity are different claims.
+
+Selected journeys embed at least one falsifiable assertion per decision-relevant behavior, with fixture values chosen to discriminate between candidate formulas; gate the parsed run on its output header (a failed journey still 'finishes'), and `node --check` each inline `<script>` body before the first browser run.
+
+After any semantic revision, sweep every evidence and doc artifact for literals of the superseded model (old totals, deleted field names, old formulas) and regenerate or delete stale evidence before archiving.
+
+Where the effort tree sits under a gitignored `.scratch/`, confirm with `git check-ignore -v` and archive with `git add -f`.
+
+## Verify with a browser additions
+Bind `('127.0.0.1', 0)`, persist the assigned port, and probe the served pages by a content marker unique to the artifact — never a bare status code — before handing the operator the URL.
