@@ -36,6 +36,8 @@ Pick whichever shape best fits the question being asked, *not* whichever is easi
 
 Before building any page, write the smallest script that exercises the question: the module from the previous step, driven by a few calls at the bottom of the same file, with no HTML, no build, no server — just the module and a loop or a few invocations. Run it with the project's task runner and watch the printed state transition by transition. The behavior/timing sub-shape is this script plus its observed run: a question about how state moves (or *when* it moves) is answered by watching actual transitions, not by clicking a page.
 
+When the question is a contest between named design alternatives, drive every candidate through the target codebase's real evaluator or engine, never a mock. A mock answers questions about the mock rather than the target system.
+
 The observed output is the evidence. Keep the run's output — a log tail of the transitions, or a recorded walkthrough of the script driving the module — as the proof the question was answered; the completion gate in the [SKILL](SKILL.md) tells you where it's saved. Don't build the shareable page at all unless the answer needs a non-developer's eyes; a timing or behavior question is usually settled by the log alone.
 
 ### 4. Build the shareable HTML file

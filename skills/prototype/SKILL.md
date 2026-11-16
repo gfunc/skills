@@ -48,6 +48,8 @@ Name the **input** (a design doc or brief, an existing page or app, a bare quest
 
 On an ambiguous cell, the input decides the default branch: a design doc biases [DESIGN-DOC](DESIGN-DOC.md), an existing page biases [VARIANTS](VARIANTS.md) or [REDLINE](REDLINE.md) by question, a bare question biases [LOGIC](LOGIC.md) — and the artifact's top states the assumption in one line. Interaction questions route by input, because interaction lives in the artifact the input names.
 
+For a logic-behavior contest between named design alternatives ("option A vs option B"), route through [LOGIC](LOGIC.md) and record the observed result for each candidate. Appearance and interaction preferences still follow the routing table and the operator's product decision.
+
 The branches:
 
 - [LOGIC](LOGIC.md) — push a state model through the cases that are hard to reason about on paper, in a single shareable HTML file a non-developer can drive.
@@ -69,9 +71,13 @@ A prototype is done only when all three clauses hold. Every branch closes throug
 
 1. **Runnable with one command.** Playwright's `webServer` starts a server-backed prototype, a static artifact opens as a file, and REDLINE uses the existing app's own start command. No thinking required to start it.
 2. **Verified with the branch's evidence form, with the state surfaced.** LOGIC prints or renders the full relevant state after every action and records observed state output or a walkthrough recording. VARIANTS renders the full relevant state on every variant switch and records per-variant screenshots, with per-id disclosure where a modern-web-guidance guide was applied. DESIGN-DOC records the approved-direction file plus a screenshot of the built artifact. REDLINE records the per-variant reports plus `winner.json`. For a single-file HTML deliverable, open the exact exported file through `file://` and prove a non-empty application mount, no browser console errors, and the selected journeys. HTTP evidence does not substitute because it is a different runtime.
+
+   For decision-relevant logic behavior, give each selected journey or evaluator run at least one falsifiable assertion with fixture values that distinguish candidate formulas. Record the observed result for each assertion. Scripted runs also require a passing runner summary or exit status. A journey that merely finishes is not evidence. These walkthrough checks do not add a production test suite.
+
+   Extract each inline `<script>` body and pass it through `node --check` before the first browser run. When the prototype claims fidelity to a donor system, audit the donor's source for its money, units, and formula contracts before building fixtures. Label every represented behavior **source-parity** or **new target decision**. Internal consistency does not establish source fidelity.
 3. **Captured.** Fold the validated decision and the question it settled into the owning effort's `spec.md` and `decisions.tsv` when one exists, otherwise into the real code or decision record. Archive the prototype as a primary source on a throwaway branch, out of main, with a context pointer from the spec, issue, or commit. REDLINE archives the losing variants with their reports. Main keeps only the validated decision. Applying a REDLINE winner or any other implementation is a separate explicit operator invocation, never a continuation of this run.
 
-Capture is idempotent: re-running it amends the archive commit and updates the pointer in place. REDLINE's later application checks whether the winner is already applied before reapplying it, outside this run.
+Capture is idempotent: re-running it amends the archive commit and updates the pointer in place. After any semantic revision, sweep every evidence and doc artifact for literals of the superseded model (old totals, deleted field names, old formulas) and regenerate or delete the stale evidence before archiving. REDLINE's later application checks whether the winner is already applied before reapplying it, outside this run.
 
 ## Verify with a browser
 
@@ -79,4 +85,4 @@ Every branch's evidence comes from driving the real artifact. Reuse [playwright-
 
 - **Server lifecycle belongs to Playwright.** Where a server exists, start it through Playwright's `webServer` — it runs the start command, waits for readiness, and tears the server down. The options are documented in the [playwright-expert configuration reference](../playwright-expert/references/configuration.md).
 - **Static artifacts need no server.** A single HTML file opens directly.
-- **A server started outside Playwright** obeys three rules: drain the server's stdout and stderr pipes (a full pipe buffer stalls the server), probe HTTP rather than the TCP port (a bound socket is not readiness), and kill the whole process group rather than the parent PID.
+- **A server started outside Playwright** drains its stdout and stderr continuously so a full pipe cannot stall the server, and kills the whole process group rather than the parent PID. Bind it to `127.0.0.1` on an ephemeral port (port 0) and record the assigned port. Probe HTTP for a content marker unique to the artifact before handing over the URL. A bound socket or a bare status code is not readiness.

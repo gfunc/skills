@@ -156,7 +156,7 @@ playwright-cli console warning
 playwright-cli requests
 playwright-cli request 5
 playwright-cli run-code "async page => await page.context().grantPermissions(['geolocation'])"
-playwright-cli run-code --filename=script.js
+playwright-cli run-code "$(< script.js)"
 playwright-cli tracing-start
 playwright-cli tracing-stop
 playwright-cli video-start video.webm
@@ -304,6 +304,8 @@ playwright-cli click "getByRole('button', { name: 'Submit' })"
 # test id
 playwright-cli click "getByTestId('submit-button')"
 ```
+
+Refs can go stale after a re-render. In dynamic apps, prefer stable `data-*` attributes scoped to the container the interaction implies. A shown popover can keep its DOM `open` property false, so assert with `el.matches(':popover-open')`.
 
 ## Browser Sessions
 
