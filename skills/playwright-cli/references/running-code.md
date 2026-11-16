@@ -11,10 +11,10 @@ playwright-cli run-code "async page => {
 }"
 ```
 
-You can also load the function from a file:
+You can also load the function from a file via shell substitution:
 
 ```bash
-playwright-cli run-code --filename=./my-script.js
+playwright-cli run-code "$(< ./my-script.js)"
 ```
 
 
