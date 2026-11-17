@@ -101,7 +101,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 Once a variant has won, capture which variant and why, then capture the prototype through the [completion gate](SKILL.md#completion-gate). The decision goes into the owning spec or decision record when one exists. Applying the winner to the existing page or a real route is a later explicit operator invocation, not a continuation of this run.
 
-Keep the full set of variants and the switcher on the throwaway branch as the primary source. Main keeps only the validated decision.
+Keep the full set of variants and the switcher on the throwaway branch as the primary source. Main keeps only the supported conclusion and its open claims.
 
 ## Anti-patterns
 
