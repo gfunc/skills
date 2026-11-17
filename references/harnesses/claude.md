@@ -10,6 +10,8 @@ Claude Code: plugin-native install with namespaced skills, Markdown subagents wi
 
 Plugin `agents/` at the plugin root loads and is namespaced under the plugin name at the lowest precedence; project `.claude/agents/` and user `~/.claude/agents/` override it. The pack's `agents/*.md` carry `background: true`.
 
+- **Spawn bound:** no wall-clock spawn bound is documented for `Agent`; a child runs to completion or its own failure. Pass `unlimited` to the plan checker.
+
 ## Models
 
 - **Main-model configuration:** `~/.claude/settings.json` `model`; `--model`; `ANTHROPIC_MODEL`; `/model` writes the chosen default back to user settings. Provider routing uses `ANTHROPIC_BASE_URL` plus auth.
@@ -31,6 +33,10 @@ Plugin `agents/` at the plugin root loads and is namespaced under the plugin nam
 
 - **Scheduler:** `/loop`, built in; it can carry a timed prompt such as an hourly audit tick.
 - **Goal mode:** `/goal <condition>` is native; a model evaluates the condition after each turn and starts another if it is unmet. `/loop` and `CronCreate` remain the timed surfaces.
+
+## Progress updates
+
+No progress-update tool. The closing reply is the human channel; report at phase boundaries in the reply.
 
 ## Plan mode
 
