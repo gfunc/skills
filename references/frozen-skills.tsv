@@ -1,18 +1,29 @@
 # Matt Pocock frozen skills: source https://github.com/mattpocock/skills @ 49dd158 (v1.3.1)
-# 25 frozen files: 19 byte-identical, 6 changed.
-# The 6 changed files sit inside four adapted families that hold 13 frozen files in total;
-#   the other 7 files in those families are byte-identical companions:
+# 25 frozen files: 16 byte-identical, 9 changed.
+# The 9 changed files sit inside seven adapted families that hold 21 frozen files in total;
+#   the other 12 files in those families are byte-identical companions:
 #   skills/learn/ 6 files (SKILL.md and agents/openai.yaml changed, adapted from productivity/teach
 #     with teach renamed to learn to avoid pstack's teach; the four *-FORMAT.md files are byte-identical)
 #   skills/to-spec/ 2 files (SKILL.md changed: tracker-doc resolution, spec confirmation, harness section;
 #     agents/openai.yaml byte-identical)
-#   skills/wayfinder/ 2 files (SKILL.md changed: tracker-doc resolution and harness section;
+#   skills/wayfinder/ 2 files (SKILL.md changed: tracker-doc resolution, harness section, and the
+#     2026-11-17 operator-approved reflect adaptations — principle-grounded resolutions, incumbent
+#     surfaces as frontier roots, standing-preference Notes, tracker handle, invoke-a-skill wording;
 #     agents/openai.yaml byte-identical)
-#   skills/writing-for-agents/ 3 files (SKILL.md and SKILL-MECHANICS.md changed: source metadata and
-#     harness-profile invocation; agents/openai.yaml byte-identical)
-# The other five families are 12 byte-identical files: skills/domain-modeling/ 4, skills/grilling/ 2,
-#   skills/handoff/ 2, skills/research/ 2, skills/to-questionnaire/ 2.
+#   skills/writing-for-agents/ 3 files (SKILL.md and SKILL-MECHANICS.md changed: source metadata,
+#     harness-profile invocation, and the 2026-11-17 harness-neutrality authoring rule;
+#     agents/openai.yaml byte-identical)
+#   skills/domain-modeling/ 4 files (SKILL.md changed 2026-11-17: a legacy-to-target mapping licenses
+#     only the mapping; the two *-FORMAT.md files and agents/openai.yaml byte-identical)
+#   skills/grilling/ 2 files (SKILL.md changed 2026-11-17: frontier-fork classification with principle
+#     citations and glossed-vocabulary rounds; agents/openai.yaml byte-identical)
+#   skills/handoff/ 2 files (SKILL.md changed 2026-11-17: invoke-a-skill wording;
+#     agents/openai.yaml byte-identical)
+# The other two families are 4 byte-identical files: skills/research/ 2, skills/to-questionnaire/ 2.
 # Do not edit these files. Amend this manifest only when provenance changes.
+# 2026-11-17: five SKILL.md adaptations approved by the operator through the reflect run on nano
+#   session_1db2f0e0 (change list A7/A8/A12/A13/A18/A22/A23, B1/B2/B17); hashes re-frozen to the
+#   adapted content, ai-platform#88/#89/#90 track the enforcement backlog.
 # Gfunc addition: skills/playwright-cli is not a Matt Pocock port.
 # Gfunc addition: skills/improve-codebase-architecture and skills/grill-with-docs are adapted from
 #   the same source, not frozen: their SKILL.md files are rewritten for this pack and carry no hash here.
@@ -21,11 +32,11 @@
 #   carries a hash here. Adapted provenance is credited in README.md and LICENSE.
 skills/domain-modeling/ADR-FORMAT.md	944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0
 skills/domain-modeling/GLOSSARY-FORMAT.md	21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801
-skills/domain-modeling/SKILL.md	7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3
+skills/domain-modeling/SKILL.md	dd54713197fe25d397bd23f5df925475fbb65f1b53433fbadb4349e77ac9e59c
 skills/domain-modeling/agents/openai.yaml	f6bf2aa996c6e6f53fdd0708e18a0d16a56aed8322cca59fedbe3c0d2c75f06b
-skills/grilling/SKILL.md	befdff1e27a1dfe2a294d5871169ac1afe16d983911daa4f32627514a48c1e15
+skills/grilling/SKILL.md	702edd0ce9c68e7b621478b694cce472be3ced7453c7f96d7af7b7cb5e4287ad
 skills/grilling/agents/openai.yaml	1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b
-skills/handoff/SKILL.md	4cbb043950dad2ffd3662ff1a5a0b51ae676004b5cae10e3787e8ee7a4ee69d3
+skills/handoff/SKILL.md	fcf5f041795f7f20228fc31da43c605331cfeb1a4cf0966a4e20e47a31b91c95
 skills/handoff/agents/openai.yaml	5c479fd562c691851690e8b18c8501045bef0943c10743d636b2fae26add1d28
 skills/learn/GLOSSARY-FORMAT.md	9b99859ec28437668130d8f2ce5a342938970f8a1ed4fd38c3eab4f4b5fff210
 skills/learn/LEARNING-RECORD-FORMAT.md	701fa34b6748aa89e6c960ffb815257f481a7d77fb2900f9028f7edf3fdd6052
@@ -39,8 +50,8 @@ skills/to-questionnaire/SKILL.md	b5eb929842ee0e93d867c5e906d183d350f2f2d149eaeaa
 skills/to-questionnaire/agents/openai.yaml	9e8a06c38c8842eea8d4922cb9d1ead8e3ace647bab259b943c994a1b4742bc2
 skills/to-spec/SKILL.md	9fbdd770b07bd3997a4593cd4295a28e4a809ffbda605d7cbad015534e436c19
 skills/to-spec/agents/openai.yaml	1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb
-skills/wayfinder/SKILL.md	1f75118942de3609e098a3625f382090a55e2f8b00db2839ab394573d9dfc9e5
+skills/wayfinder/SKILL.md	03e672633d71dd7d865b71fa20b4a588a23a0d96aa6fa8652619d37f3483f4bd
 skills/wayfinder/agents/openai.yaml	88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073
 skills/writing-for-agents/SKILL-MECHANICS.md	2820af2e4a8907cf459a3d9b5734faec314f6d2d17f8b570fc46ff962650736b
-skills/writing-for-agents/SKILL.md	fe233fa8a6fb2dc26f57b782dc9a051e0d4d3a7158a1b3d1707b4e3cd796481f
+skills/writing-for-agents/SKILL.md	c7f33493d51ef413e47d7fb7afe74bd5f741e8b2ebc48482ec492aa4f6e80e5d
 skills/writing-for-agents/agents/openai.yaml	eacb24b2a618cfb81dacb0416f4fdd75ddf3a8060f8ddb99aae1b1e301907e4b

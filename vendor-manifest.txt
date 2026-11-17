@@ -3,7 +3,8 @@
 # scripts/sync-upstream reads this file: first BASE line, then one path per line.
 # Vendored paths keep upstream pstack content except for the declared
 # harness-adapter, .scratch, model-override, prototype, capability, Arena,
-# poteto-kimi-ready, checklist-discipline, official-sync compatibility, and
+# poteto-kimi-ready, checklist-discipline, principle hit-rate, principle-reference
+# normalization, harness-neutral bodies, official-sync compatibility, and
 # operator-confirmed retained-contract hunks listed below. Directories with
 # those hunks report as "local modification (intended)". No other workflow
 # modification remains in any vendored path.
@@ -28,11 +29,11 @@
 #   skills/statechart/scripts/backends/cfg.ts, frontends/spec.ts, and run.ts — separates SANY module names from root-exported operators and suffixes only actual collisions
 #   skills/statechart/scripts/test/corpus.test.ts and cli.test.ts — covers inherited and bounded collisions, C-only locales, comments, formal parameters, instance-scoped declarations, and module names
 #   skills/poteto-help/SKILL.md — retains current Autopilot trigger wording and carries gfunc installation guidance
-#   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: Kimi /goal mapping on the fix gate
-#   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, CronCreate tick, glab PR create, and the current verdict checklist
+#   skills/poteto-mode/playbooks/bug-fix.md — poteto-kimi-ready: profile-named continuation on the fix gate
+#   skills/poteto-mode/playbooks/multi-phase-plan.md — poteto-kimi-ready: spawn-bound lanes, profile-named tick, glab PR create, and the current verdict checklist
 #   skills/poteto-mode/playbooks/babysit.md — poteto-kimi-ready: forge-CLI watchers, glab MR branch, api reply path, and root-owned Autopilot-stack topology
 #   skills/poteto-mode/playbooks/shipping.md — poteto-kimi-ready: forge-CLI merge watching, glab merge/readback branches
-#   skills/poteto-mode/playbooks/orchestrate.md — poteto-kimi-ready: background-worker continuation, CronCreate tick, --forge glab, and the retained store, frontier, ledger, and scripts/orch protocol (operator-confirmed)
+#   skills/poteto-mode/playbooks/orchestrate.md — poteto-kimi-ready: background-worker continuation, profile-named tick, --forge glab, and the retained store, frontier, ledger, and scripts/orch protocol (operator-confirmed)
 #   skills/poteto-mode/playbooks/autopilot-full.md — poteto-kimi-ready: owner Timeout/wrapper/recovery, main-agent tick, glab forge, and the current blocking policy (operator-confirmed)
 #   skills/poteto-mode/playbooks/autopilot-stack.md — poteto-kimi-ready: owner Timeout/wrapper/wakeups, glab retarget branch, and the four-step STACK-READY protocol (operator-confirmed)
 #   skills/poteto-mode/playbooks/autonomous-run.md — retains the current mid-run discovery scope (operator-confirmed)
@@ -47,6 +48,10 @@
 #   agents/poteto-agent.md — resolves the plugin root from its own definition when a brief omits the skill and profile paths, and reports the omission (harness-adapter hunk)
 #   docs/ — retains current Autopilot and Orchestrate guide text while following the merged Sharpen, Interrogate, Arena, statechart, and ketchup-video contracts
 #   .cursor-plugin/plugin.json — keeps the gfunc pack version synchronized with the other release manifests instead of upstream's version
+#   skills/poteto-mode/SKILL.md — principle hit-rate (operator-confirmed 2026-11-17 reflect): literal leaf-path example and one-call Glob recovery in the Principles intro, read-accounting citation checkpoint in Non-negotiables, per-principle todolist lines with skip evidence, closing reply names the matched playbook and the routed skills that fired
+#   skills/arena/SKILL.md — spawn-bound timeout dropout recovery (operator-confirmed 2026-11-17 reflect, ai-platform#85): a fresh seat adopts the dead seat's output location and distrusts its completion claims, a second bound-death reframes artifact scope or seat family, and the bound is pre-sized for large single-file artifacts; the failed-seat record is named by the profile
+#   Principle-reference normalization (operator-confirmed 2026-11-17 reflect, ai-platform#88): bare-title principle mentions carry the full principle-<title> name in skills/architect/ (SKILL.md, references/runner-prompt.md), skills/arena/SKILL.md, skills/figure-it-out/SKILL.md, skills/poteto-mode/playbooks/ (authoring-a-skill, autonomous-run, bug-fix, feature, hillclimb, multi-phase-plan, perf-issue, prototype, refactoring, runtime-forensics, visual-parity), skills/principle-sequence-verifiable-units/SKILL.md, skills/principle-type-system-discipline/SKILL.md, skills/reflect/SKILL.md, skills/show-me-your-work/SKILL.md, skills/typescript-best-practices/ (SKILL.md, references/patterns.md)
+#   Harness-neutral skill bodies (operator-confirmed 2026-11-17 reflect, ai-platform#90): concrete tool names, per-harness enumerations, and host-skill inventories move to the harness profiles while skill bodies keep profile-mediated roles, in skills/poteto-mode/SKILL.md, skills/poteto-mode/playbooks/ (autonomous-run, pause-safely, orchestrate, babysit, multi-phase-plan, autopilot-full, shipping, bug-fix, visual-parity, opening-a-pr, authoring-a-skill), skills/setup-pstack/SKILL.md, skills/automate-me/SKILL.md, skills/reflect/ (SKILL.md, references/judgment-reviewer.md, references/tooling-reviewer.md, references/divergent-reviewer.md)
 BASE 3dbd22ff12742fb28c9700b9760baa29ed41dc13
 skills/architect/
 skills/arena/

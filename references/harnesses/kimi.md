@@ -15,8 +15,9 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 - **Nested children run in the foreground.** A subagent that spawns its own children passes no background flag. A background child of a subagent is registered under that subagent's task scope, so it does not appear in `/tasks` and the operator loses the progress panel. Foreground siblings in one message still run concurrently.
 - **Dependent fan-out stays foreground.** Same-stage independent candidates go out as one foreground parallel fan-out of `Agent` calls in one message. The judge starts only after all candidates finish. Coordinator selection and synthesis follow the judge's return. A selected build starts only after its input exists. Work that consumes a pending candidate or judge verdict is dependent and must not be detached and polled.
 - **Fresh child inherits parent context:** no. A child starts from its spawn prompt; the parent passes the profile path, role-prompt path, and inputs explicitly. Agent definitions are Markdown frontmatter (`name`, `description`, `whenToUse`, `override`, `tools`, `disallowedTools`, `subagents`) and cannot set a model.
+- **Resume targets a live child only.** `resume` on an ended child (returned, timed out, or lost) conflicts or ends without a final message; an ended child's follow-up is a fresh spawn carrying the original brief, every later directive, and the prior agent's on-disk state.
 - **Read-only and authoring seats:** a judge, cross-judge, or research seat runs on the read-only `explore` type; a code or document delegate runs on `coder` or the pack's `poteto-agent`. Where a profile line names "the read-only mode", this is it. The custom `poteto-agent`/`dev-owner` types sit outside the default child set, so a plain child cannot spawn one.
-- **Brief paths:** every spawn brief names `harness=kimi`, the absolute `profile=` path, and the absolute path of the `poteto-mode` `SKILL.md`. An omission is a finding the child reports, not a fatal condition: the child resolves the plugin root from its own definition, reads both files itself, and names what the parent left out.
+- **Brief paths:** every spawn brief names `harness=kimi`, the absolute `profile=` path, and the absolute path of the `poteto-mode` `SKILL.md`, with the instruction to read that file in full, including its Principles section, before any work. An omission is a finding the child reports, not a fatal condition: the child resolves the plugin root from its own definition, reads both files itself, and names what the parent left out.
 
 ## Waiting and notifications
 
@@ -41,7 +42,7 @@ Kimi Code CLI: local subagents, CronCreate scheduled prompts, and wire.jsonl tra
 - **Per-spawn model parameter:** yes, while a pool is configured; without one, subagents inherit the caller's model and the parameter is not offered.
 - **Inheritance token:** `primary` — the caller's model and effort. Omitting the parameter inherits the caller's model.
 - **Operator binding:** role intent lives in `~/.agents/pstack-models.md`, a skill-read convention that no harness auto-loads and that cannot make a model available. Native binding: `~/.kimi-code/config.toml` (`default_model`, `[secondary_model]`); project `local.toml` carries no model keys.
-- **Model smoke:** run `scripts/check-models` before any fan-out that picks seats. It needs no spawn: it reads the pool and `~/.agents/pstack-models.md` (or a brief's `Model:` lines) and exits non-zero on an alias the harness cannot spawn. Prove a **newly added** alias routable end to end with one foreground `Agent`, and confirm it against that spawn's `subagent.spawned` wire event, which records the model and effort.
+- **Model smoke:** run `scripts/check-models` before any fan-out that picks seats. It needs no spawn: it reads the pool and `~/.agents/pstack-models.md` (or a brief's `Model:` lines) and exits non-zero on an alias the harness cannot spawn. A bare invocation checks nothing and exits 2; pass `--file`, `--brief`, or `--all`. Prove a **newly added** alias routable end to end with one foreground `Agent`, and confirm it against that spawn's `subagent.spawned` wire event, which records the model and effort.
 
 ## Transcripts
 
@@ -57,7 +58,7 @@ Append-only JSONL, protocol 1.5, first line `metadata`. Correlate across trails 
 - **Firing condition:** the session process is alive and the main loop is idle. The scheduler is an in-process poll that is skipped while the main agent's turn is running, so background children do not block ticks, while a foreground child or an active goal keeps the loop running and starves them; a missed due time is not lost.
 - **Delivery:** a fire lands as a user message in the main session's context with origin kind `cron_job`, carrying the stored prompt. It opens a new main-agent turn; it is never delivered to a subagent.
 - **Coalescing:** missed fires collapse into one delivery whose `coalescedCount` records how many occurrences were missed. `stale="true"` marks a recurring task's final fire at age 7 days, after which the task is deleted. A tick prompt acts once on the latest state — the count is elapsed periods, not a queue — and treats `stale="true"` as re-arm-or-stop: recreate the task if the schedule is still wanted, otherwise stop.
-- **Session end:** nothing fires while the CLI is closed. A resumed session gets exactly one coalesced catch-up delivery; a brand-new session starts empty. Overnight auditing needs the CLI alive — the SIGUSR1 forced-tick and system-cron-driving-`kimi -p` paths exist in code but stay unexercised and are not adopted.
+- **Session end:** nothing fires while the CLI is closed, and in-process children die with the CLI. A resumed session gets exactly one coalesced catch-up delivery; a brand-new session starts empty. Agent ids are not reattachable running work; reattach by PR and branch and respawn from the stored brief. Overnight auditing needs the CLI alive — the SIGUSR1 forced-tick and system-cron-driving-`kimi -p` paths exist in code but stay unexercised and are not adopted.
 - **Goal interaction:** a tick and a goal compete for the same idle loop and serialize; in the race between the idle check and delivery, a tick can be steered into a live goal turn. Delete an armed tick on pause, completion, or cancel.
 
 ## Goal mode
@@ -109,7 +110,7 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Structured question:** `AskUserQuestion`; with no such tool, ask in chat with numbered options.
 - **Skill folders:** project `.kimi-code/skills/` and `.agents/skills/`; user `$KIMI_CODE_HOME/skills/` (default `~/.kimi-code/skills/`) and `~/.agents/skills/`.
 - **HAS:** local subagents with background runs and a per-spawn model parameter when a pool is configured; `AgentSwarm` template fan-out with swarm-mode auto-approval; tower mode (`/tower on`); CronCreate; the wire.jsonl trail format; a plugin manifest (`kimi.plugin.json`) carrying skills, agents, hooks, and commands.
-- **LACKS:** per-agent `model:` frontmatter; `deslop` and the cursor-team-kit control skills; a built-in PR tool.
+- **LACKS:** per-agent `model:` frontmatter; `deslop`, the cursor-team-kit control skills, and a built-in skill-authoring tool; a built-in PR tool.
 
 ## Role mapping
 

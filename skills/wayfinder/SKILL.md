@@ -35,7 +35,7 @@ The whole map at low resolution, loaded once per session. Open tickets are **not
 
 ## Notes
 
-<domain; skills every session should consult; standing preferences for this effort>
+<domain; skills every session should consult — the poteto-mode principle index for pack-run efforts; standing preferences for this effort: reply language, UI locale, review surface, units and currency>
 
 ## Decisions so far
 
@@ -74,9 +74,9 @@ The answer isn't part of the body; it's recorded on resolution (see [Work throug
 
 Every ticket is either **HITL** (human in the loop, worked _with_ a human who speaks for themselves) or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it (a grilling agent that answers its own questions has broken this).
 
-- **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a subagent that calls the Skill tool with "research". Use when knowledge outside the current working directory is required.
-- **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to (an outline, a rough take, a stub, or UI/logic code) by calling the Skill tool with "prototype". Links the prototype as an asset; its home is `.scratch/<effort>/prototype/<slug>/`, never `/tmp` (a standalone prototype creates its own effort). Use when "how should it look" or "how should it behave" is the key question.
-- **Grilling** (HITL): Conversation. The default case. Always call the Skill tool twice, for "grilling" and "domain-modeling".
+- **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a subagent that invokes the research skill. Use when knowledge outside the current working directory is required.
+- **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to (an outline, a rough take, a stub, or UI/logic code) by invoking the prototype skill. Links the prototype as an asset; its home is `.scratch/<effort>/prototype/<slug>/`, never `/tmp` (a standalone prototype creates its own effort). Use when "how should it look" or "how should it behave" is the key question.
+- **Grilling** (HITL): Conversation. The default case. Always invoke both the grilling and domain-modeling skills.
 - **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made: nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides, and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
 
 ## Fog of war
@@ -102,7 +102,7 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 ## Harness
 
-This skill is harness-neutral apart from spawning. "Call the Skill tool" means your harness's skill-invocation mechanism; subagents are your harness's subagent tool, run locally in their own worktrees where cloud agents don't exist. Before spawning, read the active profile's Subagents section; the adapter line or `scripts/resolve-harness` supplies `harness=<name>`, `profile-root`, and `profile` (`profile-root` is an absolute pack root or `plugin`, and `profile` is absolute or relative to it; resolve them to one absolute path), and a missing or mismatched profile stops that spawn. Tracker operations come from the tracker doc, not this file. The research-branch push (Chart the map, step 5) is best-effort: where the account cannot push, keep the branch local and note it in the ticket.
+This skill is harness-neutral apart from spawning. "Invoke a skill" means your harness's skill-invocation mechanism; subagents are your harness's subagent tool, run locally in their own worktrees where cloud agents don't exist. Before spawning, read the active profile's Subagents section; the adapter line or `scripts/resolve-harness` supplies `harness=<name>`, `profile-root`, and `profile` (`profile-root` is an absolute pack root or `plugin`, and `profile` is absolute or relative to it; resolve them to one absolute path), and a missing or mismatched profile stops that spawn. Tracker operations come from the tracker doc, not this file. The research-branch push (Chart the map, step 5) is best-effort: where the account cannot push, keep the branch local and note it in the ticket.
 
 ## Invocation
 
@@ -112,11 +112,11 @@ Two modes. Either way, **never resolve more than one ticket per session**, with 
 
 User invokes with a loose idea.
 
-1. **Name the destination.** Call the Skill tool twice, for "grilling" and "domain-modeling", to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
-2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** (the way to the destination is already clear, the whole journey small enough for one session), you don't need a map. Stop and ask the user how they'd like to proceed.
-3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
+1. **Name the destination.** Invoke the grilling and domain-modeling skills to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
+2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. When the effort replaces an incumbent system, every user-visible surface and audience of the incumbent — admin, end user, API consumer — is a mandatory frontier root: enumerate them and resolve each by research before dependent target-state tickets close. **If this surfaces no fog** (the way to the destination is already clear, the whole journey small enough for one session), you don't need a map. Stop and ask the user how they'd like to proceed.
+3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in — Notes carries the effort's standing preferences (reply language, UI locale, review surface, units and currency) and, for pack-run efforts, the poteto-mode principle index every session consults — Decisions-so-far empty, the fog sketched into **Not yet specified**. Record an operator preference in Notes the moment it is stated, including mid-effort, so every later session and delegate brief inherits it.
 4. **Create the tickets you can specify now** as child issues of the map, then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Write cross-references in that pass too, with real ids: a placeholder `#<n>` auto-links to an unrelated issue. Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog: the **Not yet specified** section.
-5. **Fire the research subagents.** For each `research` ticket you just created, spin up a subagent that calls the Skill tool with "research" to resolve it in parallel, capturing its findings on a throwaway `research/<name>` branch with a context pointer from the ticket. Push the branch but open no PR: it is never merged.
+5. **Fire the research subagents.** For each `research` ticket you just created, spin up a subagent that invokes the research skill to resolve it in parallel, capturing its findings on a throwaway `research/<name>` branch with a context pointer from the ticket. Push the branch but open no PR: it is never merged.
 6. Stop: charting is one session's work; it hand-resolves nothing.
 
 ### Work through the map
@@ -124,8 +124,8 @@ User invokes with a loose idea.
 User invokes with a map (URL or number). A ticket is **optional**: without one, you pick the next decision, not the user.
 
 1. Load the **map**: the low-res view, not every ticket body.
-2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
-3. Resolve it as the type its `wayfinder:<type>` label names (see [Ticket Types](#ticket-types)). Read the label, not just the body: the body never states the type. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; call the Skill tool for whichever skills the `## Notes` block names. If in doubt, call the Skill tool twice, for "grilling" and "domain-modeling".
+2. Resolve and state the tracker project handle from the map URL, and use that one handle for every tracker call and retry this session. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
+3. Resolve it as the type its `wayfinder:<type>` label names (see [Ticket Types](#ticket-types)). Read the label, not just the body: the body never states the type. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke whichever skills the `## Notes` block names. If in doubt, invoke both the grilling and domain-modeling skills. For a grilling ticket, read the poteto-mode principle index for the decisions on the table, and name each principle that shaped the recommendation in the resolution comment.
 4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
