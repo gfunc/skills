@@ -2,7 +2,7 @@
 
 Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
 
-This is the branch for questions about what something **looks like** — not how it behaves; those belong in [LOGIC.md](LOGIC.md). Pick a sub-shape first: **sub-shape A** mounts the variants inside an existing page whenever a plausible host exists, and **sub-shape B** creates a throwaway page only as a last resort.
+This is the branch for questions about what something **looks like**, including interaction that is layout, hierarchy, or appearance — not interaction that is state transitions or behavior; those belong in [LOGIC.md](LOGIC.md). Pick a sub-shape first: **sub-shape A** mounts the variants inside an existing page whenever a plausible host exists, and **sub-shape B** creates a throwaway page only as a last resort.
 
 Evidence for the completion gate comes in this branch's form: a **per-variant screenshot** of every variant, plus **per-id disclosure** where a `modern-web-guidance` guide was applied — one bullet per applied id with a short verbatim quote, or one sentence naming what was checked and why nothing applied.
 
@@ -101,7 +101,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 Once a variant has won, capture which variant and why, then capture the prototype through the [completion gate](SKILL.md#completion-gate). The decision goes into the owning spec or decision record when one exists. Applying the winner to the existing page or a real route is a later explicit operator invocation, not a continuation of this run.
 
-Keep the full set of variants and the switcher on the throwaway branch as the primary source. Main keeps only the validated decision.
+Keep the full set of variants and the switcher on the throwaway branch as the primary source. Main keeps only the supported conclusion and its open claims.
 
 ## Anti-patterns
 
