@@ -183,7 +183,7 @@ playwright-cli highlight --hide
 
 ## Raw output
 
-The global `--raw` option strips page status, generated code, and snapshot sections from the output, returning only the result value. Use it to pipe command output into other tools. Commands that don't produce output return nothing.
+The global `--raw` option strips page status, generated code, and snapshot sections from the output, returning only the result value. Use it to pipe command output into other tools. Commands that don't produce output return nothing. Human-readable `run-code` output opens with a `### Result` section on success and `### Error` plus the raw Playwright error on failure, after any session banner; a scripted check that asserts on the output must branch on those markers or pipe `--raw` instead. Read the actual file head once before widening an assertion's read window.
 
 ```bash
 playwright-cli --raw eval "JSON.stringify(performance.timing)" | jq '.loadEventEnd - .navigationStart'
@@ -194,6 +194,7 @@ playwright-cli --raw snapshot > after.yml
 diff before.yml after.yml
 TOKEN=$(playwright-cli --raw cookie-get session_id)
 playwright-cli --raw localstorage-get theme
+playwright-cli --raw run-code "async page => await page.title()" > title.txt
 ```
 
 For structured output wrapping every reply as JSON, pass --json

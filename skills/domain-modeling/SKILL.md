@@ -47,7 +47,7 @@ When the user uses a term that conflicts with the existing language in `GLOSSARY
 
 ### Sharpen fuzzy language
 
-When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account': do you mean the Customer or the User? Those are different things."
+When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account': do you mean the Customer or the User? Those are different things." A legacy-to-target mapping licenses only the mapping itself. Any structural coupling added between target concepts while mapping is a new decision: surface it as its own question rather than recording it inside the mapping.
 
 ### Discuss concrete scenarios
 

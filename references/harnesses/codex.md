@@ -10,6 +10,8 @@ Codex CLI: plugin-native through the portable root manifest, subagents as standa
 
 Custom agents are standalone TOML files, one per file, at `$CODEX_HOME/agents/*.toml` (user) or `.codex/agents/*.toml` (project), and require `name`, `description`, and `developer_instructions`. The pack does not plugin-package agents; the installer copies `codex-agents/*.toml` into `$CODEX_HOME/agents/`.
 
+- **Spawn bound:** no wall-clock spawn bound is documented for `spawn_agent`. Pass `unlimited` to the plan checker.
+
 ## Models
 
 - **Main-model configuration:** `~/.codex/config.toml` (`model`, `model_provider`, optional `model_catalog_json`); `--model` or `-c model=...` for one run; profiles `~/.codex/<name>.config.toml` via `--profile`.
@@ -31,6 +33,10 @@ Append-only envelope `{timestamp, ordinal, type, payload}`; `ordinal` plus the p
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait that re-invokes the harness.
 - **Goal mode:** `/goal <objective>` is native (`features.goals` is stable and on by default). No CLI scheduler exists; timed ticks need external cron or a timed shell wait.
+
+## Progress updates
+
+No progress-update tool. The closing reply is the human channel; report at phase boundaries in the reply.
 
 ## Plan mode
 
@@ -61,7 +67,7 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Structured question:** none documented on 0.163.0; ask in chat with numbered options.
 - **Skill folders:** project `.agents/skills/` (scanned from the working directory up to the repo root); user `~/.codex/skills/` and `~/.agents/skills/`.
 - **HAS:** a plugin system (root portable `plugin.json` with the agent-plugins `$schema`, or `.codex-plugin/plugin.json` as the compatibility fallback; skills listed as `plugin:skill`); plugin hooks via `hooks/hooks.json` with a Claude-compatible event schema; `codex exec` headless mode (`--json`, `--ephemeral`); symlinked skill folders for a skills-only install; multi-agent tools enabled by default; custom agents installed as TOMLs by the installer.
-- **LACKS:** plugin-packaged subagents (the installer copies the TOMLs instead); a built-in scheduler (external cron); project-grouped transcripts (filter rollouts by `cwd`); automatic hook trust (non-managed hooks need a per-hash `/hooks` review); a plugin-writable `AGENTS.md` channel — it is operator-owned and the installer must not write it.
+- **LACKS:** plugin-packaged subagents (the installer copies the TOMLs instead); a built-in scheduler (external cron); project-grouped transcripts (filter rollouts by `cwd`); automatic hook trust (non-managed hooks need a per-hash `/hooks` review); a plugin-writable `AGENTS.md` channel — it is operator-owned and the installer must not write it; host-provided slop-strip, control, and skill-authoring skills (use the pack's Harness fallbacks).
 
 ## Role mapping
 

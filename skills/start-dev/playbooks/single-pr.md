@@ -23,6 +23,6 @@ Forked from `skills/poteto-mode/playbooks/autopilot-stack.md` at `9a6784c` and t
 
 **Review reception.** The fixer reads `references/review-reception.md`. A rejection requires evidence, a code line, a test or a spec line, and is recorded as a ruling the reviewer adjudicates. The progress log shows implementation or rejection for every finding, so nothing is silently dropped.
 
-**Progress log.** One line per state a resume would need, in `show-me-your-work`'s format. `NotifyUser` stays the human channel and fires at coarser moments.
+**Progress log.** One line per state a resume would need, in `show-me-your-work`'s format. The profile's progress-update channel stays the human channel and fires at coarser moments.
 
 **Reply.** Status, commits, a one-line test summary and concerns, under fifteen lines. The detail goes to the run's report file.

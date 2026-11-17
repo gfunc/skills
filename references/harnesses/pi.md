@@ -10,6 +10,8 @@ pi-coding-agent: package-native install with no manifest required, no stock suba
 
 Agents are not package resources — a package cannot declare `agents/` — so distributing role agents needs a second install step into `~/.pi/agent/agents/` or a custom extension.
 
+- **Spawn bound:** no stock spawn bound; the first-party subagent extension enforces its own timeout where it sets one. Pass `unlimited` to the plan checker.
+
 ## Models
 
 - **Main-model configuration:** `~/.pi/agent/settings.json` (`defaultProvider`, `defaultModel`, `enabledModels`); `~/.pi/agent/models.json` for custom endpoints and model overrides; `--model` per invocation; `/model` per session; `/login` or the provider's environment variable supplies credentials.
@@ -31,6 +33,10 @@ The file is a tree, not an append-only log: walk from the active leaf toward the
 
 - **Scheduler:** none built in. Arm a timed prompt with an external cron job or a timed shell wait.
 - **Goal mode:** none documented or installed. The installed 1.3.0 docs and package contain no `/goal`, `/loop`, or cron command; a third-party extension is out of scope. Use external cron or a timed shell wait for continuation.
+
+## Progress updates
+
+No progress-update tool. The closing reply is the human channel; report at phase boundaries in the reply.
 
 ## Plan mode
 
@@ -61,7 +67,7 @@ None is required by the pack. A missing runtime stops only the step or lane that
 - **Structured question:** none documented; ask in chat with numbered options.
 - **Skill folders:** project `.pi/skills/` and `.agents/skills/`; user `~/.pi/agent/skills/` and `~/.agents/skills/`.
 - **HAS:** native package install (`pi install <path>` or `pi install git:github.com/<owner>/<repo>@<ref>`; root `skills/` is discovered by convention, an optional `package.json` `pi.skills` pins it); headless `pi -p` and `--mode json`; `PI_CODING_AGENT_DIR` relocation for containers.
-- **LACKS:** built-in subagents (the first-party subagent route is an extension); skill namespacing (names are global and first-loaded wins, so a same-named user or project skill shadows the pack's); a `hooks.json` convention (hooks are TypeScript extension events); a built-in scheduler; packageable agents.
+- **LACKS:** built-in subagents (the first-party subagent route is an extension); skill namespacing (names are global and first-loaded wins, so a same-named user or project skill shadows the pack's); a `hooks.json` convention (hooks are TypeScript extension events); a built-in scheduler; packageable agents; host-provided slop-strip, control, and skill-authoring skills (use the pack's Harness fallbacks).
 
 ## Role mapping
 
