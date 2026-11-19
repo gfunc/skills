@@ -131,6 +131,8 @@ if (tokensPath !== null) {
 // closes exactly this session.
 const session = `redline-${randomUUID().slice(0, 8)}`;
 const runCli = promisify(execFile);
+const hasSetsid = process.platform !== "win32" && process.env.PATH.split(path.delimiter)
+	.some((dir) => fs.existsSync(path.join(dir, "setsid")));
 const interrupted = new AbortController();
 
 // One CLI call against the owned session. `die` marks failures that leave the
@@ -143,11 +145,16 @@ const cli = async (words, { die = true, timeout = 90_000, interruptible = true }
 	let failure;
 	try {
 		const closing = words[0] === "close";
-		const command = closing ? "setsid" : "npx";
 		const cliArgs = ["--no-install", "playwright-cli", `-s=${session}`, ...words];
-		// Terminal signals target the audit's process group, so close needs its
-		// own session. --wait preserves the helper's exit status if setsid forks.
-		if (closing) cliArgs.unshift("--wait", "npx");
+		let command = "npx";
+		if (closing && hasSetsid) {
+			// Terminal signals target the audit's process group, so close needs
+			// its own session. --wait preserves the helper's exit status if
+			// setsid forks. Without setsid (stock macOS), close still runs in
+			// the audit's group — best effort on that platform.
+			cliArgs.unshift("--wait", "npx");
+			command = "setsid";
+		}
 		run = await runCli(command, cliArgs, {
 			encoding: "utf8", timeout, signal: interruptible ? interrupted.signal : undefined,
 		});
