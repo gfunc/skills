@@ -6,7 +6,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import { once } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { eligible } from "../references/redline-shape.mjs";
 import { parseTokenSource, auditPageTier, pageProblemKey } from "./page-checks.mjs";
 
@@ -317,6 +319,26 @@ test("parseTokenSource: ordinary literal font strings and color functions parse"
 	assert.equal(source.expected.get("--z"), "-1");
 });
 
+test("parseTokenSource: accepts absolute color arguments by function", () => {
+	for (const value of [
+		"rgb(255 255 255)", "rgba(10%, 20%, 30%, .5)", "HSL(120 50% 60% / 75%)", "hsla(120 50% 60% .5)",
+		"hwb(120 20% 30%)", "lab(51 -2 +3)", "lch(51 12 277 / .8)", "oklab(.51 0 -.23 1)", "oklch(0.51 0.23 277)",
+		"color(srgb 1)", "color(display-p3 1 0 .5 / 75%)", "color(xyz-d50 0 .1 .2 .3)",
+	]) {
+		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
+	}
+});
+
+test("parseTokenSource: rejects malformed and relative colors", () => {
+	for (const value of [
+		"rgb(nope)", "rgb( )", "rgb(from red r g b)", "hsl(a b c d e)", "color(profiled 1 2 3)",
+		"rgba(0, 0 0)", "hsl(1 2 3 4 5)", "hwb(1 2% 3% 4)", "lab(1% 2 3)", "oklch(.51 .2 from)",
+		"color(FROM 1 2 3)", "color(srgb)", "color(srgb 1 2 3 4 5)", "color(srgb 1 / nope)",
+	]) {
+		assert.throws(() => parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css"), /--ink.*literal/, value);
+	}
+});
+
 test("parseTokenSource: the regression inputs reject — no final semicolon, second selector swallowed", () => {
 	assert.throws(() => parseTokenSource(":root { --accent: red }\n", "tokens.css"), /semicolon|terminated/i);
 	assert.throws(
@@ -511,24 +533,36 @@ test("CLI: audit-variant.mjs rejects an unreadable URL and a URL without ?varian
 	}
 });
 
-const auditWithCliStub = (name, evalOutput, consoleOutput, check) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "page-checks-"));
+const installCliStub = (dir, script) => {
 	const bin = path.join(dir, "node_modules", ".bin");
 	fs.mkdirSync(bin, { recursive: true });
 	fs.writeFileSync(path.join(bin, "playwright-cli"), `#!/usr/bin/env node
-const command = process.argv[3];
+const fs = require("node:fs");
+const [session, command, arg] = process.argv.slice(2);
+${script}
+`, { mode: 0o755 });
+};
+
+const auditArgs = (out) => [
+	path.join(import.meta.dirname, "audit-variant.mjs"),
+	"http://localhost:5173/?variant=A", out, "--tiers", "360",
+];
+
+const auditWithCliStub = (name, evalOutput, consoleOutput, check, screenshotHex = "89504e470d0a1a0a") => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "page-checks-"));
+	installCliStub(dir, `
 if (command === "eval") process.stdout.write(${JSON.stringify(evalOutput)});
 if (command === "console") process.stdout.write(${JSON.stringify(consoleOutput)});
-`, { mode: 0o755 });
+const screenshotHex = ${JSON.stringify(screenshotHex)};
+if (command === "screenshot" && screenshotHex !== null)
+	fs.writeFileSync(arg.slice("--filename=".length), Buffer.from(screenshotHex, "hex"));
+`);
 	const out = path.join(dir, name);
 	try {
 		let status = 0;
 		let stderr = "";
 		try {
-			execFileSync(process.execPath, [
-				path.join(import.meta.dirname, "audit-variant.mjs"),
-				"http://localhost:5173/?variant=A", out, "--tiers", "360",
-			], { encoding: "utf8", cwd: dir });
+			execFileSync(process.execPath, auditArgs(out), { encoding: "utf8", cwd: dir });
 		} catch (error) {
 			status = error.status;
 			stderr = String(error.stderr);
@@ -542,6 +576,10 @@ if (command === "console") process.stdout.write(${JSON.stringify(consoleOutput)}
 };
 
 const evalResult = (value) => `### Result\n${JSON.stringify(JSON.stringify(value))}\n### Ran Playwright code\n`;
+const cleanObservation = evalResult({
+	overflow: false, problems: [],
+	page: { innerText: "Billing overview", placeholders: [], imageSources: [], tokenValues: {} },
+});
 
 test("CLI: missing, malformed, or wrong-shape eval output fails without a report or stack trace", () => {
 	for (const [name, result] of [
@@ -559,14 +597,58 @@ test("CLI: missing, malformed, or wrong-shape eval output fails without a report
 });
 
 test("CLI: console counts outside the result payload do not imply a clean console", () => {
-	const observation = evalResult({
-		overflow: false, problems: [],
-		page: { innerText: "Billing overview", placeholders: [], imageSources: [], tokenValues: {} },
-	});
-	auditWithCliStub("unknown-console", observation, "### Result\nUnrecognized\n### Events\nTotal messages: 0 (Errors: 0, Warnings: 0)\n", ({ status, report }) => {
+	auditWithCliStub("unknown-console", cleanObservation, "### Result\nUnrecognized\n### Events\nTotal messages: 0 (Errors: 0, Warnings: 0)\n", ({ status, report }) => {
 		assert.equal(status, 0);
 		assert.equal(report.consoleErrors, null);
 		assert.equal(eligible(report), false);
 		assert.deepEqual(report.tokenCheck, { status: "skip", reason: "no machine-readable design context" });
 	});
 });
+
+test("CLI: missing, short, or invalid PNG fails without a report", () => {
+	for (const [name, screenshotHex] of [["missing", null], ["short", "89504e47"], ["invalid", "0000000000000000"]]) {
+		auditWithCliStub(name, cleanObservation, "", ({ status, stderr, report }) => {
+			assert.equal(status, 1, name);
+			assert.ok(stderr.includes(path.join(name, "360.png")), stderr);
+			assert.match(stderr, /expected PNG signature/i);
+			assert.equal(report, null);
+		}, screenshotHex);
+	}
+});
+
+for (const signal of ["SIGTERM", "SIGINT"]) {
+	test(`CLI: ${signal} during open closes only the owned session`, async (context) => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "page-checks-"));
+		context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+		const out = path.join(dir, "interrupted");
+		const sentinel = path.join(dir, "-s=sentinel");
+		fs.writeFileSync(sentinel, "open");
+		installCliStub(dir, `
+if (command === "open") fs.writeFileSync(session, "open");
+fs.appendFileSync("calls.log", session + " " + command + "\\n");
+if (command === "open") {
+	fs.writeFileSync("ready", "");
+	setTimeout(() => {}, 5000);
+}
+if (command === "close") fs.unlinkSync(session);
+`);
+		const audit = spawn(process.execPath, auditArgs(out), { cwd: dir, stdio: "ignore", timeout: 15_000, killSignal: "SIGKILL" });
+		const ended = once(audit, "exit");
+		try {
+			const log = path.join(dir, "calls.log");
+			while (!fs.existsSync(path.join(dir, "ready")) && audit.exitCode === null && audit.signalCode === null) await delay(20);
+			const open = fs.readFileSync(log, "utf8").trim();
+			assert.match(open, /^-s=redline-[\da-f]+ open$/);
+			const session = open.split(" ")[0];
+			assert.ok(audit.kill(signal));
+			assert.deepEqual(await ended, [null, signal]);
+			assert.deepEqual(fs.readFileSync(log, "utf8").trim().split("\n"), [open, `${session} close`]);
+			assert.equal(fs.existsSync(path.join(dir, session)), false);
+			assert.equal(fs.readFileSync(sentinel, "utf8"), "open");
+			assert.equal(fs.existsSync(path.join(out, "report.json")), false);
+		} finally {
+			if (audit.exitCode === null && audit.signalCode === null) audit.kill("SIGKILL");
+			await ended;
+		}
+	});
+}

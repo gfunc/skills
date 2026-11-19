@@ -44,21 +44,23 @@ for (const entry of paths) {
 		// A run directory holds one report.json per variant subdirectory
 		// (`<run-dir>/<variant>/report.json`); bare report*.json at its root
 		// still count.
-		const direct = fs
-			.readdirSync(entry)
-			.filter((name) => /^report(-.*)?\.json$/.test(name))
-			.map((name) => path.join(entry, name));
-		const nested = [];
-		for (const name of fs.readdirSync(entry, { withFileTypes: true })) {
-			if (!name.isDirectory()) continue;
-			const nestedReport = path.join(entry, name.name, "report.json");
-			if (fs.existsSync(nestedReport)) nested.push(nestedReport);
+		const found = [];
+		for (const child of fs.readdirSync(entry, { withFileTypes: true })) {
+			const childPath = path.join(entry, child.name);
+			if (child.isDirectory()) {
+				const nestedReport = path.join(childPath, "report.json");
+				if (!fs.statSync(nestedReport, { throwIfNoEntry: false })?.isFile()) {
+					console.error(`decide-redline: missing variant report file ${nestedReport}`);
+					process.exit(3);
+				}
+				found.push(nestedReport);
+			} else if (/^report(-.*)?\.json$/.test(child.name)) found.push(childPath);
 		}
-		if (!direct.length && !nested.length) {
+		if (!found.length) {
 			console.error(`decide-redline: directory ${entry} holds no report*.json or <variant>/report.json`);
 			process.exit(1);
 		}
-		reportPaths.push(...direct, ...nested);
+		reportPaths.push(...found);
 	} else reportPaths.push(entry);
 }
 reportPaths.sort();

@@ -58,13 +58,24 @@ const writeReports = (dir, reports) =>
 		return file;
 	});
 
-test("shape data: twelve rows, one scale, one ladder, one band mapping", () => {
-	assert.equal(ROWS.length, 12);
-	for (const row of ROWS) {
+test("shape data: exact row tuples, bands, ladder, and machine mapping", () => {
+	assert.deepEqual(ROWS.map(({ id, band, lawAnchor }) => [id, band, lawAnchor]), [
+		["overflow", "high", "#grouping"],
+		["console", "high", "#responsiveness"],
+		["state-visible", "high", "#responsiveness"],
+		["safe-targets", "high", "#motor"],
+		["signified", "high", "#familiarity"],
+		["scannable", "medium", "#load"],
+		["aligned", "medium", "#grouping"],
+		["figure-ground", "medium", "#grouping"],
+		["contrast-coded", "medium", "#salience"],
+		["critical-placement", "medium", "#ordering"],
+		["smart-defaults", "nit", "#complexity"],
+		["one-thing-noticed", "nit", "#salience"],
+	]);
+	for (const row of ROWS)
 		assert.ok(row.question?.length, `row ${row.id} has no question`);
-		assert.ok(BANDS.includes(row.band), `row ${row.id} band not on the scale`);
-		assert.match(row.lawAnchor, /^#[a-z]+$/, `row ${row.id} lawAnchor is not an anchor`);
-	}
+	assert.deepEqual(BANDS, ["blocker", "high", "medium", "nit"]);
 	assert.deepEqual(TIER_LADDER, [360, 390, 768, 1024, 1440, 1920]);
 	assert.deepEqual(MACHINE_TO_BAND, { high: "high", medium: "medium", low: "nit" });
 });
@@ -191,6 +202,10 @@ test("decide: override requires dissent; dissent copied verbatim", () => {
 	assert.throws(
 		() => decide([report({ variant: "a" }), report({ variant: "b", findings: [finding()] })], { variant: "b" }),
 		/no dissent/,
+	);
+	assert.throws(
+		() => decide([report()], { variant: "a", dissent: { ...dissent, disputes: [{ toString: false }] } }),
+		/dispute "<invalid>" names no known row/,
 	);
 });
 
@@ -340,6 +355,26 @@ test("walker: schema-invalid report exits 3", () => {
 	fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("walker: object-valued tokenCheck and finding fields exit 3", (context) => {
+	const dir = tmp();
+	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const invalid = { toString: false };
+	for (const [overrides, diagnostic] of [
+		[{ tokenCheck: { status: "skip", reason: invalid } }, /report\.json: field "tokenCheck" reason/],
+		[{ tokenCheck: { status: invalid } }, /report\.json: field "tokenCheck" status/],
+		...["phase", "row", "band", "source"].map((field) => [
+			{ findings: [finding({ [field]: invalid })] }, new RegExp(`report\\.json: finding 0 .*${field}`),
+		]),
+	]) {
+		writeReports(dir, { "report.json": report(overrides) });
+		const out = run([dir], dir);
+		assert.equal(out.code, 3, out.stderr);
+		assert.match(out.stderr, diagnostic);
+		assert.doesNotMatch(out.stderr, /TypeError|\n\s+at /);
+		assert.equal(fs.existsSync(path.join(dir, "winner.json")), false);
+	}
+});
+
 test("walker: invalid pick exits 2", () => {
 	const dir = tmp();
 	writeReports(dir, { "report-a.json": report({ variant: "a" }), "report-b.json": report({ variant: "b", findings: [finding()] }) });
@@ -395,6 +430,26 @@ test("walker: run-dir with variant subdirectories recurses and writes winner.jso
 	const winner = JSON.parse(fs.readFileSync(path.join(dir, "winner.json"), "utf8"));
 	assert.equal(winner.winner, "a");
 	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("walker: missing variant report neither creates nor replaces a winner", (context) => {
+	const dir = tmp();
+	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	fs.mkdirSync(path.join(dir, "A"));
+	writeReports(path.join(dir, "A"), { "report.json": report({ variant: "A" }) });
+	fs.mkdirSync(path.join(dir, "B"));
+	const winner = path.join(dir, "winner.json");
+	const refuse = () => {
+		const out = run([dir], dir);
+		assert.equal(out.code, 3);
+		assert.ok(out.stderr.includes(path.join("B", "report.json")), out.stderr);
+	};
+	refuse();
+	assert.equal(fs.existsSync(winner), false);
+	const prior = '{"winner":"previous"}\n';
+	fs.writeFileSync(winner, prior);
+	refuse();
+	assert.equal(fs.readFileSync(winner, "utf8"), prior);
 });
 
 test("walker: overflow-only report is rejected and can fail the whole run", () => {

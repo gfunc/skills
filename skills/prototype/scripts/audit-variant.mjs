@@ -37,7 +37,8 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
+import { promisify } from "node:util";
 import { MACHINE_TO_BAND, TIER_LADDER } from "../references/redline-shape.mjs";
 import { parseTokenSource, auditPageTier, pageProblemKey } from "./page-checks.mjs";
 
@@ -129,26 +130,33 @@ if (tokensPath !== null) {
 // command can drift onto the operator's default session, and the cleanup path
 // closes exactly this session.
 const session = `redline-${randomUUID().slice(0, 8)}`;
+const runCli = promisify(execFile);
+const interrupted = new AbortController();
 
 // One CLI call against the owned session. `die` marks failures that leave the
 // audit untrustworthy; a failed console tap is the one soft failure (null).
 // The 1.59 alpha prints `### Error` sections even on process exit 0, so the
 // marker is checked on every nominally successful call.
-const cli = (words, { die = true, timeout = 90_000 } = {}) => {
-	const run = spawnSync("npx", ["--no-install", "playwright-cli", `-s=${session}`, ...words], {
-		encoding: "utf8",
-		timeout,
-		env: { ...process.env },
-	});
+const cli = async (words, { die = true, timeout = 90_000 } = {}) => {
+	let run;
+	let failure;
+	try {
+		run = await runCli("npx", ["--no-install", "playwright-cli", `-s=${session}`, ...words], {
+			encoding: "utf8", timeout, signal: interrupted.signal,
+		});
+	} catch (error) {
+		run = error;
+		failure = typeof error.code === "number" ? `exit ${error.code}` : error.signal || error.code || error.message;
+	}
 	const output = String(run.stdout ?? "");
 	const stderr = String(run.stderr ?? "");
 	const errorSection = /^### Error\b[^\r\n]*(?:\r?\n([^\r\n]+))?/m;
 	const reportedError = errorSection.exec(output) ?? errorSection.exec(stderr);
-	if (run.status !== 0 || run.error || reportedError) {
+	if (failure || reportedError) {
 		if (die) {
-			const reason = reportedError?.[1]?.trim() || run.error?.message ||
+			const reason = reportedError?.[1]?.trim() ||
 				stderr.split(/\r?\n/).find((line) => line.trim() && !line.startsWith("npm notice")) ||
-				(reportedError ? "no error details" : `exit ${run.status}`);
+				failure || "no error details";
 			console.error(`audit-variant: playwright-cli ${words[0]} failed: ${reason.slice(0, 400)}`);
 			process.exit(1);
 		}
@@ -162,7 +170,28 @@ const openPage = () => {
 	return cli(["open", url]);
 };
 const resize = (width) => cli(["resize", String(width), "900"]);
-const shot = (file) => cli(["screenshot", `--filename=${file}`]);
+const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
+const hasPngSignature = (file) => {
+	let descriptor;
+	try {
+		const stat = fs.statSync(file);
+		if (!stat.isFile() || stat.size < PNG_SIGNATURE.length) return false;
+		descriptor = fs.openSync(file, "r");
+		const header = Buffer.alloc(PNG_SIGNATURE.length);
+		return fs.readSync(descriptor, header, 0, header.length, 0) === header.length && header.equals(PNG_SIGNATURE);
+	} catch {
+		return false;
+	} finally {
+		if (descriptor !== undefined) fs.closeSync(descriptor);
+	}
+};
+const shot = async (file) => {
+	await cli(["screenshot", `--filename=${file}`]);
+	if (!hasPngSignature(file)) {
+		console.error(`audit-variant: ${file}: expected PNG signature ${PNG_SIGNATURE.toString("hex")}`);
+		process.exit(1);
+	}
+};
 
 const resultLine = (output) => {
 	const lines = output.split(/\r?\n/);
@@ -172,7 +201,7 @@ const resultLine = (output) => {
 	return line && !line.startsWith("### ") ? line : "";
 };
 
-const evalPage = (expression) => resultLine(cli(["eval", `() => { ${expression} }`]).output);
+const evalPage = async (expression) => resultLine((await cli(["eval", `() => { ${expression} }`])).output);
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isStringList = (value) => Array.isArray(value) && value.every((entry) => typeof entry === "string");
 
@@ -192,10 +221,7 @@ const parseObservation = (line, tokenNames) => {
 	return result;
 };
 
-// Close the owned session on every path where it may have started: the
-// explicit call before the report write, and the exit hook after a `die`
-// exit. Idempotent; a close failure is reported but never changes the audit's
-// own exit code.
+// The exit hook can't wait for an asynchronous close.
 let sessionOpen = false;
 const closeSession = () => {
 	if (!sessionOpen) return;
@@ -203,7 +229,7 @@ const closeSession = () => {
 	const run = spawnSync("npx", ["--no-install", "playwright-cli", `-s=${session}`, "close"], {
 		encoding: "utf8",
 		timeout: 30_000,
-		env: { ...process.env },
+		stdio: ["ignore", "pipe", "pipe"],
 	});
 	const output = String(run.stdout ?? "") + String(run.stderr ?? "");
 	if (run.status !== 0 || run.error || /^### Error/m.test(output)) {
@@ -211,6 +237,13 @@ const closeSession = () => {
 	}
 };
 process.on("exit", closeSession);
+for (const signal of ["SIGINT", "SIGTERM"]) {
+	process.once(signal, () => {
+		interrupted.abort();
+		closeSession();
+		process.kill(process.pid, signal);
+	});
+}
 
 // autoScroll before anything visual: scroll-reveal content otherwise stays
 // at opacity:0 and screenshots read as blank sections (upstream's lesson).
@@ -266,10 +299,10 @@ const overflowTiers = [];
 const seenPageProblemKeys = new Set();
 const declaredTokenNames = tokenSource === null ? [] : [...tokenSource.expected.keys()];
 
-openPage();
+await openPage();
 for (const width of tiers) {
-	resize(width);
-	const line = scrollAndAudit(declaredTokenNames);
+	await resize(width);
+	const line = await scrollAndAudit(declaredTokenNames);
 	let result;
 	try {
 		result = parseObservation(line, declaredTokenNames);
@@ -277,7 +310,7 @@ for (const width of tiers) {
 		console.error(`audit-variant: could not parse in-page audit at ${width}: ${line ? "invalid eval result" : "missing ### Result payload"}`);
 		process.exit(1);
 	}
-	shot(path.join(outDir, `${width}.png`));
+	await shot(path.join(outDir, `${width}.png`));
 	if (result.overflow) overflowTiers.push(width);
 	for (const problem of result.problems) {
 		findings.push({
@@ -310,8 +343,8 @@ const consoleCount = (line) => {
 	return [total, errors, warnings].every(Number.isSafeInteger) && errors + warnings <= total ? errors : null;
 };
 
-const readConsoleCount = () => {
-	const tapped = cli(["console", "error"], { die: false, timeout: 30_000 });
+const readConsoleCount = async () => {
+	const tapped = await cli(["console", "error"], { die: false, timeout: 30_000 });
 	if (!tapped.ok) return null;
 	const result = resultLine(tapped.output);
 	const link = /^- \[Console\]\(([^)]+)\)$/.exec(result);
@@ -327,7 +360,7 @@ const readConsoleCount = () => {
 	}
 };
 
-const consoleErrors = readConsoleCount();
+const consoleErrors = await readConsoleCount();
 closeSession();
 
 const tokenCheck =

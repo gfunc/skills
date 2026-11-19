@@ -37,6 +37,7 @@ export const ROWS = [
 export const ROW_IDS = ROWS.map((row) => row.id);
 
 const validBand = (value) => BANDS.includes(value);
+const diagnosticValue = (value) => typeof value === "string" ? value : "<invalid>";
 const validEvidence = (evidence) =>
 	Array.isArray(evidence) && evidence.length > 0 &&
 	evidence.every((entry) => typeof entry === "string" && entry.trim().length > 0);
@@ -48,13 +49,13 @@ const findingProblem = (finding, index, name) => {
 	if (typeof finding !== "object" || finding === null) return [`${name}: finding ${index} is not an object`];
 	const problems = [];
 	if (finding.row !== undefined && !ROW_IDS.includes(finding.row))
-		problems.push(`${name}: finding ${index} names unknown row "${finding.row}"`);
+		problems.push(`${name}: finding ${index} names unknown row "${diagnosticValue(finding.row)}"`);
 	if (!finding.phase || typeof finding.phase !== "string")
 		problems.push(`${name}: finding ${index} lacks phase`);
 	if (!validBand(finding.band))
-		problems.push(`${name}: finding ${index} band "${finding.band}" is not one of ${BANDS.join("|")}`);
+		problems.push(`${name}: finding ${index} band "${diagnosticValue(finding.band)}" is not one of ${BANDS.join("|")}`);
 	if (finding.source !== "machine" && finding.source !== "review")
-		problems.push(`${name}: finding ${index} source "${finding.source}" is not machine|review`);
+		problems.push(`${name}: finding ${index} source "${diagnosticValue(finding.source)}" is not machine|review`);
 	if (!validEvidence(finding.evidence))
 		problems.push(`${name}: finding ${index} carries no non-empty evidence entries`);
 	if (!finding.fix || typeof finding.fix !== "string")
@@ -106,7 +107,7 @@ export function parseReport(text, name = "report.json") {
 			const wrongKeys = keys.filter((key) => !["status", "reason"].includes(key));
 			if (wrongKeys.length) problems.push(`${name}: field "tokenCheck" has unknown nested key(s) ${wrongKeys.join(", ")}`);
 			if (tokenCheck.reason !== "no machine-readable design context")
-				problems.push(`${name}: field "tokenCheck" reason "${tokenCheck.reason}" is not the no-source skip reason`);
+				problems.push(`${name}: field "tokenCheck" reason "${diagnosticValue(tokenCheck.reason)}" is not the no-source skip reason`);
 		} else if (tokenCheck.status === "checked") {
 			const wrongKeys = keys.filter((key) => !["status", "source", "tokenCount"].includes(key));
 			if (wrongKeys.length) problems.push(`${name}: field "tokenCheck" has unknown nested key(s) ${wrongKeys.join(", ")}`);
@@ -115,7 +116,7 @@ export function parseReport(text, name = "report.json") {
 			if (typeof tokenCheck.tokenCount !== "number" || !Number.isInteger(tokenCheck.tokenCount) || tokenCheck.tokenCount < 1)
 				problems.push(`${name}: field "tokenCheck" tokenCount is not a positive integer`);
 		} else {
-			problems.push(`${name}: field "tokenCheck" status "${tokenCheck.status}" is not skip|checked`);
+			problems.push(`${name}: field "tokenCheck" status "${diagnosticValue(tokenCheck.status)}" is not skip|checked`);
 		}
 	}
 	if (problems.length) return { error: problems.join("; ") };
@@ -224,8 +225,9 @@ export function decide(reports, pick) {
 				if (!["disputes", "reason"].includes(key)) throw new Error(`pick.dissent: unknown field "${key}"`);
 			if (!Array.isArray(pick.dissent.disputes) || pick.dissent.disputes.length === 0)
 				throw new Error("pick.dissent: disputes is missing or empty");
-			if (!pick.dissent.disputes.every((dispute) => ROW_IDS.includes(dispute)))
-				throw new Error(`pick.dissent: dispute "${pick.dissent.disputes.find((d) => !ROW_IDS.includes(d))}" names no known row`);
+			for (const dispute of pick.dissent.disputes)
+				if (!ROW_IDS.includes(dispute))
+					throw new Error(`pick.dissent: dispute "${diagnosticValue(dispute)}" names no known row`);
 			if (typeof pick.dissent.reason !== "string" || !pick.dissent.reason.trim())
 				throw new Error("pick.dissent: reason is missing or empty");
 		}

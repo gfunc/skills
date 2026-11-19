@@ -153,9 +153,21 @@ const tokenFindings = (observation, tokenSource) => {
 const QUOTED = String.raw`(?:"(?:[^"\\\r\n]|\\[^\r\n])*"|'(?:[^'\\\r\n]|\\[^\r\n])*')`;
 const COMMENT_OR_STRING = new RegExp(`${QUOTED}|/\\*[\\s\\S]*?\\*/|/\\*`, "g");
 const DELIMITER = new RegExp(`${QUOTED}|[{};]`, "g");
-const NUMBER = String.raw`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:%|[a-z]+)?`;
-const COLOR = String.raw`(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([a-z0-9\s.%+,/-]+\)`;
-const ATOM = `${QUOTED}|${NUMBER}|${COLOR}|#[0-9a-f]{3,4}|#[0-9a-f]{6}(?:[0-9a-f]{2})?|[-a-z_][\\w-]*`;
+const DECIMAL = String.raw`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?`;
+const NUMBER = `${DECIMAL}(?:%|[a-z]+)?`;
+const CHANNEL = `${DECIMAL}%?`;
+const triple = (channel, separator) => `${channel}(?:${separator}${channel}){2}`;
+const comma = String.raw`\s*,\s*`;
+const space = String.raw`\s+`;
+const alpha = String.raw`(?:\s*/\s*|\s+)`;
+const COLOR_SPACE = "(?:srgb|srgb-linear|display-p3|a98-rgb|prophoto-rgb|rec2020|xyz|xyz-d50|xyz-d65)";
+const COLOR_FUNCTIONS = [
+	String.raw`(?:rgba?|hsla?)\(\s*(?:${triple(CHANNEL, comma)}(?:${comma}${CHANNEL})?|${triple(CHANNEL, space)}(?:${alpha}${CHANNEL})?)\s*\)`,
+	String.raw`hwb\(\s*${triple(CHANNEL, space)}\s*\)`,
+	String.raw`(?:ok)?l(?:ab|ch)\(\s*${triple(DECIMAL, space)}(?:${alpha}${DECIMAL})?\s*\)`,
+	String.raw`color\(\s*${COLOR_SPACE}(?:\s+${DECIMAL}){1,4}(?:\s*/\s*${CHANNEL})?\s*\)`,
+];
+const ATOM = [QUOTED, NUMBER, ...COLOR_FUNCTIONS, "#[0-9a-f]{3,4}", "#[0-9a-f]{6}(?:[0-9a-f]{2})?", "[-a-z_][\\w-]*"].join("|");
 const TOKEN_VALUE = new RegExp(`^(?:${ATOM})(?:\\s*,\\s*(?:${ATOM}))*$`, "i");
 
 export function parseTokenSource(text, source) {
