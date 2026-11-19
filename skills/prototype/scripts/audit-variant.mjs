@@ -131,8 +131,18 @@ if (tokensPath !== null) {
 // closes exactly this session.
 const session = `redline-${randomUUID().slice(0, 8)}`;
 const runCli = promisify(execFile);
-const hasSetsid = process.platform !== "win32" && process.env.PATH.split(path.delimiter)
-	.some((dir) => fs.existsSync(path.join(dir, "setsid")));
+// setsid is only usable when it also supports --wait; a build that rejects the
+// flag would fail every wrapped close, so probe once and fall back to a direct
+// close in the audit's own group when unsupported.
+const setsidUsable = await (async () => {
+	if (process.platform === "win32") return false;
+	try {
+		await runCli("setsid", ["--wait", "--version"], { timeout: 5_000 });
+		return true;
+	} catch {
+		return false;
+	}
+})();
 const interrupted = new AbortController();
 
 // One CLI call against the owned session. `die` marks failures that leave the
@@ -147,7 +157,7 @@ const cli = async (words, { die = true, timeout = 90_000, interruptible = true }
 		const closing = words[0] === "close";
 		const cliArgs = ["--no-install", "playwright-cli", `-s=${session}`, ...words];
 		let command = "npx";
-		if (closing && hasSetsid) {
+		if (closing && setsidUsable) {
 			// Terminal signals target the audit's process group, so close needs
 			// its own session. --wait preserves the helper's exit status if
 			// setsid forks. Without setsid (stock macOS), close still runs in

@@ -602,10 +602,20 @@ const installSetsidStub = (dir) => {
 const fs = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const args = process.argv.slice(2);
-fs.writeFileSync("setsid-args.json", JSON.stringify(args));
-const run = spawnSync(args[1], args.slice(2), { stdio: "inherit" });
-if (run.error) throw run.error;
-process.exit(run.status ?? 1);
+if (args[0] === "--wait" && args[1] === "--version") process.exit(0);
+if (args[0] === "--wait") {
+	fs.writeFileSync("setsid-args.json", JSON.stringify(args));
+	const run = spawnSync(args[1], args.slice(2), { stdio: "inherit" });
+	if (run.error) throw run.error;
+	process.exit(run.status ?? 1);
+}
+process.exit(1);
+`, { mode: 0o755 });
+};
+
+const installBrokenSetsidStub = (dir) => {
+	fs.writeFileSync(path.join(dir, "setsid"), `#!/usr/bin/env node
+process.exit(1);
 `, { mode: 0o755 });
 };
 
@@ -669,6 +679,37 @@ test("CLI: console counts outside the result payload do not imply a clean consol
 		assert.equal(eligible(report), false);
 		assert.deepEqual(report.tokenCheck, { status: "skip", reason: "no machine-readable design context" });
 	});
+});
+
+test("CLI: an existing setsid that rejects --wait falls back to a direct close", () => {
+	const run = (installSetsid) => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "page-checks-"));
+		installCliStub(dir, `
+if (command === "eval") process.stdout.write(${JSON.stringify(cleanObservation)});
+if (command === "console") process.stdout.write("### Result\\nTotal messages: 0 (Errors: 0, Warnings: 0)\\n");
+if (command === "screenshot") fs.writeFileSync(arg.slice("--filename=".length), Buffer.from("89504e470d0a1a0a", "hex"));
+if (command === "close") fs.appendFileSync("close.log", "direct\\n");
+`);
+		installSetsid(dir);
+		const out = path.join(dir, "out");
+		let status = 0;
+		try {
+			try {
+				execFileSync(process.execPath, auditArgs(out), {
+					encoding: "utf8", cwd: dir,
+					env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH ?? ""}` },
+				});
+			} catch (error) {
+				status = error.status;
+			}
+			assert.equal(status, 0);
+			assert.equal(fs.existsSync(path.join(out, "report.json")), true, "report must publish");
+			assert.equal(fs.readFileSync(path.join(dir, "close.log"), "utf8"), "direct\n", "close must run directly");
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	};
+	run(installBrokenSetsidStub);
 });
 
 test("CLI: missing, short, or invalid PNG fails without a report", () => {
