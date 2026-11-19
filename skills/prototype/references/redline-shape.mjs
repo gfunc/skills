@@ -37,23 +37,25 @@ export const ROWS = [
 export const ROW_IDS = ROWS.map((row) => row.id);
 
 const validBand = (value) => BANDS.includes(value);
+const diagnosticValue = (value) => typeof value === "string" ? value : "<invalid>";
 const validEvidence = (evidence) =>
 	Array.isArray(evidence) && evidence.length > 0 &&
 	evidence.every((entry) => typeof entry === "string" && entry.trim().length > 0);
 const validTiers = (tiers) =>
-	Array.isArray(tiers) && tiers.length > 0 && tiers.every((tier) => TIER_LADDER.includes(tier));
+	Array.isArray(tiers) && tiers.length > 0 && tiers.every((tier) => TIER_LADDER.includes(tier)) &&
+	new Set(tiers).size === tiers.length;
 
 const findingProblem = (finding, index, name) => {
 	if (typeof finding !== "object" || finding === null) return [`${name}: finding ${index} is not an object`];
 	const problems = [];
 	if (finding.row !== undefined && !ROW_IDS.includes(finding.row))
-		problems.push(`${name}: finding ${index} names unknown row "${finding.row}"`);
+		problems.push(`${name}: finding ${index} names unknown row "${diagnosticValue(finding.row)}"`);
 	if (!finding.phase || typeof finding.phase !== "string")
 		problems.push(`${name}: finding ${index} lacks phase`);
 	if (!validBand(finding.band))
-		problems.push(`${name}: finding ${index} band "${finding.band}" is not one of ${BANDS.join("|")}`);
+		problems.push(`${name}: finding ${index} band "${diagnosticValue(finding.band)}" is not one of ${BANDS.join("|")}`);
 	if (finding.source !== "machine" && finding.source !== "review")
-		problems.push(`${name}: finding ${index} source "${finding.source}" is not machine|review`);
+		problems.push(`${name}: finding ${index} source "${diagnosticValue(finding.source)}" is not machine|review`);
 	if (!validEvidence(finding.evidence))
 		problems.push(`${name}: finding ${index} carries no non-empty evidence entries`);
 	if (!finding.fix || typeof finding.fix !== "string")
@@ -74,7 +76,7 @@ export function parseReport(text, name = "report.json") {
 	}
 	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
 		return { error: `${name}: not a JSON object` };
-	const allowed = ["variant", "url", "tiers", "consoleErrors", "overflowTiers", "findings"];
+	const allowed = ["variant", "url", "tiers", "consoleErrors", "overflowTiers", "findings", "tokenCheck"];
 	for (const key of Object.keys(parsed))
 		if (!allowed.includes(key)) problems.push(`${name}: unknown field "${key}"`);
 	if (typeof parsed.variant !== "string" || !parsed.variant.trim())
@@ -82,7 +84,7 @@ export function parseReport(text, name = "report.json") {
 	if (typeof parsed.url !== "string" || !parsed.url.trim())
 		problems.push(`${name}: field "url" is missing or not a non-empty string`);
 	if (!validTiers(parsed.tiers))
-		problems.push(`${name}: field "tiers" is missing or holds tiers outside ${TIER_LADDER.join("/")}`);
+		problems.push(`${name}: field "tiers" is missing, holds tiers outside ${TIER_LADDER.join("/")}, or repeats a tier`);
 	if (parsed.consoleErrors !== null &&
 		(typeof parsed.consoleErrors !== "number" || !Number.isInteger(parsed.consoleErrors) || parsed.consoleErrors < 0))
 		problems.push(`${name}: field "consoleErrors" is not a non-negative integer or null`);
@@ -91,6 +93,32 @@ export function parseReport(text, name = "report.json") {
 	if (!Array.isArray(parsed.findings))
 		problems.push(`${name}: field "findings" is missing or not an array`);
 	else parsed.findings.forEach((finding, index) => problems.push(...findingProblem(finding, index, name)));
+	// tokenCheck is optional: absence is an older report, skip records no
+	// supplied source, checked records an executed comparison. Any other
+	// shape fails rather than rides along.
+	if (parsed.tokenCheck !== undefined) {
+		const tokenCheck = parsed.tokenCheck;
+		const keys = typeof tokenCheck === "object" && tokenCheck !== null && !Array.isArray(tokenCheck)
+			? Object.keys(tokenCheck)
+			: null;
+		if (keys === null) {
+			problems.push(`${name}: field "tokenCheck" is not an object`);
+		} else if (tokenCheck.status === "skip") {
+			const wrongKeys = keys.filter((key) => !["status", "reason"].includes(key));
+			if (wrongKeys.length) problems.push(`${name}: field "tokenCheck" has unknown nested key(s) ${wrongKeys.join(", ")}`);
+			if (tokenCheck.reason !== "no machine-readable design context")
+				problems.push(`${name}: field "tokenCheck" reason "${diagnosticValue(tokenCheck.reason)}" is not the no-source skip reason`);
+		} else if (tokenCheck.status === "checked") {
+			const wrongKeys = keys.filter((key) => !["status", "source", "tokenCount"].includes(key));
+			if (wrongKeys.length) problems.push(`${name}: field "tokenCheck" has unknown nested key(s) ${wrongKeys.join(", ")}`);
+			if (typeof tokenCheck.source !== "string" || !tokenCheck.source.trim())
+				problems.push(`${name}: field "tokenCheck" source is missing or not a non-empty string`);
+			if (typeof tokenCheck.tokenCount !== "number" || !Number.isInteger(tokenCheck.tokenCount) || tokenCheck.tokenCount < 1)
+				problems.push(`${name}: field "tokenCheck" tokenCount is not a positive integer`);
+		} else {
+			problems.push(`${name}: field "tokenCheck" status "${diagnosticValue(tokenCheck.status)}" is not skip|checked`);
+		}
+	}
 	if (problems.length) return { error: problems.join("; ") };
 	return {
 		variant: parsed.variant,
@@ -106,6 +134,15 @@ export function parseReport(text, name = "report.json") {
 			evidence: [...finding.evidence],
 			fix: finding.fix,
 		})),
+		...(parsed.tokenCheck === undefined ? {} : {
+			tokenCheck: parsed.tokenCheck.status === "skip"
+				? { status: "skip", reason: parsed.tokenCheck.reason }
+				: {
+					status: "checked",
+					source: parsed.tokenCheck.source,
+					tokenCount: parsed.tokenCheck.tokenCount,
+				},
+		}),
 	};
 }
 
@@ -149,9 +186,20 @@ export function rank(reports) {
 		.map(({ report }) => report);
 }
 
+export class TierSetMismatch extends Error {}
+
+const tierKey = (report) => [...report.tiers].sort((a, b) => a - b).join(",");
+
 export function decide(reports, pick) {
 	if (reports.length === 0)
 		throw new Error("decide: no reports");
+	const [first, ...others] = reports;
+	const reference = tierKey(first);
+	for (const report of others) {
+		const tiers = tierKey(report);
+		if (tiers !== reference)
+			throw new TierSetMismatch(`tier sets differ across reports (${first.variant} [${reference}] vs ${report.variant} [${tiers}]); re-audit at one shared tier set before ranking`);
+	}
 	const rejected = reports
 		.filter((report) => !eligible(report))
 		.map((report) => ({ variant: report.variant, reasons: ineligibilityReasons(report) }));
@@ -177,8 +225,9 @@ export function decide(reports, pick) {
 				if (!["disputes", "reason"].includes(key)) throw new Error(`pick.dissent: unknown field "${key}"`);
 			if (!Array.isArray(pick.dissent.disputes) || pick.dissent.disputes.length === 0)
 				throw new Error("pick.dissent: disputes is missing or empty");
-			if (!pick.dissent.disputes.every((dispute) => ROW_IDS.includes(dispute)))
-				throw new Error(`pick.dissent: dispute "${pick.dissent.disputes.find((d) => !ROW_IDS.includes(d))}" names no known row`);
+			for (const dispute of pick.dissent.disputes)
+				if (!ROW_IDS.includes(dispute))
+					throw new Error(`pick.dissent: dispute "${diagnosticValue(dispute)}" names no known row`);
 			if (typeof pick.dissent.reason !== "string" || !pick.dissent.reason.trim())
 				throw new Error("pick.dissent: reason is missing or empty");
 		}

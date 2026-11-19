@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { parseReport, decide } from "../references/redline-shape.mjs";
+import { parseReport, decide, TierSetMismatch } from "../references/redline-shape.mjs";
 
 const USAGE =
 	"Usage: node decide-redline.mjs <run-dir-or-report-paths...> [--pick pick.json]";
@@ -31,6 +31,8 @@ if (!paths.length) {
 	process.exit(1);
 }
 
+// Only these tool directories are reserved; other dot-prefixed names can be variants.
+const RESERVED_RUN_DIRS = new Set([".git", ".playwright-cli", "node_modules"]);
 const reportPaths = [];
 for (const entry of paths) {
 	let stat = null;
@@ -44,21 +46,38 @@ for (const entry of paths) {
 		// A run directory holds one report.json per variant subdirectory
 		// (`<run-dir>/<variant>/report.json`); bare report*.json at its root
 		// still count.
-		const direct = fs
-			.readdirSync(entry)
-			.filter((name) => /^report(-.*)?\.json$/.test(name))
-			.map((name) => path.join(entry, name));
-		const nested = [];
-		for (const name of fs.readdirSync(entry, { withFileTypes: true })) {
-			if (!name.isDirectory()) continue;
-			const nestedReport = path.join(entry, name.name, "report.json");
-			if (fs.existsSync(nestedReport)) nested.push(nestedReport);
+		const found = [];
+		for (const name of fs.readdirSync(entry)) {
+			if (RESERVED_RUN_DIRS.has(name)) continue;
+			const childPath = path.join(entry, name);
+			const child = fs.lstatSync(childPath);
+			if (child.isSymbolicLink()) {
+				let resolved;
+				try {
+					resolved = fs.statSync(childPath);
+				} catch {
+					console.error(`decide-redline: unresolvable symlink ${childPath}`);
+					process.exit(3);
+				}
+				if (resolved.isDirectory()) {
+					console.error(`decide-redline: symlinked variant directory ${childPath}`);
+					process.exit(3);
+				}
+			}
+			if (child.isDirectory()) {
+				const nestedReport = path.join(childPath, "report.json");
+				if (!fs.statSync(nestedReport, { throwIfNoEntry: false })?.isFile()) {
+					console.error(`decide-redline: missing variant report file ${nestedReport}`);
+					process.exit(3);
+				}
+				found.push(nestedReport);
+			} else if (/^report(-.*)?\.json$/.test(name)) found.push(childPath);
 		}
-		if (!direct.length && !nested.length) {
+		if (!found.length) {
 			console.error(`decide-redline: directory ${entry} holds no report*.json or <variant>/report.json`);
 			process.exit(1);
 		}
-		reportPaths.push(...direct, ...nested);
+		reportPaths.push(...found);
 	} else reportPaths.push(entry);
 }
 reportPaths.sort();
@@ -107,7 +126,7 @@ try {
 	decision = decide(reports, pick);
 } catch (error) {
 	console.error(`decide-redline: ${error.message}`);
-	process.exit(2);
+	process.exit(error instanceof TierSetMismatch ? 3 : 2);
 }
 
 // winner.json lands inside the run directory when the first positional is

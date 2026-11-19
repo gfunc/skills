@@ -52,6 +52,20 @@
 
 Every interactive element needs a designed **default, hover, focus, active, disabled, loading, error, and selected** state. Missing states are where interfaces feel cheap. **On disabled buttons [CONTESTED]:** classic guidance disables submit until the form is valid; the counter-position — now the majority view among accessibility practitioners — is that disabled buttons are invisible to some assistive tech and give no explanation. **Preferred pattern: keep the button enabled, and on click validate, focus the first error, and announce it.** Reserve `disabled` for states genuinely unavailable for reasons the user already understands.
 
+#### 4.6.1 Surface states
+
+*Pack addition adapted from OpenDesign's [state coverage](https://github.com/nexu-io/open-design/blob/f2ecaa3f88e1eba001379ea845e7b7754310ea6d/craft/state-coverage.md) (Apache-2.0), which cites WCAG 2.2, NN/g, Material Design 3, Apple HIG, and Baymard Institute research.*
+
+Applies to each surface that fetches, transforms, or accepts data, not automatically to the whole page.
+
+| State | Required design |
+| --- | --- |
+| Loading | Progress that preserves context and a recovery path for waits relevant to the flow. |
+| Empty | A reason and next action, distinct from error. |
+| Error | A plain cause when known, a recovery action, and preserved user input. |
+| Populated | Real content and the primary action for the declared flow. |
+| Edge | Relevant long or missing content, high volume, partial data, and RTL only when the content or locales require it. |
+
 ---
 
 ## §5. Layout, Responsiveness, and Adaptation
