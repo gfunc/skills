@@ -160,14 +160,15 @@ const HUE = `${DECIMAL}(?:deg|grad|rad|turn)?`;
 const OPTIONAL_ALPHA = String.raw`(?:\s*/\s*${CHANNEL})?`;
 const modernChannels = (...channels) => channels.join(String.raw`\s+`) + OPTIONAL_ALPHA;
 const legacyChannels = (first) => String.raw`${first}(?:\s*,\s*${CHANNEL}){2,3}`;
+const LEGACY_HSL_CHANNELS = String.raw`${HUE}\s*,\s*${DECIMAL}%\s*,\s*${DECIMAL}%(?:\s*,\s*${CHANNEL})?`;
 const COLOR_SPACE = "(?:srgb|srgb-linear|display-p3|a98-rgb|prophoto-rgb|rec2020|xyz|xyz-d50|xyz-d65)";
 const COLOR_FUNCTIONS = [
 	String.raw`rgba?\(\s*(?:${legacyChannels(CHANNEL)}|${modernChannels(CHANNEL, CHANNEL, CHANNEL)})\s*\)`,
-	String.raw`hsla?\(\s*(?:${legacyChannels(HUE)}|${modernChannels(HUE, CHANNEL, CHANNEL)})\s*\)`,
+	String.raw`hsla?\(\s*(?:${LEGACY_HSL_CHANNELS}|${modernChannels(HUE, CHANNEL, CHANNEL)})\s*\)`,
 	String.raw`hwb\(\s*${modernChannels(HUE, CHANNEL, CHANNEL)}\s*\)`,
 	String.raw`(?:ok)?lab\(\s*${modernChannels(CHANNEL, CHANNEL, CHANNEL)}\s*\)`,
 	String.raw`(?:ok)?lch\(\s*${modernChannels(CHANNEL, CHANNEL, HUE)}\s*\)`,
-	String.raw`color\(\s*${COLOR_SPACE}(?:\s+${CHANNEL}){1,4}${OPTIONAL_ALPHA}\s*\)`,
+	String.raw`color\(\s*${COLOR_SPACE}(?:\s+${CHANNEL}){3}${OPTIONAL_ALPHA}\s*\)`,
 ];
 const IDENTIFIER = String.raw`(?:--|-?[a-z_])[\w-]*`;
 const ATOM = [QUOTED, NUMBER, ...COLOR_FUNCTIONS, "#[0-9a-f]{3,4}", "#[0-9a-f]{6}(?:[0-9a-f]{2})?", IDENTIFIER];

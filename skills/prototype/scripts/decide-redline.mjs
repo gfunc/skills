@@ -51,9 +51,18 @@ for (const entry of paths) {
 			if (RESERVED_RUN_DIRS.has(name)) continue;
 			const childPath = path.join(entry, name);
 			const child = fs.lstatSync(childPath);
-			if (child.isSymbolicLink() && fs.statSync(childPath, { throwIfNoEntry: false })?.isDirectory()) {
-				console.error(`decide-redline: symlinked variant directory ${childPath}`);
-				process.exit(3);
+			if (child.isSymbolicLink()) {
+				let resolved;
+				try {
+					resolved = fs.statSync(childPath);
+				} catch {
+					console.error(`decide-redline: unresolvable symlink ${childPath}`);
+					process.exit(3);
+				}
+				if (resolved.isDirectory()) {
+					console.error(`decide-redline: symlinked variant directory ${childPath}`);
+					process.exit(3);
+				}
 			}
 			if (child.isDirectory()) {
 				const nestedReport = path.join(childPath, "report.json");

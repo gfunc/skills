@@ -142,7 +142,13 @@ const cli = async (words, { die = true, timeout = 90_000, interruptible = true }
 	let run;
 	let failure;
 	try {
-		run = await runCli("npx", ["--no-install", "playwright-cli", `-s=${session}`, ...words], {
+		const closing = words[0] === "close";
+		const command = closing ? "setsid" : "npx";
+		const cliArgs = ["--no-install", "playwright-cli", `-s=${session}`, ...words];
+		// Terminal signals target the audit's process group, so close needs its
+		// own session. --wait preserves the helper's exit status if setsid forks.
+		if (closing) cliArgs.unshift("--wait", "npx");
+		run = await runCli(command, cliArgs, {
 			encoding: "utf8", timeout, signal: interruptible ? interrupted.signal : undefined,
 		});
 	} catch (error) {

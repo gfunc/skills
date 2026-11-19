@@ -323,7 +323,7 @@ test("parseTokenSource: accepts absolute color arguments by function", () => {
 	for (const value of [
 		"rgb(255 255 255)", "rgba(10%, 20%, 30%, .5)", "HSL(120 50% 60% / 75%)", "hsla(120, 50%, 60%, .5)",
 		"hwb(120 20% 30%)", "lab(51 -2 +3)", "lch(51 12 277 / .8)", "oklab(.51 0 -.23 / 1)", "oklch(0.51 0.23 277)",
-		"color(srgb 1)", "color(display-p3 1 0 .5 / 75%)", "color(xyz-d50 0 .1 .2 .3)",
+		"color(display-p3 1 0 .5 / 75%)", "color(xyz-d50 0 .1 .2)",
 	]) {
 		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
 	}
@@ -336,6 +336,20 @@ test("parseTokenSource: accepts hue angles, percentage lightness and slash alpha
 		"lab(1% 2 3)", "oklab(51% -2% +3% / .25)", "rgb(20% 15 0 / 25%)",
 	]) {
 		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
+	}
+});
+
+test("parseTokenSource: enforces legacy HSL percentages and color() coordinate arity", () => {
+	for (const value of [
+		"hsl(120deg, 50%, 60%)", "hsl(120deg 50 60)", "color(srgb 100% 0% 0%)", "color(srgb 1 0 0 / 50%)",
+	]) {
+		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
+	}
+	for (const value of [
+		"hsl(120deg, 50, 60)", "color(srgb 100% 0% 0% 50%)", "color(srgb 1)", "color(srgb 1 2 3 4)",
+		"color(xyz-d50 0 .1 .2 .3)",
+	]) {
+		assert.throws(() => parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css"), /--ink.*literal/, value);
 	}
 });
 
@@ -583,6 +597,18 @@ ${script}
 `, { mode: 0o755 });
 };
 
+const installSetsidStub = (dir) => {
+	fs.writeFileSync(path.join(dir, "setsid"), `#!/usr/bin/env node
+const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
+const args = process.argv.slice(2);
+fs.writeFileSync("setsid-args.json", JSON.stringify(args));
+const run = spawnSync(args[1], args.slice(2), { stdio: "inherit" });
+if (run.error) throw run.error;
+process.exit(run.status ?? 1);
+`, { mode: 0o755 });
+};
+
 const auditArgs = (out) => [
 	path.join(import.meta.dirname, "audit-variant.mjs"),
 	"http://localhost:5173/?variant=A", out, "--tiers", "360",
@@ -664,14 +690,17 @@ const testSignalDuring = (signal, phase, commands) => {
 		const out = path.join(dir, "interrupted");
 		const sentinel = path.join(dir, "-s=sentinel");
 		fs.writeFileSync(sentinel, "open");
+		installSetsidStub(dir);
 		installCliStub(dir, `
-fs.appendFileSync("calls.log", session + " " + command + "\\n");
+fs.writeFileSync("session-name", session);
 const finish = () => {
 	if (command === "open") fs.writeFileSync(session, "open");
 	if (command === "eval") process.stdout.write(${JSON.stringify(cleanObservation)});
 	if (command === "screenshot") fs.writeFileSync(arg.slice("--filename=".length), Buffer.from("89504e470d0a1a0a", "hex"));
 	if (command === "console") process.stdout.write("### Result\\nTotal messages: 0 (Errors: 0, Warnings: 0)\\n");
 	if (command === "close") fs.unlinkSync(session);
+	const outcome = command === "open" ? "open-created" : command === "close" ? "close-removed" : command;
+	fs.appendFileSync("calls.log", session + " " + outcome + "\\n");
 };
 if (command === ${JSON.stringify(phase)}) {
 	const waitForSignal = () => fs.existsSync("signalled") ? finish() : setTimeout(waitForSignal, 10);
@@ -682,20 +711,31 @@ if (command === ${JSON.stringify(phase)}) {
 	finish();
 }
 `);
-		const audit = spawn(process.execPath, auditArgs(out), { cwd: dir, stdio: "ignore", timeout: 15_000, killSignal: "SIGKILL" });
+		const audit = spawn(process.execPath, auditArgs(out), {
+			cwd: dir,
+			env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH ?? ""}` },
+			stdio: ["ignore", "ignore", "pipe"],
+			timeout: 15_000,
+			killSignal: "SIGKILL",
+		});
+		let stderr = "";
+		audit.stderr.setEncoding("utf8");
+		audit.stderr.on("data", (chunk) => stderr += chunk);
 		const ended = once(audit, "exit");
 		try {
 			const log = path.join(dir, "calls.log");
 			while (!fs.existsSync(path.join(dir, "ready")) && audit.exitCode === null && audit.signalCode === null) await delay(20);
 			assert.equal(fs.readFileSync(path.join(dir, "ready"), "utf8"), phase);
-			const open = fs.readFileSync(log, "utf8").split("\n")[0];
-			assert.match(open, /^-s=redline-[\da-f]+ open$/);
-			const session = open.split(" ")[0];
+			const session = fs.readFileSync(path.join(dir, "session-name"), "utf8");
+			assert.match(session, /^-s=redline-[\da-f]+$/);
 			assert.ok(audit.kill(signal));
 			fs.writeFileSync(path.join(dir, "signalled"), "");
-			assert.deepEqual(await ended, [null, signal]);
-			assert.deepEqual(fs.readFileSync(log, "utf8").trim().split("\n"), commands.map((command) => `${session} ${command}`));
-			assert.equal(fs.existsSync(path.join(dir, session)), false);
+			assert.deepEqual(await ended, [null, signal], stderr);
+			assert.deepEqual(fs.readFileSync(log, "utf8").trim().split("\n"), commands.map((command) => `${session} ${command}`), stderr);
+			assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "setsid-args.json"), "utf8")), [
+				"--wait", "npx", "--no-install", "playwright-cli", session, "close",
+			], stderr);
+			assert.equal(fs.existsSync(path.join(dir, session)), false, stderr);
 			assert.equal(fs.readFileSync(sentinel, "utf8"), "open");
 			assert.equal(fs.existsSync(path.join(out, "report.json")), false);
 		} finally {
@@ -706,7 +746,7 @@ if (command === ${JSON.stringify(phase)}) {
 };
 
 for (const signal of ["SIGTERM", "SIGINT"]) {
-	testSignalDuring(signal, "open", ["open", "close"]);
-	testSignalDuring(signal, "resize", ["open", "resize", "close"]);
-	testSignalDuring(signal, "close", ["open", "resize", "eval", "screenshot", "console", "close"]);
+	testSignalDuring(signal, "open", ["open-created", "close-removed"]);
+	testSignalDuring(signal, "resize", ["open-created", "resize", "close-removed"]);
+	testSignalDuring(signal, "close", ["open-created", "resize", "eval", "screenshot", "console", "close-removed"]);
 }

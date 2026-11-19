@@ -476,6 +476,24 @@ test("walker: rejects symlinked variant directories", (context) => {
 	assert.equal(fs.existsSync(path.join(dir, "winner.json")), false);
 });
 
+test("walker: dangling variant symlink exits 3 and preserves the prior winner", (context) => {
+	const dir = tmp();
+	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const variant = path.join(dir, "A");
+	fs.mkdirSync(variant);
+	writeReports(variant, { "report.json": report({ variant: "A" }) });
+	const link = path.join(dir, "B");
+	fs.symlinkSync(path.join(dir, "missing"), link, "dir");
+	const winner = path.join(dir, "winner.json");
+	const prior = '{"winner":"previous"}\n';
+	fs.writeFileSync(winner, prior);
+	const out = run([dir], dir);
+	assert.equal(out.code, 3);
+	assert.match(out.stderr, /unresolvable/i);
+	assert.ok(out.stderr.includes(link), out.stderr);
+	assert.equal(fs.readFileSync(winner, "utf8"), prior);
+});
+
 test("walker: missing variant report neither creates nor replaces a winner", (context) => {
 	const dir = tmp();
 	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
