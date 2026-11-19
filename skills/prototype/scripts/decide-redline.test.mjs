@@ -432,6 +432,50 @@ test("walker: run-dir with variant subdirectories recurses and writes winner.jso
 	fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("walker: ignores only reserved tool directories when ranking variants", (context) => {
+	const dir = tmp();
+	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	for (const name of [".git", ".playwright-cli", "node_modules"]) fs.mkdirSync(path.join(dir, name));
+	for (const [variant, findings] of [["a", [finding()]], [".candidate", []]]) {
+		const variantDir = path.join(dir, variant);
+		fs.mkdirSync(variantDir);
+		writeReports(variantDir, { "report.json": report({ variant, findings }) });
+	}
+	const out = run([dir], dir);
+	assert.equal(out.code, 0, out.stderr);
+	assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "winner.json"))).winner, ".candidate");
+});
+
+test("walker: randomdir and unreserved dot directories require report.json", (context) => {
+	const dir = tmp();
+	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	writeReports(dir, { "report-a.json": report() });
+	for (const name of ["randomdir", ".other"]) {
+		const missing = path.join(dir, name);
+		fs.mkdirSync(missing);
+		const out = run([dir], dir);
+		assert.equal(out.code, 3);
+		assert.ok(out.stderr.includes(path.join(missing, "report.json")), out.stderr);
+		assert.equal(fs.existsSync(path.join(dir, "winner.json")), false);
+		fs.rmdirSync(missing);
+	}
+});
+
+test("walker: rejects symlinked variant directories", (context) => {
+	const dir = tmp();
+	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const variant = path.join(dir, "a");
+	fs.mkdirSync(variant);
+	writeReports(variant, { "report.json": report() });
+	const link = path.join(dir, "linked-variant");
+	fs.symlinkSync(variant, link, "dir");
+	const out = run([dir], dir);
+	assert.equal(out.code, 3);
+	assert.match(out.stderr, /symlink/i);
+	assert.ok(out.stderr.includes(link), out.stderr);
+	assert.equal(fs.existsSync(path.join(dir, "winner.json")), false);
+});
+
 test("walker: missing variant report neither creates nor replaces a winner", (context) => {
 	const dir = tmp();
 	context.after(() => fs.rmSync(dir, { recursive: true, force: true }));

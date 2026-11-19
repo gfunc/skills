@@ -321,9 +321,19 @@ test("parseTokenSource: ordinary literal font strings and color functions parse"
 
 test("parseTokenSource: accepts absolute color arguments by function", () => {
 	for (const value of [
-		"rgb(255 255 255)", "rgba(10%, 20%, 30%, .5)", "HSL(120 50% 60% / 75%)", "hsla(120 50% 60% .5)",
-		"hwb(120 20% 30%)", "lab(51 -2 +3)", "lch(51 12 277 / .8)", "oklab(.51 0 -.23 1)", "oklch(0.51 0.23 277)",
+		"rgb(255 255 255)", "rgba(10%, 20%, 30%, .5)", "HSL(120 50% 60% / 75%)", "hsla(120, 50%, 60%, .5)",
+		"hwb(120 20% 30%)", "lab(51 -2 +3)", "lch(51 12 277 / .8)", "oklab(.51 0 -.23 / 1)", "oklch(0.51 0.23 277)",
 		"color(srgb 1)", "color(display-p3 1 0 .5 / 75%)", "color(xyz-d50 0 .1 .2 .3)",
+	]) {
+		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
+	}
+});
+
+test("parseTokenSource: accepts hue angles, percentage lightness and slash alpha", () => {
+	for (const value of [
+		"hsl(120deg 50% 60%)", "oklch(51% .23 277)", "hwb(120 20% 30% / .5)", "rgb(0 0 0 / 1)",
+		"hsla(+120grad, 50%, 60%, 75%)", "hwb(-.5turn 20 30 / 50%)", "lch(51% 12% +1rad / 75%)",
+		"lab(1% 2 3)", "oklab(51% -2% +3% / .25)", "rgb(20% 15 0 / 25%)",
 	]) {
 		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
 	}
@@ -332,11 +342,41 @@ test("parseTokenSource: accepts absolute color arguments by function", () => {
 test("parseTokenSource: rejects malformed and relative colors", () => {
 	for (const value of [
 		"rgb(nope)", "rgb( )", "rgb(from red r g b)", "hsl(a b c d e)", "color(profiled 1 2 3)",
-		"rgba(0, 0 0)", "hsl(1 2 3 4 5)", "hwb(1 2% 3% 4)", "lab(1% 2 3)", "oklch(.51 .2 from)",
+		"rgba(0, 0 0)", "rgb(0, 0, 0 / 1)", "rgb(0 0 0 1)", "hsla(120 50% 60% .5)", "oklab(.51 0 -.23 1)",
+		"hsl(1 2 3 4 5)", "hsl(120px 50% 60%)", "hwb(1 2% 3% 4)", "oklch(51% .2 50%)", "oklch(.51 .2 from)",
 		"color(FROM 1 2 3)", "color(srgb)", "color(srgb 1 2 3 4 5)", "color(srgb 1 / nope)",
 	]) {
 		assert.throws(() => parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css"), /--ink.*literal/, value);
 	}
+});
+
+test("parseTokenSource: validates CSS exponent notation in color channels", () => {
+	for (const value of ["rgb(1e3 0 0)", "rgb(+1E-2 0 0 / 1e+2%)"]) {
+		assert.equal(parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css").expected.get("--ink"), value);
+	}
+	for (const value of ["rgb(1e 0 0)", "rgb(1e+ 0 0)"]) {
+		assert.throws(() => parseTokenSource(`:root { --ink: ${value}; }`, "tokens.css"), /--ink.*literal/, value);
+	}
+});
+
+test("parseTokenSource: splits only top-level atom commas", () => {
+	const list = String.raw`"Family\", (alt)", 'second, font', rgb(0, 10, 20), -1e2px, -vendor, #fff`;
+	assert.equal(parseTokenSource(`:root { --list: ${list}; }`, "tokens.css").expected.get("--list"), list);
+	for (const invalid of [",red", "red,", "red,,blue", "-1px2", "rgb(rgb(1,2,3) 0 0)", '"open, red', "rgb(0, 0, 0"]) {
+		assert.throws(() => parseTokenSource(`:root { --list: ${invalid}; }`, "tokens.css"), /--list.*literal/, invalid);
+	}
+});
+
+test("parseTokenSource: rejects a late mismatch in a 200-atom list within the deadline", () => {
+	const moduleUrl = new URL("./page-checks.mjs", import.meta.url).href;
+	execFileSync(process.execPath, ["--input-type=module", "-e", `
+		import assert from "node:assert/strict";
+		import { parseTokenSource } from ${JSON.stringify(moduleUrl)};
+		const prefix = "-1px,".repeat(199);
+		const parse = (last) => parseTokenSource(":root { --list: " + prefix + last + "; }", "tokens.css");
+		assert.equal(parse("-1px").expected.get("--list"), prefix + "-1px");
+		assert.throws(() => parse("!"), /--list.*literal/);
+	`], { timeout: 3000, killSignal: "SIGKILL", stdio: ["ignore", "ignore", "inherit"] });
 });
 
 test("parseTokenSource: the regression inputs reject — no final semicolon, second selector swallowed", () => {
@@ -616,33 +656,45 @@ test("CLI: missing, short, or invalid PNG fails without a report", () => {
 	}
 });
 
-for (const signal of ["SIGTERM", "SIGINT"]) {
-	test(`CLI: ${signal} during open closes only the owned session`, async (context) => {
+const testSignalDuring = (signal, phase, commands) => {
+	const when = phase === "close" ? "final close" : phase;
+	test(`CLI: ${signal} during ${when} closes only the owned session`, async (context) => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "page-checks-"));
 		context.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 		const out = path.join(dir, "interrupted");
 		const sentinel = path.join(dir, "-s=sentinel");
 		fs.writeFileSync(sentinel, "open");
 		installCliStub(dir, `
-if (command === "open") fs.writeFileSync(session, "open");
 fs.appendFileSync("calls.log", session + " " + command + "\\n");
-if (command === "open") {
-	fs.writeFileSync("ready", "");
-	setTimeout(() => {}, 5000);
+const finish = () => {
+	if (command === "open") fs.writeFileSync(session, "open");
+	if (command === "eval") process.stdout.write(${JSON.stringify(cleanObservation)});
+	if (command === "screenshot") fs.writeFileSync(arg.slice("--filename=".length), Buffer.from("89504e470d0a1a0a", "hex"));
+	if (command === "console") process.stdout.write("### Result\\nTotal messages: 0 (Errors: 0, Warnings: 0)\\n");
+	if (command === "close") fs.unlinkSync(session);
+};
+if (command === ${JSON.stringify(phase)}) {
+	const waitForSignal = () => fs.existsSync("signalled") ? finish() : setTimeout(waitForSignal, 10);
+	setTimeout(() => process.exit(1), 10_000).unref();
+	fs.writeFileSync("ready", command);
+	waitForSignal();
+} else {
+	finish();
 }
-if (command === "close") fs.unlinkSync(session);
 `);
 		const audit = spawn(process.execPath, auditArgs(out), { cwd: dir, stdio: "ignore", timeout: 15_000, killSignal: "SIGKILL" });
 		const ended = once(audit, "exit");
 		try {
 			const log = path.join(dir, "calls.log");
 			while (!fs.existsSync(path.join(dir, "ready")) && audit.exitCode === null && audit.signalCode === null) await delay(20);
-			const open = fs.readFileSync(log, "utf8").trim();
+			assert.equal(fs.readFileSync(path.join(dir, "ready"), "utf8"), phase);
+			const open = fs.readFileSync(log, "utf8").split("\n")[0];
 			assert.match(open, /^-s=redline-[\da-f]+ open$/);
 			const session = open.split(" ")[0];
 			assert.ok(audit.kill(signal));
+			fs.writeFileSync(path.join(dir, "signalled"), "");
 			assert.deepEqual(await ended, [null, signal]);
-			assert.deepEqual(fs.readFileSync(log, "utf8").trim().split("\n"), [open, `${session} close`]);
+			assert.deepEqual(fs.readFileSync(log, "utf8").trim().split("\n"), commands.map((command) => `${session} ${command}`));
 			assert.equal(fs.existsSync(path.join(dir, session)), false);
 			assert.equal(fs.readFileSync(sentinel, "utf8"), "open");
 			assert.equal(fs.existsSync(path.join(out, "report.json")), false);
@@ -651,4 +703,10 @@ if (command === "close") fs.unlinkSync(session);
 			await ended;
 		}
 	});
+};
+
+for (const signal of ["SIGTERM", "SIGINT"]) {
+	testSignalDuring(signal, "open", ["open", "close"]);
+	testSignalDuring(signal, "resize", ["open", "resize", "close"]);
+	testSignalDuring(signal, "close", ["open", "resize", "eval", "screenshot", "console", "close"]);
 }

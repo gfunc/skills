@@ -31,6 +31,8 @@ if (!paths.length) {
 	process.exit(1);
 }
 
+// Only these tool directories are reserved; other dot-prefixed names can be variants.
+const RESERVED_RUN_DIRS = new Set([".git", ".playwright-cli", "node_modules"]);
 const reportPaths = [];
 for (const entry of paths) {
 	let stat = null;
@@ -45,8 +47,14 @@ for (const entry of paths) {
 		// (`<run-dir>/<variant>/report.json`); bare report*.json at its root
 		// still count.
 		const found = [];
-		for (const child of fs.readdirSync(entry, { withFileTypes: true })) {
-			const childPath = path.join(entry, child.name);
+		for (const name of fs.readdirSync(entry)) {
+			if (RESERVED_RUN_DIRS.has(name)) continue;
+			const childPath = path.join(entry, name);
+			const child = fs.lstatSync(childPath);
+			if (child.isSymbolicLink() && fs.statSync(childPath, { throwIfNoEntry: false })?.isDirectory()) {
+				console.error(`decide-redline: symlinked variant directory ${childPath}`);
+				process.exit(3);
+			}
 			if (child.isDirectory()) {
 				const nestedReport = path.join(childPath, "report.json");
 				if (!fs.statSync(nestedReport, { throwIfNoEntry: false })?.isFile()) {
@@ -54,7 +62,7 @@ for (const entry of paths) {
 					process.exit(3);
 				}
 				found.push(nestedReport);
-			} else if (/^report(-.*)?\.json$/.test(child.name)) found.push(childPath);
+			} else if (/^report(-.*)?\.json$/.test(name)) found.push(childPath);
 		}
 		if (!found.length) {
 			console.error(`decide-redline: directory ${entry} holds no report*.json or <variant>/report.json`);

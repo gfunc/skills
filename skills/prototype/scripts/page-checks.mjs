@@ -156,19 +156,46 @@ const DELIMITER = new RegExp(`${QUOTED}|[{};]`, "g");
 const DECIMAL = String.raw`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?`;
 const NUMBER = `${DECIMAL}(?:%|[a-z]+)?`;
 const CHANNEL = `${DECIMAL}%?`;
-const triple = (channel, separator) => `${channel}(?:${separator}${channel}){2}`;
-const comma = String.raw`\s*,\s*`;
-const space = String.raw`\s+`;
-const alpha = String.raw`(?:\s*/\s*|\s+)`;
+const HUE = `${DECIMAL}(?:deg|grad|rad|turn)?`;
+const OPTIONAL_ALPHA = String.raw`(?:\s*/\s*${CHANNEL})?`;
+const modernChannels = (...channels) => channels.join(String.raw`\s+`) + OPTIONAL_ALPHA;
+const legacyChannels = (first) => String.raw`${first}(?:\s*,\s*${CHANNEL}){2,3}`;
 const COLOR_SPACE = "(?:srgb|srgb-linear|display-p3|a98-rgb|prophoto-rgb|rec2020|xyz|xyz-d50|xyz-d65)";
 const COLOR_FUNCTIONS = [
-	String.raw`(?:rgba?|hsla?)\(\s*(?:${triple(CHANNEL, comma)}(?:${comma}${CHANNEL})?|${triple(CHANNEL, space)}(?:${alpha}${CHANNEL})?)\s*\)`,
-	String.raw`hwb\(\s*${triple(CHANNEL, space)}\s*\)`,
-	String.raw`(?:ok)?l(?:ab|ch)\(\s*${triple(DECIMAL, space)}(?:${alpha}${DECIMAL})?\s*\)`,
-	String.raw`color\(\s*${COLOR_SPACE}(?:\s+${DECIMAL}){1,4}(?:\s*/\s*${CHANNEL})?\s*\)`,
+	String.raw`rgba?\(\s*(?:${legacyChannels(CHANNEL)}|${modernChannels(CHANNEL, CHANNEL, CHANNEL)})\s*\)`,
+	String.raw`hsla?\(\s*(?:${legacyChannels(HUE)}|${modernChannels(HUE, CHANNEL, CHANNEL)})\s*\)`,
+	String.raw`hwb\(\s*${modernChannels(HUE, CHANNEL, CHANNEL)}\s*\)`,
+	String.raw`(?:ok)?lab\(\s*${modernChannels(CHANNEL, CHANNEL, CHANNEL)}\s*\)`,
+	String.raw`(?:ok)?lch\(\s*${modernChannels(CHANNEL, CHANNEL, HUE)}\s*\)`,
+	String.raw`color\(\s*${COLOR_SPACE}(?:\s+${CHANNEL}){1,4}${OPTIONAL_ALPHA}\s*\)`,
 ];
-const ATOM = [QUOTED, NUMBER, ...COLOR_FUNCTIONS, "#[0-9a-f]{3,4}", "#[0-9a-f]{6}(?:[0-9a-f]{2})?", "[-a-z_][\\w-]*"].join("|");
-const TOKEN_VALUE = new RegExp(`^(?:${ATOM})(?:\\s*,\\s*(?:${ATOM}))*$`, "i");
+const IDENTIFIER = String.raw`(?:--|-?[a-z_])[\w-]*`;
+const ATOM = [QUOTED, NUMBER, ...COLOR_FUNCTIONS, "#[0-9a-f]{3,4}", "#[0-9a-f]{6}(?:[0-9a-f]{2})?", IDENTIFIER];
+const TOKEN_ATOM = new RegExp(`^(?:${ATOM.join("|")})$`, "i");
+
+const isTokenValue = (value) => {
+	let start = 0;
+	let quote = "";
+	let inFunction = false;
+	for (let index = 0; index < value.length; index++) {
+		const char = value[index];
+		if (quote) {
+			if (char === "\\") index++;
+			else if (char === quote) quote = "";
+		} else if (char === '"' || char === "'") quote = char;
+		else if (char === "(") {
+			if (inFunction) return false;
+			inFunction = true;
+		} else if (char === ")") {
+			if (!inFunction) return false;
+			inFunction = false;
+		} else if (char === "," && !inFunction) {
+			if (!TOKEN_ATOM.test(value.slice(start, index).trim())) return false;
+			start = index + 1;
+		}
+	}
+	return !quote && !inFunction && TOKEN_ATOM.test(value.slice(start).trim());
+};
 
 export function parseTokenSource(text, source) {
 	const stripped = text.replace(COMMENT_OR_STRING, (part) => {
@@ -197,7 +224,7 @@ export function parseTokenSource(text, source) {
 		if (!match) throw new Error(`${source}: declaration "${declaration.slice(0, 60)}" is not a --custom-property: value`);
 		const [, name, value] = match;
 		if (!value) throw new Error(`${source}: ${name} has an empty value`);
-		if (!TOKEN_VALUE.test(value)) {
+		if (!isTokenValue(value)) {
 			if (/\bvar\(/i.test(value)) throw new Error(`${source}: ${name} uses var(); supply a binding literal value`);
 			throw new Error(`${source}: ${name} is not a supported literal value`);
 		}

@@ -37,7 +37,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
-import { execFile, spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { MACHINE_TO_BAND, TIER_LADDER } from "../references/redline-shape.mjs";
 import { parseTokenSource, auditPageTier, pageProblemKey } from "./page-checks.mjs";
@@ -137,12 +137,13 @@ const interrupted = new AbortController();
 // audit untrustworthy; a failed console tap is the one soft failure (null).
 // The 1.59 alpha prints `### Error` sections even on process exit 0, so the
 // marker is checked on every nominally successful call.
-const cli = async (words, { die = true, timeout = 90_000 } = {}) => {
+const cli = async (words, { die = true, timeout = 90_000, interruptible = true } = {}) => {
+	if (interruptible) interrupted.signal.throwIfAborted();
 	let run;
 	let failure;
 	try {
 		run = await runCli("npx", ["--no-install", "playwright-cli", `-s=${session}`, ...words], {
-			encoding: "utf8", timeout, signal: interrupted.signal,
+			encoding: "utf8", timeout, signal: interruptible ? interrupted.signal : undefined,
 		});
 	} catch (error) {
 		run = error;
@@ -157,18 +158,13 @@ const cli = async (words, { die = true, timeout = 90_000 } = {}) => {
 			const reason = reportedError?.[1]?.trim() ||
 				stderr.split(/\r?\n/).find((line) => line.trim() && !line.startsWith("npm notice")) ||
 				failure || "no error details";
-			console.error(`audit-variant: playwright-cli ${words[0]} failed: ${reason.slice(0, 400)}`);
-			process.exit(1);
+			throw new Error(`playwright-cli ${words[0]} failed: ${reason.slice(0, 400)}`);
 		}
 		return { ok: false, output };
 	}
 	return { ok: true, output };
 };
 
-const openPage = () => {
-	sessionOpen = true;
-	return cli(["open", url]);
-};
 const resize = (width) => cli(["resize", String(width), "900"]);
 const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 const hasPngSignature = (file) => {
@@ -188,8 +184,7 @@ const hasPngSignature = (file) => {
 const shot = async (file) => {
 	await cli(["screenshot", `--filename=${file}`]);
 	if (!hasPngSignature(file)) {
-		console.error(`audit-variant: ${file}: expected PNG signature ${PNG_SIGNATURE.toString("hex")}`);
-		process.exit(1);
+		throw new Error(`${file}: expected PNG signature ${PNG_SIGNATURE.toString("hex")}`);
 	}
 };
 
@@ -220,30 +215,6 @@ const parseObservation = (line, tokenNames) => {
 		throw new Error("invalid page observation");
 	return result;
 };
-
-// The exit hook can't wait for an asynchronous close.
-let sessionOpen = false;
-const closeSession = () => {
-	if (!sessionOpen) return;
-	sessionOpen = false;
-	const run = spawnSync("npx", ["--no-install", "playwright-cli", `-s=${session}`, "close"], {
-		encoding: "utf8",
-		timeout: 30_000,
-		stdio: ["ignore", "pipe", "pipe"],
-	});
-	const output = String(run.stdout ?? "") + String(run.stderr ?? "");
-	if (run.status !== 0 || run.error || /^### Error/m.test(output)) {
-		console.error(`audit-variant: warning: could not close session ${session}`);
-	}
-};
-process.on("exit", closeSession);
-for (const signal of ["SIGINT", "SIGTERM"]) {
-	process.once(signal, () => {
-		interrupted.abort();
-		closeSession();
-		process.kill(process.pid, signal);
-	});
-}
 
 // autoScroll before anything visual: scroll-reveal content otherwise stays
 // at opacity:0 and screenshots read as blank sections (upstream's lesson).
@@ -294,48 +265,54 @@ const toPageObservation = (page) => ({
 	tokenValues: page.tokenValues,
 });
 
-const findings = [];
-const overflowTiers = [];
-const seenPageProblemKeys = new Set();
-const declaredTokenNames = tokenSource === null ? [] : [...tokenSource.expected.keys()];
+const auditVariant = async () => {
+	const findings = [];
+	const overflowTiers = [];
+	const seenPageProblemKeys = new Set();
+	const declaredTokenNames = tokenSource === null ? [] : [...tokenSource.expected.keys()];
+	await cli(["open", url], { interruptible: false });
+	for (const width of tiers) {
+		await resize(width);
+		const line = await scrollAndAudit(declaredTokenNames);
+		let result;
+		try {
+			result = parseObservation(line, declaredTokenNames);
+		} catch {
+			throw new Error(`could not parse in-page audit at ${width}: ${line ? "invalid eval result" : "missing ### Result payload"}`);
+		}
+		await shot(path.join(outDir, `${width}.png`));
+		if (result.overflow) overflowTiers.push(width);
+		for (const problem of result.problems) {
+			findings.push({
+				row: problem.check === "horizontal-overflow" ? "overflow" : problem.check === "tap-target" ? "safe-targets" : undefined,
+				phase: `tier-${width}`,
+				band: MACHINE_TO_BAND[problem.severity],
+				source: "machine",
+				evidence: [path.join(outDir, `${width}.png`)],
+				fix: `${problem.check}: ${problem.count} instance(s) at ${width}`,
+			});
+		}
+		for (const problem of auditPageTier(toPageObservation(result.page), tokenSource)) {
+			const key = pageProblemKey(problem);
+			if (seenPageProblemKeys.has(key)) continue;
+			seenPageProblemKeys.add(key);
+			findings.push({
+				row: undefined,
+				phase: "page",
+				band: MACHINE_TO_BAND[problem.severity],
+				source: "machine",
+				evidence: [path.join(outDir, `${width}.png`), problem.evidence],
+				fix: problem.fix,
+			});
+		}
+	}
+	const consoleErrors = await readConsoleCount();
+	const tokenCheck = tokenSource === null
+		? { status: "skip", reason: "no machine-readable design context" }
+		: { status: "checked", source: tokenSource.source, tokenCount: tokenSource.expected.size };
+	return { variant, url, tiers, consoleErrors, overflowTiers, findings, tokenCheck };
+};
 
-await openPage();
-for (const width of tiers) {
-	await resize(width);
-	const line = await scrollAndAudit(declaredTokenNames);
-	let result;
-	try {
-		result = parseObservation(line, declaredTokenNames);
-	} catch {
-		console.error(`audit-variant: could not parse in-page audit at ${width}: ${line ? "invalid eval result" : "missing ### Result payload"}`);
-		process.exit(1);
-	}
-	await shot(path.join(outDir, `${width}.png`));
-	if (result.overflow) overflowTiers.push(width);
-	for (const problem of result.problems) {
-		findings.push({
-			row: problem.check === "horizontal-overflow" ? "overflow" : problem.check === "tap-target" ? "safe-targets" : undefined,
-			phase: `tier-${width}`,
-			band: MACHINE_TO_BAND[problem.severity],
-			source: "machine",
-			evidence: [path.join(outDir, `${width}.png`)],
-			fix: `${problem.check}: ${problem.count} instance(s) at ${width}`,
-		});
-	}
-	for (const problem of auditPageTier(toPageObservation(result.page), tokenSource)) {
-		const key = pageProblemKey(problem);
-		if (seenPageProblemKeys.has(key)) continue;
-		seenPageProblemKeys.add(key);
-		findings.push({
-			row: undefined,
-			phase: "page",
-			band: MACHINE_TO_BAND[problem.severity],
-			source: "machine",
-			evidence: [path.join(outDir, `${width}.png`), problem.evidence],
-			fix: problem.fix,
-		});
-	}
-}
 const consoleCount = (line) => {
 	const match = /^Total messages: (\d+) \(Errors: (\d+), Warnings: (\d+)\)$/.exec(line);
 	if (!match) return null;
@@ -360,28 +337,31 @@ const readConsoleCount = async () => {
 	}
 };
 
-const consoleErrors = await readConsoleCount();
-closeSession();
+const signals = ["SIGINT", "SIGTERM"];
+const onSignal = (signal) => interrupted.abort(signal);
+for (const signal of signals) process.on(signal, onSignal);
+let report;
+try {
+	report = await auditVariant();
+} catch (error) {
+	if (!interrupted.signal.aborted) console.error(`audit-variant: ${error.message}`);
+	process.exitCode = 1;
+} finally {
+	const closed = await cli(["close"], { die: false, timeout: 30_000, interruptible: false });
+	if (!closed.ok) console.error(`audit-variant: warning: could not close session ${session}`);
+	for (const signal of signals) process.off(signal, onSignal);
+}
 
-const tokenCheck =
-	tokenSource === null
-		? { status: "skip", reason: "no machine-readable design context" }
-		: { status: "checked", source: tokenSource.source, tokenCount: tokenSource.expected.size };
-
-const report = {
-	variant,
-	url,
-	tiers,
-	consoleErrors,
-	overflowTiers,
-	findings,
-	tokenCheck,
-};
-const reportPath = path.join(outDir, "report.json");
-fs.writeFileSync(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
-const blocking = findings.filter((finding) => finding.band === "high").length;
-const consoleNote = consoleErrors === null ? "unknown" : `${consoleErrors} console errors`;
-console.log(
-	`${variant}: ${tiers.length} tiers, ${findings.length} machine findings (${blocking} high), ${consoleNote}, overflow at [${overflowTiers.join(", ")}] → ${reportPath}`,
-);
-process.exit(blocking > 0 || overflowTiers.length > 0 || (consoleErrors ?? 0) > 0 ? 2 : 0);
+if (interrupted.signal.aborted) {
+	process.kill(process.pid, interrupted.signal.reason);
+} else if (report) {
+	const { consoleErrors, findings, overflowTiers } = report;
+	const reportPath = path.join(outDir, "report.json");
+	fs.writeFileSync(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
+	const blocking = findings.filter((finding) => finding.band === "high").length;
+	const consoleNote = consoleErrors === null ? "unknown" : `${consoleErrors} console errors`;
+	console.log(
+		`${variant}: ${tiers.length} tiers, ${findings.length} machine findings (${blocking} high), ${consoleNote}, overflow at [${overflowTiers.join(", ")}] → ${reportPath}`,
+	);
+	process.exitCode = blocking > 0 || overflowTiers.length > 0 || (consoleErrors ?? 0) > 0 ? 2 : 0;
+}
