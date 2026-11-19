@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { parseReport, decide } from "../references/redline-shape.mjs";
+import { parseReport, decide, TierSetMismatch } from "../references/redline-shape.mjs";
 
 const USAGE =
 	"Usage: node decide-redline.mjs <run-dir-or-report-paths...> [--pick pick.json]";
@@ -107,7 +107,7 @@ try {
 	decision = decide(reports, pick);
 } catch (error) {
 	console.error(`decide-redline: ${error.message}`);
-	process.exit(2);
+	process.exit(error instanceof TierSetMismatch ? 3 : 2);
 }
 
 // winner.json lands inside the run directory when the first positional is

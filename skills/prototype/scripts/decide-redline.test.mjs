@@ -69,6 +69,41 @@ test("shape data: twelve rows, one scale, one ladder, one band mapping", () => {
 	assert.deepEqual(MACHINE_TO_BAND, { high: "high", medium: "medium", low: "nit" });
 });
 
+test("parseReport: duplicate tier widths are schema-invalid", () => {
+	assert.match(
+		parseReport(JSON.stringify(report({ tiers: [360, 360] })), "r-dup.json").error,
+		/r-dup\.json: field "tiers"/i,
+	);
+	assert.match(parseReport(JSON.stringify(report({ tiers: [360, 360] })), "r-dup.json").error, /repeats a tier/i);
+});
+
+test("decide: mismatched tier sets across reports refuse to rank with a tier-set error", () => {
+	const wide = report({ variant: "wide", tiers: [360, 768, 1024] });
+	const narrow = report({ variant: "narrow", tiers: [360, 768] });
+	let thrown;
+	try {
+		decide([wide, narrow]);
+	} catch (error) {
+		thrown = error;
+	}
+	assert.ok(thrown, "mismatched tier sets must throw, never rank");
+	assert.match(thrown.message, /tier set/i);
+});
+
+test("decide: identical tier sets in a different order still compare", () => {
+	const first = report({ variant: "a", findings: [finding()] });
+	const reordered = report({ variant: "b", tiers: [768, 360, 390] });
+	const decision = decide([first, reordered]);
+	assert.equal(decision.kind, "confirmed");
+	assert.equal(decision.winner, "b");
+});
+
+test("decide: a single report never trips the tier-set gate", () => {
+	const decision = decide([report({ variant: "solo", tiers: [360, 1024] })]);
+	assert.equal(decision.kind, "confirmed");
+	assert.equal(decision.winner, "solo");
+});
+
 test("eligible: blocker, high, console error, and overflow each reject", () => {
 	assert.equal(eligible(report()), true);
 	assert.equal(eligible(report({ findings: [finding({ band: "blocker" })] })), false);
@@ -188,6 +223,53 @@ test("machine-band mapping: low lands on nit and never gates or ranks", () => {
 	// Zero open mediums both, so order follows input; the nit finding never ranks.
 	assert.deepEqual(rank([lowOnly, plain]).map((entry) => entry.variant), ["low", "plain"]);
 	assert.deepEqual(decide([lowOnly, plain]).tiedAtTop, ["low", "plain"]);
+});
+
+test("parseReport: tokenCheck skip, checked, and absence each parse", () => {
+	const skip = parseReport(JSON.stringify(report({ tokenCheck: { status: "skip", reason: "no machine-readable design context" } })), "r-skip.json");
+	assert.equal(skip.error, undefined);
+	assert.deepEqual(skip.tokenCheck, { status: "skip", reason: "no machine-readable design context" });
+	const checked = parseReport(
+		JSON.stringify(report({ tokenCheck: { status: "checked", source: "/work/settings/brand/tokens.css", tokenCount: 8 } })),
+		"r-checked.json",
+	);
+	assert.equal(checked.error, undefined);
+	assert.deepEqual(checked.tokenCheck, { status: "checked", source: "/work/settings/brand/tokens.css", tokenCount: 8 });
+	const legacy = JSON.parse(JSON.stringify(report()));
+	assert.equal(parseReport(JSON.stringify(legacy), "r-absent.json").tokenCheck, undefined);
+});
+
+test("parseReport: malformed tokenCheck names file and field", () => {
+	const malformed = (tokenCheck) => parseReport(JSON.stringify(report({ tokenCheck })), "r-tc.json").error;
+	assert.match(malformed("skip"), /r-tc\.json: field "tokenCheck"/);
+	assert.match(malformed([1]), /field "tokenCheck"/);
+	assert.match(malformed({ status: "maybe" }), /status "maybe"/);
+	assert.match(malformed({ status: "skip", reason: "lazy" }), /reason "lazy"/);
+	assert.match(malformed({ status: "skip", reason: "no machine-readable design context", extra: 1 }), /unknown nested|extra/);
+	assert.match(malformed({ status: "checked", source: "  ", tokenCount: 3 }), /source/);
+	assert.match(malformed({ status: "checked", source: "tokens.css", tokenCount: 0 }), /tokenCount/);
+	assert.match(malformed({ status: "checked", source: "tokens.css", tokenCount: 2.5 }), /tokenCount/);
+	assert.match(malformed({ status: "checked", source: "tokens.css" }), /tokenCount/);
+	assert.match(malformed({ status: "checked", source: "tokens.css", tokenCount: 1, note: "x" }), /unknown nested|note/);
+});
+
+test("walker: tokenCheck rides reports without changing the decision", () => {
+	const dir = tmp();
+	writeReports(dir, {
+		"report-a.json": report({ variant: "a", tokenCheck: { status: "skip", reason: "no machine-readable design context" } }),
+		"report-b.json": report({
+			variant: "b",
+			findings: [finding()],
+			tokenCheck: { status: "checked", source: "tokens.css", tokenCount: 4 },
+		}),
+	});
+	const out = run([dir], dir);
+	assert.equal(out.code, 0);
+	assert.match(out.stdout, /a \(confirmed\)/);
+	const winner = JSON.parse(fs.readFileSync(path.join(dir, "winner.json"), "utf8"));
+	assert.equal(winner.winner, "a");
+	assert.equal(winner.rejected.length, 0);
+	fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("walker: bare report paths still work and winner.json lands beside them", () => {
@@ -322,5 +404,44 @@ test("walker: overflow-only report is rejected and can fail the whole run", () =
 	assert.equal(out.code, 2);
 	const winner = JSON.parse(fs.readFileSync(path.join(dir, "winner.json"), "utf8"));
 	assert.deepEqual(winner.rejected[0].reasons, ["overflow at tier(s) 360"]);
+	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("walker: mismatched tier sets exit 3, write no new winner, and keep the old one", () => {
+	const dir = tmp();
+	writeReports(dir, {
+		"report-a.json": report({ variant: "a", tiers: [360, 768] }),
+		"report-b.json": report({ variant: "b", tiers: [360, 390] }),
+	});
+	const stale = { winner: "a", kind: "confirmed", stale: true };
+	fs.writeFileSync(path.join(dir, "winner.json"), JSON.stringify(stale));
+	const out = run([dir], dir);
+	assert.equal(out.code, 3);
+	assert.match(out.stderr, /tier set/i);
+	assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "winner.json"), "utf8")), stale);
+	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("walker: a report carrying duplicate tiers exits 3", () => {
+	const dir = tmp();
+	writeReports(dir, {
+		"report-a.json": report({ variant: "a", tiers: [360, 768] }),
+		"report-b.json": report({ variant: "b", tiers: [768, 768] }),
+	});
+	const out = run([dir], dir);
+	assert.equal(out.code, 3);
+	assert.match(out.stderr, /repeats a tier/i);
+	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("walker: same tier set in different orders across reports still decides", () => {
+	const dir = tmp();
+	writeReports(dir, {
+		"report-a.json": report({ variant: "a", findings: [finding()] }),
+		"report-b.json": report({ variant: "b", tiers: [768, 360, 390] }),
+	});
+	const out = run([dir], dir);
+	assert.equal(out.code, 0);
+	assert.match(out.stdout, /b \(confirmed\)/);
 	fs.rmSync(dir, { recursive: true, force: true });
 });

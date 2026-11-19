@@ -1,10 +1,8 @@
 # VARIANTS Prototype
 
-Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
+Use this branch for appearance, layout, or hierarchy. Route questions about state transitions or behavior to [LOGIC](LOGIC.md). Put runnable alternatives on one route with a floating switcher. A scoped revision of one approved artifact can skip the switcher.
 
-This is the branch for questions about what something **looks like**, including interaction that is layout, hierarchy, or appearance — not interaction that is state transitions or behavior; those belong in [LOGIC.md](LOGIC.md). Pick a sub-shape first: **sub-shape A** mounts the variants inside an existing page whenever a plausible host exists, and **sub-shape B** creates a throwaway page only as a last resort.
-
-Evidence for the completion gate comes in this branch's form: a **per-variant screenshot** of every variant, plus **per-id disclosure** where a `modern-web-guidance` guide was applied — one bullet per applied id with a short verbatim quote, or one sentence naming what was checked and why nothing applied.
+Record a screenshot for each runnable variant, plus per-ID disclosure where a `modern-web-guidance` guide was applied. Give one bullet per applied ID with a short verbatim quote, or name what you checked and why nothing applied.
 
 ## When this is the right shape
 
@@ -13,51 +11,31 @@ Evidence for the completion gate comes in this branch's form: a **per-variant sc
 - "Try a different layout for the settings screen."
 - Any time the user would otherwise spend a day picking between three vague mockups in their head.
 
-## Two sub-shapes: strongly prefer sub-shape A
+## Choose the route
 
-A UI prototype is much easier to judge when it's **butting up against the rest of the app**: real header, real sidebar, real data, real density. A throwaway route on its own is a vacuum: every variant looks fine in isolation. Default to sub-shape A whenever there's a plausible existing page to host the variants. Only reach for sub-shape B if the prototype genuinely has no nearby home.
+### Sub-shape A: existing page
 
-### Sub-shape A: adjustment to an existing page (preferred)
+Use the existing route and app shell in a throwaway branch or isolated worktree when navigation, hierarchy, or app context could affect the answer. Keep the route parameters and the data shape. Use synthetic or read-only data and stub mutations. Swap only the relevant rendering behind `?variant=`.
 
-The route already exists. Variants are rendered **on the same route**, gated by a `?variant=` URL search param. The existing data fetching, params, and auth all stay. Only the rendering swaps. This is the default; pick it unless there's a specific reason not to.
+### Sub-shape B: standalone
 
-If the prototype is for something that doesn't yet have a page but *would naturally live inside one* (a new section of the dashboard, a new card on the settings screen, a new step in an existing flow), it's still sub-shape A. Mount the variants inside the host page.
-
-### Sub-shape B: a new page (last resort)
-
-Only use this when the thing being prototyped genuinely has no existing page to live inside (e.g. an entirely new top-level surface, or a flow that can't be embedded anywhere sensible).
-
-Create a **throwaway route** following whatever routing convention the project already uses. Don't invent a new top-level structure. Name it so it's obviously a prototype (e.g. include the word `prototype` in the path or filename). Same `?variant=` pattern.
-
-Before committing to sub-shape B, sanity-check: is there really no existing page this could be embedded in? An empty route hides design problems that a populated one would expose.
-
-In both sub-shapes the floating bottom bar is identical.
+Use a standalone artifact when the shell is not needed to answer the question. Follow the project's routing conventions if it needs a route. Mark the artifact as a prototype. Both sub-shapes use the same switcher when there is more than one runnable alternative.
 
 ## Process
 
-### 1. State the question and pick N
+### 1. Use the shared comparison
 
-Default to **3 variants**. More than 5 stops being radically different and starts being noise, so cap there.
+The [construction sequence](../poteto-mode/playbooks/prototype.md) owns the question, candidate count, comparison, and direction choice. This branch packages runnable alternatives behind one switcher. Reuse the candidates that answer the question. If they already meet the needed fidelity, do not generate them again. A bounded revision can start with one approved artifact and does not require a switcher.
 
-Write down the plan in one line, in the prototype's location or a top-of-file comment:
+### 2. Keep the candidates comparable
 
-> "Three variants of the settings page, switchable via `?variant=`, on the existing `/settings` route."
+Give each candidate the same task, data conditions, and constraints. Reuse the project's styling system where the real shell matters. Apply the same [design context](references/design-context.md) to each candidate when an existing product, brand package, or measured reference supplies constraints. Name exported components clearly, such as `VariantA` and `VariantB`.
 
-This works whether the user is here to push back or not.
-
-### 2. Generate radically different variants
-
-Draft each variant. Hold each one to:
-
-- The page's purpose and the data it has access to.
-- The project's component library / styling system (TailwindCSS, shadcn, MUI, plain CSS, whatever).
-- A clear exported component name, e.g. `VariantA`, `VariantB`, `VariantC`.
-
-Variants must be **structurally different**: different layout, different information hierarchy, different primary affordance, not just different colours. Three slightly-tweaked card grids isn't a UI prototype, it's wallpaper. If two drafts come out too similar, redo one with explicit "do not use a card grid" guidance.
+Compare distinct structures, hierarchies, or primary affordances. Color-only alternatives answer a color question, not a layout question.
 
 ### 3. Wire them together
 
-Create a single switcher component on the route:
+When comparing runnable alternatives, create one switcher on the shared route:
 
 ```tsx
 // pseudo-code, adapt to the project's framework
@@ -72,9 +50,7 @@ return (
 );
 ```
 
-For sub-shape A (existing page): keep all the existing data fetching above the switcher; only the rendered subtree changes per variant.
-
-For sub-shape B (new page): the throwaway route under `/prototype/<name>` mounts the same switcher.
+For an existing page, pass the same read-only or synthetic data into each variant. Swap only the rendered subtree. For a standalone page, mount the same switcher at its entry.
 
 ### 4. Build the floating switcher
 
@@ -95,17 +71,15 @@ Put the switcher in a single shared component so both sub-shapes can reuse it. L
 
 ### 5. Hand it over
 
-Surface the URL (and the `?variant=` keys). The user will flip through whenever they get to it. The interesting feedback is usually **"I want the header from B with the sidebar from C"**, which is the actual design they want.
+Give the operator the entry and the `?variant=` keys for the alternatives that are runnable. Use the shared sequence to present an open choice; do not ask again for a direction already confirmed.
 
 ### 6. Capture the answer and clean up
 
-Once a variant has won, capture which variant and why, then capture the prototype through the [completion gate](SKILL.md#completion-gate). The decision goes into the owning spec or decision record when one exists. Applying the winner to the existing page or a real route is a later explicit operator invocation, not a continuation of this run.
-
-Keep the full set of variants and the switcher on the throwaway branch as the primary source. Main keeps only the supported conclusion and its open claims.
+Use the [completion gate](SKILL.md#completion-gate). Link the recorded choice from the owning spec or decision record when one exists. Keep the compared variants and their switcher on the throwaway branch. A bounded revision can archive just the revised artifact. Applying the chosen design to production requires a separate operator invocation.
 
 ## Anti-patterns
 
-- **Variants that differ only in colour or copy.** That's a tweak, not a prototype. Real variants disagree about structure.
+- **Color-only options for a layout question.** Change the structure when the question is about structure.
 - **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
 - **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub: the question is "what should this look like", not "does the backend work".
 - **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
